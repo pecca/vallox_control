@@ -11,21 +11,24 @@
 #include "temperature_conversion.h"
 
 unsigned int cnt_rs485_msg = 0;
-
+unsigned int g_init_time = 0;
 
 T_digit_var g_digit_vars[] = 
 {
-	{ POST_HEATING_TARGET, 0, 0, 0, 20, false },
-
-	{ CUR_FAN_SPEED, 0, 0, 0, 20, false },
-	{ OUTDOOR_TEMP, 0, 0, 0, 5, false },
-	{ WASTE_AIR_TEMP, 0, 0, 0, 5, false },
-	{ OUT_TEMP, 0, 0, 0, 5, false },
-	{ INDOOR_TEMP, 0, 0, 0, 5, false },
+	{ CUR_FAN_SPEED, 0, 0, 0, 120, false },
+	{ OUTDOOR_TEMP, 0, 0, 0, 15, false },
+	{ WASTE_AIR_TEMP, 0, 0, 0, 15, false },
+	{ OUT_TEMP, 0, 0, 0, 15, false },
+	{ INDOOR_TEMP, 0, 0, 0, 15, false },
+        { PANEL_LEDS, 0, 0, 0, 20, false },
+        { MAX_HUMIDITY, 0, 0, 0, 20, false },
+        { FLAGS_2, 0, 0, 0, 20, false },
+        { FLAGS_4, 0, 0, 0, 20, false },
+        { FLAGS_5, 0, 0, 0, 20, false },
+        { FLAGS_6, 0, 0, 0, 20, false },
 	{ POST_HEATING_ON_CNT, 0, 0, 0, 20, false },
 	{ POST_HEATING_OFF_CNT, 0, 0, 0, 20, false },
 	{ POST_HEATING_TARGET, 0, 0, 0, 20, false },
-	{ PANEL_LEDS, 0, 0, 0, 20, false },
 	{ MAX_FAN_SPEED, 0, 0, 0, 20, false },
 	{ MIN_FAN_SPEED, 0, 0, 0, 20, false },
 	{ SUMMER_MODE_TEMP, 0, 0, 0, 20, false },
@@ -35,22 +38,47 @@ T_digit_var g_digit_vars[] =
 	{ OUT_FAN_VALUE, 0, 0, 0, 20, false }
 };
 
+void update_digit_var(byte id, byte value)
+{
+    for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
+    {
+        if (id == g_digit_vars[i].id)
+        {
+            g_digit_vars[i].value = value;
+            g_digit_vars[i].timestamp = time(NULL);
+            g_digit_vars[i].req_ongoing = false;
+            return;
+        }
+    }
+    printf("id=%X not saved\n", id);
+}
+
+
 bool digit_is_valid_msg(unsigned char msg[6])
 {
-	int checksum = 0;
+    int checksum = 0;
+ 
+    if (msg[0] != SYSTEM_ID ||
+        msg[1] != DEVICE_ADDRESS)
+    {
+        return false;
+    }
 
-	for (int i = 0; i < 5; i++)
-	{
-		checksum += msg[i];
-	}
-	checksum %= 255;
-	if (checksum == msg[5])
-		return true;
-	else
-	{
-		printf("recv crc = %X, expected crc %X\n", msg[5], checksum);
-		return true;
-	}
+   
+    for (int i = 0; i < 5; i++)
+    {
+        checksum += msg[i];
+    }
+
+
+    checksum %= 256;
+    if (checksum == msg[5])
+        return true;
+    else
+    {
+        printf("recv crc = %X, expected crc %X, msg_id %X\n", msg[5], checksum, msg[3]);
+        return false;
+    }
 }
 
 void digit_print_msg(unsigned char msg[6])
@@ -103,13 +131,13 @@ void digit_print_msg(unsigned char msg[6])
 
 void digit_set_crc(byte msg[6])
 {
-	int checksum;
+	int checksum = 0;
 
 	for (int i = 0; i < 5; i++)
 	{
-		checksum += msg[i];
+            checksum += msg[i];
 	}
-	checksum %= 255;
+	checksum %= 256;
 	msg[5] = checksum;
 }
 
@@ -150,46 +178,51 @@ bool digit_recv_response(byte id, byte *value)
 
 void digit_update_vars()
 {
-	byte recv_msg[6];
-	time_t curr_time = time(NULL);
-	byte recv_msg_max_cnt;
+    byte recv_msg[6];
+    time_t curr_time = time(NULL);
+    byte recv_msg_max_cnt;
 
-	for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
-	{
-		T_digit_var *var = &g_digit_vars[i];
-		if (curr_time - var->timestamp >= var->interval)
-		{
-			for (int j = 0; j < 3; j++)
-			{
-				digit_send_request(var->id);
-				if (digit_recv_response(var->id, &var->value))
-				{
-					var->timestamp = curr_time;
-					printf("digit var = %X, value = %X\n", var->id, var->value);
-					break;
-				}
-			}
-		}
-	}
+
+    sleep(30);
+    
+    for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
+    {
+        T_digit_var *var = &g_digit_vars[i];
+        if (curr_time - var->timestamp >= var->interval)
+        {
+            digit_send_request(var->id);
+            var->req_ongoing = true;
+            printf("send var=%X req\n", var->id);
+            sleep(1);
+        }
+    }
 }
 
-void digit_receive_msgs(int msg_cnt)
+void digit_receive_msgs(void)
 {
+    unsigned char recv_msg[6];
+  
+    while(1)
+    {
 
-	unsigned char recv_msg[6];
-	unsigned int msgs = cnt_rs485_msg;
-	time_t t = time(NULL);
+        if (rs485_recv_msg(6, recv_msg, 20))
+        {
+            if (digit_is_valid_msg(recv_msg))
+            {
+                cnt_rs485_msg++;
 
-	printf("time = %d\n", t);
+                for (int i = 0; i < 6; i++)
+                {
+                    printf("%02X ", recv_msg[i]); 
+                    
+                }
+                printf("\n");
 
-	while(cnt_rs485_msg - msgs < msg_cnt)
-	{
-		if (rs485_recv_msg(6, recv_msg, 20))
-		{
-			cnt_rs485_msg++;
-			digit_print_msg(recv_msg);
-		}
-	}
+                update_digit_var(recv_msg[3], recv_msg[4]);
+            }
+
+        }
+    }
 }
 
 

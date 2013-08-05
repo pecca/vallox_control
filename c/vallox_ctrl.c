@@ -59,7 +59,7 @@ void read_DHT2302_sensor()
 
 	g_AM2302_timestamp_prev = g_AM2302_timestamp;
 
-	system("sudo /home/pi/Adafruit-Raspberry-Pi-Python-Code/Adafruit_DHT_Driver/Adafruit_DHT 2302 18");
+	system("sudo /home/pi/vallox_control/dht_driver/Adafruit_DHT 2302 18");
 	
 	FILE *file = fopen("AM2303_output.txt", "r");
 	if (file)
@@ -84,10 +84,11 @@ void read_DHT2302_sensor()
 
 void *poll_DHT2302_sensor( void *ptr )
 {
+  sleep(2);
     while(1)
     {
 		read_DHT2302_sensor();
-		sleep(4);
+		sleep(5);
     }
     return NULL;
 }
@@ -150,90 +151,85 @@ bool ds18b20_used = false;
 void *poll_DS18B20_sendors( void *ptr )
 {
     while(1)
-    {
-
-
-		if (rs485_used == false)
-		{
-			ds18b20_used = true;
-
-			system("sudo modprobe w1-gpio");
-			system("sudo modprobe w1-therm");
-			sleep(1);
-     
-			read_DS18B20_sensors();
-			read_DHT2302_sensor();
-
-			system("sudo modprobe -r w1-gpio");
-			system("sudo modprobe -r w1-therm");
-			sleep(2);
-
-
-			ds18b20_used = false;
-			printf("1-wire sleeping for 5 secs\n");
-			sleep(5);
-			
-		}
-		else
-		{
-			sleep(0.5);
-		}
+    {	  
+	  read_DS18B20_sensors();
+	  sleep(5);
+	
     }
     return NULL;
 }
 
+extern unsigned int g_init_time;
+
 void *poll_rs485_bus( void *ptr )
 {
+  g_init_time = time(NULL);
+  rs485_open();
 	while (1)
 	{
-		if (ds18b20_used == false)
-		{
-			rs485_used = true;
-			rs485_open();
 	
-			digit_update_vars();
-//			digit_receive_msgs(20);
-
-			rs485_close();
-			
-			sleep(2);
-			rs485_used = false;
-			printf("RS485 sleeping for 5 secs\n");
-			sleep(5);
-		}
-		else
-		{
-			sleep(0.5);
-		}
+	  //digit_update_vars();
+	  //	sleep(3);
+		digit_receive_msgs();
+                
 
 	}
 
 	return NULL;
 } 
 
+
+void *poll_update_digit_vars( void *ptr )
+{
+    
+    while (1)
+    {
+        digit_update_vars();
+        sleep(3);
+    }
+    return NULL;
+} 
+
+
+extern void udp_server(void);
+
+void *poll_udp_server( void *ptr)
+{
+    printf("udp_server started\n");
+    udp_server();
+}
+
 int main(int argc, char **argv)
 {
-    pthread_t thread1, thread2, thread3;
+    pthread_t thread1, thread2, thread3, thread4, thread5;
     char *message1 = "Thread: DS18B20";
     char *message2 = "Thread: DHT2302";
-	char *message3 = "Thread: rs485";
-    int  iret1, iret2, iret3;
+    char *message3 = "Thread: rs485";
+    char *message4 = "Thread: udp-server";
+    char *message5 = "Thread: digit vars";
+    int  iret1, iret2, iret3, iret4, iret5;
     
 
      /* Create independent threads each of which will execute function */
 
-	//iret1 = pthread_create( &thread1, NULL, poll_DS18B20_sendors, (void*) message1);
-    //iret2 = pthread_create( &thread2, NULL, poll_DHT2302_sensor, (void*) message2);
-	iret2 = pthread_create( &thread3, NULL, poll_rs485_bus, (void*) message3);
-	 
+    //iret1 = pthread_create( &thread1, NULL, poll_DS18B20_sendors, (void*) message1);
+    // iret2 = pthread_create( &thread2, NULL, poll_DHT2302_sensor, (void*) message2);
+    iret3 = pthread_create( &thread3, NULL, poll_rs485_bus, (void*) message3);
+    iret4 = pthread_create( &thread4, NULL, poll_udp_server, (void*) message4);
+    iret5 = pthread_create( &thread5, NULL, poll_update_digit_vars, (void*) message5);
+    
+
     /* Wait till threads are complete before main continues. Unless we  */
     /* wait we run the risk of executing an exit which will terminate   */
     /* the process and all threads before the threads have completed.   */
 	 
-	pthread_join( thread1, NULL);
-    //pthread_join( thread2, NULL);
-	pthread_join( thread3, NULL);
-	
+    // pthread_join( thread1, NULL);
+	//	 pthread_join( thread2, NULL);
+    pthread_join( thread3, NULL);
+    pthread_join( thread4, NULL);
+    pthread_join( thread5, NULL);
+
+
  
     printf("Thread 1 returns: %d\n",iret1);
     printf("Thread 2 returns: %d\n",iret2);

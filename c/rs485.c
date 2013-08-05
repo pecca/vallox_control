@@ -8,8 +8,8 @@
 #include <stdbool.h>
 #include "rs485.h"
 
-#define RS485_LOG_RECV_MSG
-#define RS485_LOG_SEND_MSG
+//#define RS485_LOG_RECV_MSG
+//#define RS485_LOG_SEND_MSG
 
 int g_rs485_port;
 byte g_recv_buf[RS485_MSG_MAX_LEN];

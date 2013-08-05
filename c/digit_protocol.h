@@ -10,7 +10,7 @@
 #define PANEL_ADDRESS  0x21
 #define PI_ADDRESS     0x22
 
-#define NUM_OF_DIGIT_VARS 2 // 16 // must be increased if new variables are used   
+#define NUM_OF_DIGIT_VARS 21 // must be increased if new variables are used   
 
 #define CUR_FAN_SPEED        0x29
 #define OUTDOOR_TEMP         0x32
@@ -28,6 +28,11 @@
 #define ANTIFREEZE_HYSTERIS  0xB2
 #define IN_FAN_VALUE         0xB0
 #define OUT_FAN_VALUE        0xB1
+#define FLAGS_2              0x6D
+#define FLAGS_4              0x6F
+#define FLAGS_5              0x70
+#define FLAGS_6              0x71
+#define MAX_HUMIDITY         0x2A
 
 typedef struct
 {
@@ -51,7 +56,7 @@ typedef struct
 	bool req_ongoing;
 } T_digit_var;
 
-void digit_receive_msgs(int msg_cnt);
+void digit_receive_msgs(void);
 
 void digit_update_vars();
 

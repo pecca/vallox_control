@@ -150,7 +150,7 @@ int readDHT(int type, int pin) {
 		  if (file)
 		  {
 			  fprintf(file, "%d %.1f %.1f\n", timestamp.tv_sec, f, h);
-			  printf("%.1f %.1f\n", f, h);
+			  //printf("%.1f %.1f\n", f, h);
 		  }
 
 		  fclose(file);
