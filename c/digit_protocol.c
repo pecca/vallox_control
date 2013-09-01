@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -9,37 +10,141 @@
 #include "digit_protocol.h"
 #include "rs485.h"
 #include "temperature_conversion.h"
+#include "DS18B20.h"
 
-unsigned int cnt_rs485_msg = 0;
-unsigned int g_init_time = 0;
+byte g_fan_speed_conversion_table [] =
+{
+    0x01,
+    0x03,
+    0x07,
+    0x0F,
+    0x1F,
+    0x3F,
+    0x7F,
+    0xFF
+};
+
+byte convert_fan_speed(byte value)
+{
+    for (byte i = 0; i < 8; i++)
+    {
+        if (value == g_fan_speed_conversion_table[i])
+        {
+            return i+1;
+        }
+    }  
+}
+
+
+byte StrToValue_Temperature(char *str)
+{
+    float temp;
+    sscanf(str, "%f", &temp); 
+    return celsius_to_NTC(temp);
+}
+
+void ValueToStr_Temperature(byte value, char *str)
+{
+    sprintf(str, "%.1f", NTC_to_celsius(value));
+}
+
+byte StrToValue_FanSpeed(char *str)
+{
+    byte fan_speed;
+    sscanf(str, "%d", &fan_speed);
+    return g_fan_speed_conversion_table[fan_speed - 1];
+}
+
+void ValueToStr_FanSpeed(byte value, char *str)
+{
+    sprintf(str, "%d", convert_fan_speed(value));
+}
+
+void ValueToStr_BitMap(byte value, char *str)
+{
+    sprintf(str, "%X", value);
+}
+
+void ValueToStr_RH(byte value, char *str)
+{
+    int rh = (value - 51)/2.04;
+    sprintf(str, "%d", rh);
+}
+
+void ValueToStr_Counter(byte value, char *str)
+{
+    int secs = value/2.5;
+    sprintf(str, "%d", secs);
+}
+
+byte StrToValue_CellDeFroHyst(char *str)
+{
+    byte hyst;
+    sscanf(str, "%d", &hyst);
+    return hyst + 2;
+}
+
+void ValueToStr_CellDeFroHyst(byte value, char *str)
+{
+    int hysteresis = value - 2;
+    sprintf(str, "%d", hysteresis);
+}
+
+byte StrToValue_FanPower(char *str)
+{
+    byte fan_power;
+    sscanf(str, "%d", &fan_power);
+    return fan_power;
+}
+
+void ValueToStr_FanPower(byte value, char *str)
+{
+    sprintf(str, "%d", value);
+}
 
 T_digit_var g_digit_vars[] = 
 {
-	{ CUR_FAN_SPEED, 0, 0, 0, 120, false },
-	{ OUTDOOR_TEMP, 0, 0, 0, 15, false },
-	{ WASTE_AIR_TEMP, 0, 0, 0, 15, false },
-	{ OUT_TEMP, 0, 0, 0, 15, false },
-	{ INDOOR_TEMP, 0, 0, 0, 15, false },
-        { PANEL_LEDS, 0, 0, 0, 20, false },
-        { MAX_HUMIDITY, 0, 0, 0, 20, false },
-        { FLAGS_2, 0, 0, 0, 20, false },
-        { FLAGS_4, 0, 0, 0, 20, false },
-        { FLAGS_5, 0, 0, 0, 20, false },
-        { FLAGS_6, 0, 0, 0, 20, false },
-	{ POST_HEATING_ON_CNT, 0, 0, 0, 20, false },
-	{ POST_HEATING_OFF_CNT, 0, 0, 0, 20, false },
-	{ POST_HEATING_TARGET, 0, 0, 0, 20, false },
-	{ MAX_FAN_SPEED, 0, 0, 0, 20, false },
-	{ MIN_FAN_SPEED, 0, 0, 0, 20, false },
-	{ SUMMER_MODE_TEMP, 0, 0, 0, 20, false },
-	{ ANTIFREEZE_TEMP, 0, 0, 0, 20, false },
-	{ ANTIFREEZE_HYSTERIS, 0, 0, 0, 20, false },
-	{ IN_FAN_VALUE, 0, 0, 0, 20, false },
-	{ OUT_FAN_VALUE, 0, 0, 0, 20, false }
+    { CUR_FAN_SPEED, INVALID_VALUE, 0, 0, 120, false, &StrToValue_FanSpeed, &ValueToStr_FanSpeed },
+    { OUTSIDE_TEMP, INVALID_VALUE, 0, 0, 15, false, NULL, &ValueToStr_Temperature },
+    { EXHAUST_TEMP, INVALID_VALUE, 0, 0, 15, false, NULL, &ValueToStr_Temperature },
+    { INSIDE_TEMP, INVALID_VALUE, 0, 0, 15, false, NULL, &ValueToStr_Temperature },
+    { INCOMING_TEMP, INVALID_VALUE, 0, 0, 15, false, NULL, &ValueToStr_Temperature },
+    { PANEL_LEDS, INVALID_VALUE, 0, 0, 20, false, NULL, &ValueToStr_BitMap },
+    { RH_MAX, INVALID_VALUE, 0, 0, 200, false, NULL, &ValueToStr_RH },
+    { FLAGS_2, INVALID_VALUE, 0, 0, 20, false, NULL, &ValueToStr_BitMap },
+    { FLAGS_4, INVALID_VALUE, 0, 0, 20, false, NULL, &ValueToStr_BitMap },
+    { FLAGS_5, INVALID_VALUE, 0, 0, 20, false, NULL, &ValueToStr_BitMap },
+    { FLAGS_6, INVALID_VALUE, 0, 0, 20, false, NULL, &ValueToStr_BitMap },
+    { POST_HEATING_ON_CNT, INVALID_VALUE, 0, 0, 20, false, NULL, &ValueToStr_Counter },
+    { POST_HEATING_OFF_CNT, INVALID_VALUE, 0, 0, 20, false, NULL, &ValueToStr_Counter },
+    { INCOMING_TARGET_TEMP, INVALID_VALUE, 0, 0, 200, false, &StrToValue_Temperature, &ValueToStr_Temperature },
+    { MAX_FAN_SPEED, INVALID_VALUE, 0, 0, 200, false, &StrToValue_FanSpeed, &ValueToStr_FanSpeed },
+    { MIN_FAN_SPEED, INVALID_VALUE, 0, 0, 200, false, &StrToValue_FanSpeed, &ValueToStr_FanSpeed },
+    { HRC_BYPASS_TEMP, INVALID_VALUE, 0, 0, 120, false, &StrToValue_Temperature, &ValueToStr_Temperature },
+    { INPUT_FAN_STOP_TEMP, INVALID_VALUE, 0, 0, 120, false, &StrToValue_Temperature, &ValueToStr_Temperature },
+    { CELL_DEFROSTING_HYSTERESIS, INVALID_VALUE, 0, 0, 120, false, &StrToValue_CellDeFroHyst, &ValueToStr_CellDeFroHyst },
+    { DC_FAN_INPUT, INVALID_VALUE, 0, 0, 120, false, &StrToValue_FanPower, &ValueToStr_FanPower },
+    { DC_FAN_OUTPUT, INVALID_VALUE, 0, 0, 120, false, &StrToValue_FanPower, &ValueToStr_FanPower },
+    { RH1_SENSOR, INVALID_VALUE, 0, 0, 20, false, NULL, ValueToStr_RH},
+    { BASIC_RH_LEVEL, INVALID_VALUE, 0, 0, 120, false, NULL, ValueToStr_RH} 
+    
 };
+
+
+T_digit_var *get_digit_var(byte id)
+{
+    for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
+    {
+        if (id == g_digit_vars[i].id)
+        {
+            return &g_digit_vars[i];
+        }
+    } 
+}
 
 void update_digit_var(byte id, byte value)
 {
+
     for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
     {
         if (id == g_digit_vars[i].id)
@@ -51,6 +156,50 @@ void update_digit_var(byte id, byte value)
         }
     }
     printf("id=%X not saved\n", id);
+}
+
+byte get_digit_var_value(byte id, time_t *timestamp)
+{
+    for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
+    {
+        if (id == g_digit_vars[i].id)
+        {
+            *timestamp = g_digit_vars[i].timestamp;
+            return g_digit_vars[i].value;
+        }
+    } 
+}
+
+void convert_digit_var_value_to_str(byte id, char *str)
+{
+    byte value;
+    
+
+    if (id == DS18B20_SENSOR1)
+    {
+        sprintf(str, "%.1f %d", get_DS18B20_outside_temp(), get_DS18B20_outside_temp_ts());
+    }
+    else if (id == DS18B20_SENSOR2)
+    {
+        sprintf(str, "%.1f %d",  get_DS18B20_exhaust_temp(),  get_DS18B20_exhaust_temp_ts());
+    }
+    else
+    {
+        char sub_str[20];
+
+        T_digit_var *digit_var = get_digit_var(id);
+        byte value = digit_var->value;
+
+        if (value == INVALID_VALUE)
+        {
+            sprintf(sub_str, "-");
+        }
+        else
+        {  
+            digit_var->ValueToStr(value, sub_str);
+        }
+        sprintf(str, "%s %d", sub_str, digit_var->timestamp);
+    }
 }
 
 
@@ -81,71 +230,31 @@ bool digit_is_valid_msg(unsigned char msg[6])
     }
 }
 
-void digit_print_msg(unsigned char msg[6])
-{
-	byte sender, msg_type, value;
-
-	sender = msg[1];
-	msg_type = msg[3];
-	value = msg[4];
-
-	if (msg[1] == DEVICE_ADDRESS)
-	{
-		if (msg_type == OUTDOOR_TEMP)
-		{
-			printf("RS485: ulkolampotila = %d *C\n",
-				   NTC_to_celsius(value));
-		}
-		else if (msg_type == WASTE_AIR_TEMP)
-		{
-			printf("RS485: jateilman lampotila = %d *C\n",
-				   NTC_to_celsius(value));
-		}
-		else if (msg_type == OUT_TEMP)
-		{
-			printf("RS485: poistoilman lampotila = %d *C\n",
-				   NTC_to_celsius(value));
-
-		}
-		else if (msg_type == INDOOR_TEMP)
-		{
-			printf("RS485: tuloilman lampotila = %d *C\n",
-				   NTC_to_celsius(value));
-
-		}
-		else if (msg_type == PANEL_LEDS)
-		{
-			T_panel_leds *panel_leds = (T_panel_leds*) &value; 
-			printf("RS485: merkkivalot: ");
-			if (panel_leds->power_key)
-				printf("bit 0: power_key = 1 ");
-
-			printf("\n");
-		}
-		else if (msg_type == CUR_FAN_SPEED)
-		{
-			printf("RS485: nykyinen puhallin nopeus = %X\n", value);
-		}
-	}
-}
 
 void digit_set_crc(byte msg[6])
 {
-	int checksum = 0;
-
-	for (int i = 0; i < 5; i++)
-	{
-            checksum += msg[i];
-	}
-	checksum %= 256;
-	msg[5] = checksum;
+    int checksum = 0;
+    
+    for (int i = 0; i < 5; i++)
+    {
+        checksum += msg[i];
+    }
+    checksum %= 256;
+    msg[5] = checksum;
 }
 
-void digit_send_request(byte id)
+void digit_request_var(byte id)
 {
-	byte msg[6] = { SYSTEM_ID, PI_ADDRESS, DEVICE_ADDRESS, 0, id, 0 };
-	digit_set_crc(msg);
-	rs485_send_msg(6, msg);
+    byte msg[6] = { SYSTEM_ID, PI_ADDRESS, DEVICE_ADDRESS, 0, id, 0 };
+    digit_set_crc(msg);
+    rs485_send_msg(6, msg);
+}
+
+void digit_set_var(byte id, byte value)
+{
+    byte msg[6] = { SYSTEM_ID, PI_ADDRESS, DEVICE_ADDRESS, id, value, 0 };
+    digit_set_crc(msg);
+    rs485_send_msg(6, msg);
 }
 
 bool digit_recv_response(byte id, byte *value)
@@ -182,6 +291,7 @@ void digit_update_vars()
     time_t curr_time = time(NULL);
     byte recv_msg_max_cnt;
 
+         
 
     sleep(30);
     
@@ -189,8 +299,8 @@ void digit_update_vars()
     {
         T_digit_var *var = &g_digit_vars[i];
         if (curr_time - var->timestamp >= var->interval)
-        {
-            digit_send_request(var->id);
+        {            
+            digit_request_var(var->id);
             var->req_ongoing = true;
             printf("send var=%X req\n", var->id);
             sleep(1);
@@ -209,14 +319,14 @@ void digit_receive_msgs(void)
         {
             if (digit_is_valid_msg(recv_msg))
             {
-                cnt_rs485_msg++;
-
+#if 0
                 for (int i = 0; i < 6; i++)
                 {
                     printf("%02X ", recv_msg[i]); 
                     
                 }
                 printf("\n");
+#endif
 
                 update_digit_var(recv_msg[3], recv_msg[4]);
             }

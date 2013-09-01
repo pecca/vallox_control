@@ -4,6 +4,11 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <stdio.h>
+#include <string.h>
+#include "types.h"
+#include "digit_protocol.h"
+
+
 
 
 void udp_server(void)
@@ -23,13 +28,19 @@ void udp_server(void)
 
    for (;;)
    {
-      len = sizeof(cliaddr);
-      n = recvfrom(sockfd,mesg,1000,0,(struct sockaddr *)&cliaddr,&len);
-      sendto(sockfd,mesg,n,0,(struct sockaddr *)&cliaddr,sizeof(cliaddr));
-      printf("-------------------------------------------------------\n");
-      mesg[n] = 0;
-      printf("Received the following:\n");
-      printf("%s",mesg);
-      printf("-------------------------------------------------------\n");
+       byte id;
+       len = sizeof(cliaddr);
+       n = recvfrom(sockfd,mesg,1000,0,(struct sockaddr *)&cliaddr,&len);
+       id = mesg[0];
+       convert_digit_var_value_to_str(id, mesg);
+       
+       printf("-------------------------------------------------------\n");
+       printf("Received: %X\n", id);
+       
+       sendto(sockfd,mesg,strlen(mesg),0,(struct sockaddr *)&cliaddr,sizeof(cliaddr));
+       
+       
+       printf("Send: %s\n", mesg);
+       printf("-------------------------------------------------------\n");
    }
 }

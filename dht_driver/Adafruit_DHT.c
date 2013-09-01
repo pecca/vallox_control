@@ -126,7 +126,8 @@ int readDHT(int type, int pin) {
   }
 #endif
 
-  //printf("Data (%d): 0x%x 0x%x 0x%x 0x%x 0x%x\n", j, data[0], data[1], data[2], data[3], data[4]);
+  printf("Data (%d): 0x%x 0x%x 0x%x 0x%x 0x%x\n", j, data[0], data[1], data[2], data[3], data[4]);
+  printf("sum: 0x%x\n", (data[0] + data[1] + data[2] + data[3]) & 0xFF);
 
   if ((j >= 39) &&
       (data[4] == ((data[0] + data[1] + data[2] + data[3]) & 0xFF)) ) {
@@ -155,7 +156,7 @@ int readDHT(int type, int pin) {
 
 		  fclose(file);
 		  
-		  //printf("Temp =  %.1f *C, Hum = %.1f \%\n", f, h);
+		  printf("Temp =  %.1f *C, Hum = %.1f \%\n", f, h);
 	  }
 	  return 1;
   }
