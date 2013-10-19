@@ -37,7 +37,7 @@ def read_temp(name, device_file):
 while True:
 	read_temp("sensor1", device1_file)
 	read_temp("sensor2", device2_file)
-#	os.system("sudo ./../dht_driver/Adafruit_DHT 2302 18")
+	os.system("sudo ./../dht_driver/Adafruit_DHT 2302 18")
 	print "sleeping for 5 secs..."
 	print
 	

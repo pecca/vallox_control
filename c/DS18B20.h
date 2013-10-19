@@ -7,8 +7,8 @@ float get_DS18B20_outside_temp();
 
 float get_DS18B20_exhaust_temp();
 
-float get_DS18B20_outside_temp_ts();
+time_t get_DS18B20_outside_temp_ts();
 
-float get_DS18B20_exhaust_temp_ts();
+time_t get_DS18B20_exhaust_temp_ts();
 
 #endif

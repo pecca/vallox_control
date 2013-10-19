@@ -10,7 +10,6 @@
 #define PANEL_ADDRESS  0x21
 #define PI_ADDRESS     0x22
 
-#define NUM_OF_DIGIT_VARS 24 // must be increased if a new variabe is taken into use   
 
 #define CUR_FAN_SPEED               0x29
 #define OUTSIDE_TEMP                0x32
@@ -35,13 +34,35 @@
 #define RH_MAX                      0x2A
 #define RH1_SENSOR                  0x2F
 #define BASIC_RH_LEVEL              0xAE
+#define PRE_HEATING_TEMP            0xA7
+
+#define CUR_FAN_SPEED_INDEX               0
+#define OUTSIDE_TEMP_INDEX                1
+#define EXHAUST_TEMP_INDEX                2
+#define INSIDE_TEMP_INDEX                 3
+#define INCOMING_TEMP_INDEX               4
+#define POST_HEATING_ON_CNT_INDEX         5
+#define POST_HEATING_OFF_CNT_INDEX        6
+#define INCOMING_TARGET_TEMP_INDEX        7
+#define PANEL_LEDS_INDEX                  8
+#define MAX_FAN_SPEED_INDEX               9
+#define MIN_FAN_SPEED_INDEX               10
+#define HRC_BYPASS_TEMP_INDEX             11
+#define INPUT_FAN_STOP_TEMP_INDEX         12 
+#define CELL_DEFROSTING_HYSTERESIS_INDEX  13
+#define DC_FAN_INPUT_INDEX                14
+#define DC_FAN_OUTPUT_INDEX               15
+#define FLAGS_2_INDEX                     16
+#define FLAGS_4_INDEX                     17
+#define FLAGS_5_INDEX                     18
+#define FLAGS_6_INDEX                     19
+#define RH_MAX_INDEX                      20
+#define RH1_SENSOR_INDEX                  21
+#define BASIC_RH_LEVEL_INDEX              22
+#define PRE_HEATING_TEMP_INDEX            23
+#define NUM_OF_DIGIT_VARS                 24   // must be updated if a new variable is taken into use   
 
 #define INVALID_VALUE        0xFF
-
-#define DS18B20_SENSOR1      0xD1
-#define DS18B20_SENSOR2      0xD2
-#define AM2302_TEMP_SENSOR   0xD3
-#define AM2302_HR_SENSOR     0xD4
 
 typedef struct
 {
@@ -68,12 +89,25 @@ typedef struct
 
 } T_digit_var;
 
+
 void digit_receive_msgs(void);
 
 void digit_update_vars();
 
 void convert_digit_var_value_to_str(byte id, char *str);
 
-void digit_send_set_request(byte id, byte new_value);
+bool digit_set_var(byte id, char *value);
+
+float digit_get_outside_temp();
+
+float digit_get_inside_temp();
+
+float digit_get_exhaust_temp();
+
+float digit_get_incoming_temp();
+
+float digit_get_incoming_target_temp();
+
+void digit_set_incoming_target_temp(float temp);
 
 #endif

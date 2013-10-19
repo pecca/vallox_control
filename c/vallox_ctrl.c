@@ -17,6 +17,7 @@
 #include "rs485.h"
 #include "digit_protocol.h"
 #include "DS18B20.h"
+#include "Adafruit_DHT.h"
 
 // global variables
 
@@ -26,8 +27,6 @@ unsigned int g_AM2302_timestamp;
 unsigned int g_AM2302_timestamp_prev = 0;
 unsigned int g_AM2302_cnt = 0;
 
-
-void *poll_DHT2302_sensor( void *ptr );
 
 
 void *poll_rs485_bus( void *ptr );
@@ -146,7 +145,7 @@ int main(int argc, char **argv)
      /* Create independent threads each of which will execute function */
 
     iret1 = pthread_create( &thread1, NULL, poll_DS18B20_sendors, (void*) message1);
-    //  iret2 = pthread_create( &thread2, NULL, poll_DHT2302_sensor, (void*) message2);
+    iret2 = pthread_create( &thread2, NULL, poll_dht_sendor, (void*)  message2);
     iret3 = pthread_create( &thread3, NULL, poll_rs485_bus, (void*) message3);
     iret4 = pthread_create( &thread4, NULL, poll_udp_server, (void*) message4);
     iret5 = pthread_create( &thread5, NULL, poll_update_digit_vars, (void*) message5);
@@ -166,7 +165,7 @@ int main(int argc, char **argv)
  
     printf("Thread 1 returns: %d\n",iret1);
     printf("Thread 2 returns: %d\n",iret2);
-	printf("Thread 3 returns: %d\n",iret3);
+    printf("Thread 3 returns: %d\n",iret3);
 
 
 

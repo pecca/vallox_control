@@ -64,7 +64,12 @@ int main(int argc, char **argv)
 
 
   // printf("Using pin #%d\n", dhtpin);
-  readDHT(type, dhtpin);
+  while (1)
+  {
+      readDHT(type, dhtpin);
+      sleep(4);
+  }
+
   return 0;
 
 } // main
@@ -77,7 +82,7 @@ int readDHT(int type, int pin) {
   int counter = 0;
   int laststate = HIGH;
   int j=0;
-
+  bitidx = 0;
 
   // Set GPIO pin to output
   bcm2835_gpio_fsel(pin, BCM2835_GPIO_FSEL_OUTP);
@@ -126,8 +131,8 @@ int readDHT(int type, int pin) {
   }
 #endif
 
-  printf("Data (%d): 0x%x 0x%x 0x%x 0x%x 0x%x\n", j, data[0], data[1], data[2], data[3], data[4]);
-  printf("sum: 0x%x\n", (data[0] + data[1] + data[2] + data[3]) & 0xFF);
+    printf("Data (%d): 0x%x 0x%x 0x%x 0x%x 0x%x\n", j, data[0], data[1], data[2], data[3], data[4]);
+    printf("sum: 0x%x\n", (data[0] + data[1] + data[2] + data[3]) & 0xFF);
 
   if ((j >= 39) &&
       (data[4] == ((data[0] + data[1] + data[2] + data[3]) & 0xFF)) ) {
@@ -147,14 +152,6 @@ int readDHT(int type, int pin) {
 		  
 		  gettimeofday(&timestamp, NULL);
 
-		  FILE *file = fopen("AM2303_output.txt", "w");
-		  if (file)
-		  {
-			  fprintf(file, "%d %.1f %.1f\n", timestamp.tv_sec, f, h);
-			  //printf("%.1f %.1f\n", f, h);
-		  }
-
-		  fclose(file);
 		  
 		  printf("Temp =  %.1f *C, Hum = %.1f \%\n", f, h);
 	  }
