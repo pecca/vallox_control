@@ -18,6 +18,10 @@
 #include "digit_protocol.h"
 #include "DS18B20.h"
 #include "Adafruit_DHT.h"
+#include "ctrl_logic.h"
+#include "RPI.h"
+#include "pre_heating.h"
+#include "pre_heating_resistor.h"
 
 // global variables
 
@@ -27,7 +31,8 @@ unsigned int g_AM2302_timestamp;
 unsigned int g_AM2302_timestamp_prev = 0;
 unsigned int g_AM2302_cnt = 0;
 
-
+int g_port = 8055;
+#define UDP_LISTEN_PORT 8999
 
 void *poll_rs485_bus( void *ptr );
 
@@ -123,32 +128,69 @@ void *poll_update_digit_vars( void *ptr )
 } 
 
 
-extern void udp_server(void);
+extern void tcp_server(int port);
+
+void *poll_tcp_server( void *ptr)
+{
+    printf("tcp_server started: listen to port %d\n", g_port);
+    tcp_server(g_port);
+}
+
+extern void udp_server(int port);
 
 void *poll_udp_server( void *ptr)
 {
-    printf("udp_server started\n");
-    udp_server();
+    printf("udp_server started: listen to port %d\n", UDP_LISTEN_PORT);
+    udp_server(UDP_LISTEN_PORT);
 }
 
-int main(int argc, char **argv)
+
+void *poll_ctrl_logic(void *ptr)
 {
-    pthread_t thread1, thread2, thread3, thread4, thread5;
+    ctrl_logic_init();
+    while(1)
+    {
+        ctrl_logic_run();
+        sleep(CTRL_LOGIC_TIMELEVEL);
+    }
+    return NULL;
+}
+
+void *poll_pre_heating(void *ptr)
+{
+    pre_heating_resistor_thread();
+    return NULL;
+}
+
+int main(int argc, char *argv[])
+{
+    pthread_t thread1, thread2, thread3, thread4, thread5, thread6, thread7, thread8;
     char *message1 = "Thread: DS18B20";
     char *message2 = "Thread: DHT2302";
     char *message3 = "Thread: rs485";
-    char *message4 = "Thread: udp-server";
-    char *message5 = "Thread: digit vars";
-    int  iret1, iret2, iret3, iret4, iret5;
-    
+    char *message4 = "Thread: tcp-server";
+    char *message5 = "Thread: udp-server";    
+    char *message6 = "Thread: digit vars";
+    char *message7 = "Thread: ctrl logic";
+    char *message8 = "Thread: pre heating";
+
+    int  iret1, iret2, iret3, iret4, iret5, iret6, iret7, iret8;
+
+	if (argc == 2)
+	{
+		g_port = atoi(argv[1]);
+	}
 
      /* Create independent threads each of which will execute function */
 
     iret1 = pthread_create( &thread1, NULL, poll_DS18B20_sendors, (void*) message1);
     iret2 = pthread_create( &thread2, NULL, poll_dht_sendor, (void*)  message2);
     iret3 = pthread_create( &thread3, NULL, poll_rs485_bus, (void*) message3);
-    iret4 = pthread_create( &thread4, NULL, poll_udp_server, (void*) message4);
-    iret5 = pthread_create( &thread5, NULL, poll_update_digit_vars, (void*) message5);
+    iret4 = pthread_create( &thread4, NULL, poll_tcp_server, (void*) message4);
+    iret5 = pthread_create( &thread5, NULL, poll_udp_server, (void*) message5);    
+    iret6 = pthread_create( &thread6, NULL, poll_update_digit_vars, (void*) message6);
+    iret7 = pthread_create( &thread7, NULL, poll_ctrl_logic, (void*) message7);
+    iret8 = pthread_create( &thread8, NULL, poll_pre_heating, (void*) message8);
     
 
     /* Wait till threads are complete before main continues. Unless we  */
@@ -160,15 +202,21 @@ int main(int argc, char **argv)
     pthread_join( thread3, NULL);
     pthread_join( thread4, NULL);
     pthread_join( thread5, NULL);
-
+    pthread_join( thread6, NULL);
+    pthread_join( thread7, NULL);
+    pthread_join( thread8, NULL);
 
  
     printf("Thread 1 returns: %d\n",iret1);
     printf("Thread 2 returns: %d\n",iret2);
     printf("Thread 3 returns: %d\n",iret3);
+    printf("Thread 4 returns: %d\n",iret4);
+    printf("Thread 5 returns: %d\n",iret5);
+    printf("Thread 6 returns: %d\n",iret6);
+    printf("Thread 7 returns: %d\n",iret7);
+    printf("Thread 8 returns: %d\n",iret7);
 
-
-
+    
     exit(0);
 }
 	 

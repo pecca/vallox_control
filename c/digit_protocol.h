@@ -2,6 +2,7 @@
 #ifndef DIGIT_PROTOCOL_H
 #define DIGIT_PROTOCOL_H
 
+#include <time.h>
 #include "types.h"
 
 #define SYSTEM_ID      0x01
@@ -79,6 +80,7 @@ typedef struct
 typedef struct
 {
     byte id;
+    char *name_str;
     byte value;
     byte default_value;
     time_t timestamp;
@@ -109,5 +111,13 @@ float digit_get_incoming_temp();
 float digit_get_incoming_target_temp();
 
 void digit_set_incoming_target_temp(float temp);
+
+float digit_get_post_heating_on_cnt(void);
+
+float digit_get_post_heating_off_cnt(void);
+
+void digit_json_encode_vars(char *str);
+
+void digit_process_set_var(char *name, char *value);
 
 #endif

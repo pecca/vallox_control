@@ -13,13 +13,17 @@
 #include <time.h>
 #include <errno.h>
 #include <stdbool.h>
+#include "json_codecs.h"
 
 float g_DS18B20_temp_s1;
 float g_DS18B20_temp_s2;
+float g_DS18B20_temp_s3;
 time_t g_DS18B20_timestamp_s1;
 time_t g_DS18B20_timestamp_s2;
+time_t g_DS18B20_timestamp_s3;
 unsigned int g_DS18B20_cnt_s1 = 0;
 unsigned int g_DS18B20_cnt_s2 = 0;
+unsigned int g_DS18B20_cnt_s3 = 0;
 
 float get_DS18B20_outside_temp()
 {
@@ -29,6 +33,11 @@ float get_DS18B20_outside_temp()
 float get_DS18B20_exhaust_temp()
 {
     return g_DS18B20_temp_s2;
+}
+
+float get_DS18B20_incoming_temp()
+{
+    return g_DS18B20_temp_s3;
 }
 
 time_t get_DS18B20_outside_temp_ts()
@@ -41,6 +50,10 @@ time_t get_DS18B20_exhaust_temp_ts()
     return g_DS18B20_timestamp_s2;
 }
 
+time_t get_DS18B20_incoming_temp_ts()
+{
+    return g_DS18B20_timestamp_s3;
+}
 static bool read_temperature_from_DS18B20_file(FILE *file, float *temperature)
 {
     char read_buf[100];
@@ -67,16 +80,15 @@ static void read_DS18B20_sensors()
     float temperature;
     FILE *file_sensor_1 = fopen("/sys/bus/w1/devices/28-000004afcbb3/w1_slave", "r");
     FILE *file_sensor_2 = fopen("/sys/bus/w1/devices/28-000004b0aa24/w1_slave", "r");
-    
+    FILE *file_sensor_3 = fopen("/sys/bus/w1/devices/28-0000054bdcd4/w1_slave", "r");
+
     if (file_sensor_1)
     {
         if (read_temperature_from_DS18B20_file(file_sensor_1, &temperature))
         {
             g_DS18B20_cnt_s1++;
             g_DS18B20_temp_s1 = temperature;
-            g_DS18B20_timestamp_s1 = time(NULL);
-            //printf("DS18B20: Sensor 1 temp %.1f *C, cnt = %d, time %d\n", g_DS18B20_temp_s1, g_DS18B20_cnt_s1, g_DS18B20_timestamp_s1);
-            
+            g_DS18B20_timestamp_s1 = time(NULL);            
         }
         fclose(file_sensor_1);
     }
@@ -88,9 +100,18 @@ static void read_DS18B20_sensors()
             g_DS18B20_cnt_s2++;
             g_DS18B20_temp_s2 = temperature;
             g_DS18B20_timestamp_s2 = time(NULL);
-            //printf("DS18B20: Sensor 2 temp %.1f *C, cnt = %d, time %d\n", g_DS18B20_temp_s2, g_DS18B20_cnt_s2, g_DS18B20_timestamp_s2);
         }
         fclose(file_sensor_2);
+    }
+    if (file_sensor_3)
+    {
+        if (read_temperature_from_DS18B20_file(file_sensor_3, &temperature))
+        {
+            g_DS18B20_cnt_s3++;
+            g_DS18B20_temp_s3 = temperature;
+            g_DS18B20_timestamp_s3 = time(NULL);
+        }
+        fclose(file_sensor_3);
     }
 }
 
@@ -103,4 +124,58 @@ void *poll_DS18B20_sendors( void *ptr )
 	
     }
     return NULL;
+}
+
+void ds18b20_json_encode_vars(char *mesg)
+{
+	char sub_str1[1000];
+	char sub_str2[1000];
+	
+	strcpy(mesg, "{");
+	strcpy(sub_str1, "");
+	strcpy(sub_str2, "");
+
+	json_encode_float(sub_str2,
+					  "value",
+					  get_DS18B20_outside_temp());
+	strncat(sub_str2, ",", 1);
+	json_encode_integer(sub_str2,
+						"ts",
+						get_DS18B20_outside_temp_ts());
+	json_encode_object(sub_str1,
+					   "outside_temp",
+					   sub_str2);
+	strncat(sub_str1, ",", 1);	
+
+	strcpy(sub_str2, "");
+	json_encode_float(sub_str2,
+					  "value",
+					  get_DS18B20_exhaust_temp());
+	strncat(sub_str2, ",", 1);
+	json_encode_integer(sub_str2,
+						"ts",
+						get_DS18B20_exhaust_temp_ts());
+	json_encode_object(sub_str1,
+					   "exhaust_temp",
+					   sub_str2);
+	strncat(sub_str1, ",", 1);	
+	
+
+	strcpy(sub_str2, "");
+	json_encode_float(sub_str2,
+					  "value",
+					  get_DS18B20_incoming_temp());
+	strncat(sub_str2, ",", 1);
+	json_encode_integer(sub_str2,
+						"ts",
+						get_DS18B20_incoming_temp_ts());
+	json_encode_object(sub_str1,
+					   "incoming_temp",
+					   sub_str2);
+
+	json_encode_object(mesg,
+					   DS18B20_VARS,
+					   sub_str1);
+	
+	strncat(mesg, "}", 1);
 }

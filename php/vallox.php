@@ -5,58 +5,64 @@
 <body>
 <?php 
 
+
 $page = $_SERVER['PHP_SELF'];
 $sec = "30";
+
 header("Refresh: $sec; url=$page");
 
-define("CUR_FAN_SPEED", "29");
-define("OUTSIDE_TEMP", "32");
-define("EXHAUST_TEMP", "33");
-define("INSIDE_TEMP", "34");
-define("INCOMING_TEMP", "35");
-define("POST_HEATING_ON_CNT", "55");
-define("POST_HEATING_OFF_CNT", "56");
-define("INCOMING_TARGET_TEMP", "A4");
-define("PANEL_LEDS", "A3");
-define("MAX_FAN_SPEED", "A5");
-define("MIN_FAN_SPEED", "A9");
-define("HRC_BYPASS_TEMP", "AF");
-define("INPUT_FAN_STOP_TEMP", "A8"); 
-define("CELL_DEFROSTING_HYSTERESIS", "B2");
-define("DC_FAN_INPUT", "B0");
-define("DC_FAN_OUTPUT", "B1");
-define("FLAGS_2", "6D");
-define("FLAGS_4", "6F");
-define("FLAGS_5", "70");
-define("FLAGS_6", "71");
-define("RH1_SENSOR", "2F");
-define("BASIC_RH_LEVEL", "AE");
-define("PRE_HEATING_TEMP", "A7");
-
-define("DS18B20_SENSOR1", "1");
-define("DS18B20_SENSOR2", "2");
 define("AM2302_TEMP", "1");
 define("AM2302_RH", "2");
 
-function get_digit_var($fp, $var_id, &$timestamp)
-{
-    $id = "DIGIT GET " . $var_id . " 0";
-    fwrite($fp, $id);
-    $str = fread($fp, 26);
-    sscanf($str, "%s %d", $value, $timestamp);
-    $timestamp = date('r', $timestamp);
+define("CTRL_VAR_ID_PRE_HEATING_POWER", "1");
+define("CTRL_VAR_ID_PRE_HEATING_MODE", "2");
+define("CTRL_VAR_ID_PRE_HEATING_ON_TIME_TOTAL", "3");
+define("CTRL_VAR_ID_POST_HEATING_ON_TIME_TOTAL", "4");
+define("CTRL_VAR_ID_DEFROST_MODE", "5");
+define("CTRL_VAR_ID_DEFROST_ON_TIME", "6");
+define("CTRL_VAR_ID_DEFROST_ON_TIME_TOTAL", "7");
 
+
+function get_digit_vars($fp)
+{
+    $id = '{"get":digit_vars}';
+    fwrite($fp, $id);
+    $str = fread($fp, 1500);
+    $ob = json_decode($str, true);
+    return $ob;
+}
+
+function get_digit_var_test($fp, $digit_vars,  $var_id, &$timestamp)
+{
+    $value = $digit_vars[$var_id]['value'];
+    $timestamp = intval($digit_vars[$var_id]['ts']);
+    $timestamp = date('r', $timestamp);
     return $value;
 }
 
-function get_ds18b20_var($fp, $var_id, &$timestamp)
+function get_ds18b20_vars($fp)
 {
-    $id = "DS18B20 GET " . $var_id . " 0";
+    $id = '{"get" : ds18b20_vars}';
     fwrite($fp, $id);
-    $str = fread($fp, 26);
-    sscanf($str, "%s %d", $value, $timestamp);
-    $timestamp = date('r', $timestamp);
+    $str = fread($fp, 1500);
+    $ob = json_decode($str, true);
+    return $ob;
+}
 
+function get_control_vars($fp)
+{
+    $id = '{"get":control_vars}';
+    fwrite($fp, $id);
+    $str = fread($fp, 1500);
+    $ob = json_decode($str, true);
+    return $ob;
+}
+
+function get_ds18b20_var($fp, $ds18b20_vars, $var_id, &$timestamp)
+{
+    $value = $ds18b20_vars[$var_id]['value'];
+    $timestamp = intval($ds18b20_vars[$var_id]['ts']);
+    $timestamp = date('r', $timestamp);
     return $value;
 }
 
@@ -71,81 +77,104 @@ function get_am2302_var($fp, $var_id, &$timestamp)
     return $value;
 }
 
+function get_ctrl_var($fp, $control_vars, $var_id)
+{
+    $value = $control_vars[$var_id];
+    return $value;
+}
+
 function set_digit_var($fp, $var_id, $value)
 {
-    $id = "DIGIT SET " . $var_id . " " . $value . " 0";
-    fwrite($fp, $id);
+    $str = '{"set": {"digit_var":{ "'. $var_id . '", ' . $value . '}}}';
+    fwrite($fp, $str);
+}
+
+function set_ctrl_var($fp, $var_id, $value)
+{
+    $str = '{"set": {"control_var":{ "'. $var_id . '", ' . $value . '}}}';
+    fwrite($fp, $str);
 }
 
 
+    $fp = fsockopen("udp://127.0.0.1", 8999, $errno, $errstr);
 
-$fp = fsockopen("udp://127.0.0.1", 32000, $errno, $errstr);
-
-if (!$fp) {
-    echo "ERROR: $errno - $errstr<br />\n";
-}
-
-	
-
+    if (!$fp) {
+        echo "ERROR: $errno - $errstr<br />\n";
+    }
     else if (isset($_POST['edit_cur_fan_speed'])) 
     {        
-        set_digit_var($fp, CUR_FAN_SPEED, $_POST['edit_cur_fan_speed_set']);
+        set_digit_var($fp, "cur_fan_speed", $_POST['edit_cur_fan_speed_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
 
     }
     else if (isset($_POST['edit_min_fan_speed'])) 
     {        
-        set_digit_var($fp, MIN_FAN_SPEED, $_POST['edit_min_fan_speed_set']);
+        set_digit_var($fp, "min_fan_speed", $_POST['edit_min_fan_speed_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
     else if (isset($_POST['edit_dc_fan_input'])) 
     {        
         echo $_POST['edit_dc_fan_input_set'];
-        set_digit_var($fp, DC_FAN_INPUT, $_POST['edit_dc_fan_input_set']);
+        set_digit_var($fp, "dc_fan_input", $_POST['edit_dc_fan_input_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
     else if (isset($_POST['edit_dc_fan_output'])) 
     {        
-        set_digit_var($fp, DC_FAN_OUTPUT, $_POST['edit_dc_fan_output_set']);
+        set_digit_var($fp, "dc_fan_output", $_POST['edit_dc_fan_output_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
     else if (isset($_POST['edit_hrc_bypass_temp'])) 
     {    
-        set_digit_var($fp, HRC_BYPASS_TEMP, $_POST['edit_hrc_bypass_temp_set']);
+        set_digit_var($fp, "hrc_bypass_temp", $_POST['edit_hrc_bypass_temp_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
     else if (isset($_POST['edit_input_fan_stop_temp'])) 
     {        
-        set_digit_var($fp, INPUT_FAN_STOP_TEMP, $_POST['edit_input_fan_stop_temp_set']);
+        set_digit_var($fp, "input_fan_stop_temp", $_POST['edit_input_fan_stop_temp_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
     else if (isset($_POST['edit_cell_defrosting_hysteresis'])) 
     {        
-        set_digit_var($fp, CELL_DEFROSTING_HYSTERESIS, $_POST['edit_cell_defrosting_hysteresis_set']);
+        set_digit_var($fp, "cell_defrosting_hysteresis", $_POST['edit_cell_defrosting_hysteresis_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
     else if (isset($_POST['edit_incoming_target_temp'])) 
     {        
-        set_digit_var($fp, INCOMING_TARGET_TEMP, $_POST['edit_incoming_target_temp_set']);
+        set_digit_var($fp, "incoming_target_temp", $_POST['edit_incoming_target_temp_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
     else if (isset($_POST['edit_pre_heating_temp'])) 
     {        
-        set_digit_var($fp, PRE_HEATING_TEMP, $_POST['edit_pre_heating_temp_set']);
+        set_digit_var($fp, "pre_heating_temp", $_POST['edit_pre_heating_temp_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
-
-
- 
+    else if (isset($_POST['edit_pre_heating_power'])) 
+    {        
+        set_ctrl_var($fp, "pre_heating_power", $_POST['edit_pre_heating_power_set']);
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit();
+    }
+    else if (isset($_POST['edit_pre_heating_mode'])) 
+    {        
+        set_ctrl_var($fp, "pre_heating_mode", $_POST['edit_pre_heating_mode_set']);
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit();
+    }
+    else if (isset($_POST['edit_defrost_mode'])) 
+    {    
+        set_ctrl_var($fp, "defrost_mode", $_POST['edit_defrost_mode_set']);
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit();
+    }
 
 
 
@@ -163,45 +192,65 @@ else
 {
 
     
+    $digit_vars = get_digit_vars($fp);
+    $digit_vars = $digit_vars['digit_vars'];
 
-    $cur_fan_speed = get_digit_var($fp, CUR_FAN_SPEED, $cur_fan_speed_ts);
-
-
-    $outside_temp = get_digit_var($fp, OUTSIDE_TEMP, $outside_temp_ts);
-    $exhaust_temp = get_digit_var($fp, EXHAUST_TEMP, $exhaust_temp_ts);
+    $ds18b20_vars = get_ds18b20_vars($fp);
+    $ds18b20_vars = $ds18b20_vars['ds18b20_vars'];
+       
+    $control_vars = get_control_vars($fp);
+    $control_vars = $control_vars['control_vars'];  
+       
+    $cur_fan_speed = get_digit_var_test($fp, $digit_vars, "cur_fan_speed", $cur_fan_speed_ts);
     
-    $inside_temp = get_digit_var($fp, INSIDE_TEMP, $inside_temp_ts);
-    $incoming_temp = get_digit_var($fp, INCOMING_TEMP, $incoming_temp_ts);
-
-    $pre_heating_temp = get_digit_var($fp, PRE_HEATING_TEMP, $pre_heating_temp_ts);
-
-    $post_heating_on_cnt = get_digit_var($fp, POST_HEATING_ON_CNT, $post_heating_on_cnt_ts);
-    $post_heating_off_cnt = get_digit_var($fp, POST_HEATING_OFF_CNT, $post_heating_off_cnt_ts);
-    $incoming_target_temp = get_digit_var($fp, INCOMING_TARGET_TEMP, $incoming_target_temp_ts);
-
-    $panel_leds = get_digit_var($fp, PANEL_LEDS, $panel_leds_ts);
     
 
+    $outside_temp = get_digit_var_test($fp, $digit_vars, "outside_temp", $outside_temp_ts);
+    $exhaust_temp = get_digit_var_test($fp, $digit_vars, "exhaust_temp", $exhaust_temp_ts);
+    
+    $inside_temp = get_digit_var_test($fp, $digit_vars, "inside_temp", $inside_temp_ts);
+    $incoming_temp = get_digit_var_test($fp, $digit_vars, "incoming_temp", $incoming_temp_ts);
 
-    $min_fan_speed = get_digit_var($fp, MIN_FAN_SPEED, $min_fan_speed_ts);
+    $pre_heating_temp = get_digit_var_test($fp, $digit_vars, "pre_heating_temp", $pre_heating_temp_ts);
+
+    $post_heating_on_cnt = get_digit_var_test($fp, $digit_vars, "post_heating_on_cnt", $post_heating_on_cnt_ts);
+    $post_heating_off_cnt = get_digit_var_test($fp, $digit_vars, "post_heating_off_cnt", $post_heating_off_cnt_ts);
+    $incoming_target_temp = get_digit_var_test($fp, $digit_vars, "incoming_target_temp", $incoming_target_temp_ts);
+
+    $panel_leds = get_digit_var_test($fp, $digit_vars, "panel_leds",  $panel_leds_ts);
+    
+
+
+    $min_fan_speed = get_digit_var_test($fp, $digit_vars, "min_fan_speed", $min_fan_speed_ts);
     // $max_fan_speed = get_digit_var($fp, MAX_FAN_SPEED, $max_fan_speed_ts);
-    $hrc_bypass_temp = get_digit_var($fp, HRC_BYPASS_TEMP, $hrc_bypass_temp_ts);
-    $input_fan_stop_temp = get_digit_var($fp, INPUT_FAN_STOP_TEMP, $input_fan_stop_temp_ts);
-    $cell_defrosting_hysteresis = get_digit_var($fp, CELL_DEFROSTING_HYSTERESIS, $cell_defrosting_hysteresis_ts);
-    $dc_fan_input = get_digit_var($fp, DC_FAN_INPUT, $dc_fan_input_ts);
-    $dc_fan_output = get_digit_var($fp, DC_FAN_OUTPUT, $dc_fan_output_ts);
-    $flags_2 = get_digit_var($fp, FLAGS_2, $flags_2_ts);
-    $flags_4 = get_digit_var($fp, FLAGS_4, $flags_4_ts);
-    $flags_5 = get_digit_var($fp, FLAGS_5, $flags_5_ts);
-    $flags_6 = get_digit_var($fp, FLAGS_6, $flags_6_ts);
-    $rh1_sensor = get_digit_var($fp, RH1_SENSOR, $rh1_sensor_ts);
-    $basic_rh_level = get_digit_var($fp, BASIC_RH_LEVEL, $basic_rh_level_ts);
+    $hrc_bypass_temp = get_digit_var_test($fp, $digit_vars, "hrc_bypass_temp", $hrc_bypass_temp_ts);
+    $input_fan_stop_temp = get_digit_var_test($fp, $digit_vars, "input_fan_stop_temp", $input_fan_stop_temp_ts);
+    $cell_defrosting_hysteresis = get_digit_var_test($fp, $digit_vars, "cell_defrosting_hysteresis", $cell_defrosting_hysteresis_ts);
+    $dc_fan_input = get_digit_var_test($fp, $digit_vars, "dc_fan_input", $dc_fan_input_ts);
+    $dc_fan_output = get_digit_var_test($fp, $digit_vars, "dc_fan_output", $dc_fan_output_ts);
+    $flags_2 = get_digit_var_test($fp, $digit_vars, "flag_2", $flags_2_ts);
+    $flags_4 = get_digit_var_test($fp, $digit_vars, "flag_4", $flags_4_ts);
+    $flags_5 = get_digit_var_test($fp, $digit_vars, "flag_5", $flags_5_ts);
+    $flags_6 = get_digit_var_test($fp, $digit_vars, "flag_6", $flags_6_ts);
+    $rh1_sensor = get_digit_var_test($fp, $digit_vars, "rh1_sensor", $rh1_sensor_ts);
+    $basic_rh_level = get_digit_var_test($fp, $digit_vars, "basic_rh_level", $basic_rh_level_ts);
 
-    $ds18b20_sensor1 = get_ds18b20_var($fp, DS18B20_SENSOR1, $ds18b20_sensor1_ts);
-    $ds18b20_sensor2 = get_ds18b20_var($fp, DS18B20_SENSOR2, $ds18b20_sensor2_ts);
-    
+    $ds18b20_sensor1 = get_ds18b20_var($fp, $ds18b20_vars, "outside_temp", $ds18b20_sensor1_ts);
+    $ds18b20_sensor2 = get_ds18b20_var($fp, $ds18b20_vars, "exhaust_temp", $ds18b20_sensor2_ts);
+    $ds18b20_sensor3 = get_ds18b20_var($fp, $ds18b20_vars, "incoming_temp", $ds18b20_sensor3_ts);
+  
+    echo $ds18b20_sensor1;
+  
     $am2302_temp = get_am2302_var($fp, AM2302_TEMP, $am2302_temp_ts);
     $am2302_rh = get_am2302_var($fp, AM2302_RH, $am2302_rh_ts);
+
+    $post_heating_on_time_total = get_ctrl_var($fp, $control_vars, "post_heating_on_time");
+    $pre_heating_on_time_total = get_ctrl_var($fp,$control_vars, "pre_heating_on_time");
+    $defrost_on_time_total = get_ctrl_var($fp, $control_vars, "defrost_on_time");
+
+    $pre_heating_mode = get_ctrl_var($fp, $control_vars, "pre_heating_mode");
+    $pre_heating_power = get_ctrl_var($fp, $control_vars, "pre_heating_power");
+    $defrost_mode = get_ctrl_var($fp, $control_vars, "defrost_mode");
 
     $t = floatval($inside_temp);
     $rh = $rh1_sensor / 100; 
@@ -216,8 +265,13 @@ else
     $radiator_watt = round($air_flow * 1.225 * ($ds18b20_sensor1 - $outside_temp),1); 
         
 
-    $incoming_air_efficiency = round(floatval((floatval($incoming_temp) - floatval($ds18b20_sensor1)) / (floatval($inside_temp) - floatval($ds18b20_sensor1))) * 100,1);
-    $outcoming_air_efficiency = round(floatval((floatval($inside_temp) - floatval($ds18b20_sensor2)) / (floatval($inside_temp) - floatval($ds18b20_sensor1))) * 100,1);
+    $incoming_air_efficiency = round(floatval((floatval($ds18b20_sensor3) + 2.0 - floatval($ds18b20_sensor1)) / (floatval($inside_temp) - floatval($ds18b20_sensor1))) * 100,1);
+    $outcoming_air_efficiency = round(floatval((floatval($inside_temp) - floatval($exhaust_temp)) / (floatval($inside_temp) - floatval($ds18b20_sensor1))) * 100,1);
+
+
+    $incoming_air_efficiency_2 = round(floatval((floatval($ds18b20_sensor3) - floatval($outside_temp)) / (floatval($inside_temp) - floatval($outside_temp))) * 100,1);
+    $outcoming_air_efficiency_2 = round(floatval((floatval($inside_temp) - floatval($exhaust_temp)) / (floatval($inside_temp) - floatval($outside_temp))) * 100,1);
+
 
     fclose($fp);
 }
@@ -260,16 +314,6 @@ else
          <td>Basic RH level</td>
          <td> <?php echo $basic_rh_level . " %"; ?> </td>
          <td> <?php echo $basic_rh_level_ts; ?> </td>
-         </tr>
-         <tr>
-         <td>Post heating ON counter</td>
-         <td> <?php echo $post_heating_on_cnt . " sec"; ?> </td>
-         <td> <?php echo $post_heating_on_cnt_ts; ?> </td>
-         </tr>
-         <tr>
-         <td>Post heating OFF counter</td>
-         <td> <?php echo $post_heating_off_cnt . " sec"; ?> </td>
-         <td> <?php echo $post_heating_off_cnt_ts; ?> </td>
          </tr>
     </table>
 
@@ -374,7 +418,7 @@ else
          <td>Pre heating temp</td>
          <td> <?php echo $pre_heating_temp . " *C"; ?> </td>
          <td> <?php echo $pre_heating_temp_ts; ?> </td>
-         <td>
+        <td>
          <form method="post">
             <input type="text" name="edit_pre_heating_temp_set" size="2" />
             <input type='submit' name='edit_pre_heating_temp' value="Set" />
@@ -386,7 +430,7 @@ else
 
 
     <table border="1">
-    <caption>LTO efficiency</caption>
+    <caption>LTO efficiency (after radioator)</caption>
          <tr>
          <td>Incoming air</td>
           <td><?php echo  $incoming_air_efficiency . " %";  ?></td>
@@ -398,6 +442,23 @@ else
          <tr>
          <td>Average</td>
           <td><?php echo  round(($outcoming_air_efficiency + $incoming_air_efficiency) / 2, 1) . " %";  ?></td>
+         </tr>
+
+    </table>
+
+    <table border="1">
+    <caption>LTO efficiency (outside temp) </caption>
+         <tr>
+         <td>Incoming air</td>
+          <td><?php echo  $incoming_air_efficiency_2 . " %";  ?></td>
+         </tr>
+         <tr>
+         <td>Outcoming air</td>
+          <td><?php echo  $outcoming_air_efficiency_2 . " %";  ?></td>
+         </tr>
+         <tr>
+         <td>Average</td>
+          <td><?php echo  round(($outcoming_air_efficiency_2 + $incoming_air_efficiency_2) / 2, 1) . " %";  ?></td>
          </tr>
 
     </table>
@@ -418,6 +479,106 @@ else
 
 
     <table border="1">
+    <caption>Post heating 1000 w</caption>
+         <tr>
+          <th>Time total</th>
+          <th>kWh total</th>
+          <th>eur total</th>
+          </tr>
+          <tr>
+          <td><?php echo $post_heating_on_time_total . " sec";?></td>
+          <td><?php echo round(($post_heating_on_time_total / 3600), 2) . " kWh";?></td>
+          <td><?php echo round((($post_heating_on_time_total / 3600) * 0.12), 2) . " eur";?></td>
+         </tr>
+    </table>
+
+   <table border="1">
+    <caption>Pre heating 1500 w</caption>
+         <tr>
+          <th>Time total</th>
+          <th>kWh total</th>
+          <th>eur total</th>
+          </tr>
+          <tr>
+          <td><?php echo $pre_heating_on_time_total . " sec";?></td>
+          <td><?php echo round((($pre_heating_on_time_total / 3600) * 1.5), 2) . " kWh";?></td>
+          <td><?php echo round(((($pre_heating_on_time_total / 3600) * 1.5)  * 0.12), 2) . " eur";?></td>
+         </tr>
+    </table>
+
+
+   <table border="1">
+    <caption>Defrost resistor 1000 w</caption>
+         <tr>
+          <th>Time total</th>
+          <th>kWh total</th>
+          <th>eur total</th>
+          </tr>
+          <tr>
+          <td><?php echo $defrost_on_time_total . " sec";?></td>
+          <td><?php echo round((($defrost_on_time_total / 3600) * 1.5), 2) . " kWh";?></td>
+          <td><?php echo round(((($defrost_on_time_total / 3600) * 1.5)  * 0.12), 2) . " eur";?></td>
+         </tr>
+    </table>
+
+   <table border="1">
+    <caption>Heating control</caption>
+
+         <tr>
+         <td>Pre heating mode</td>
+          <td> <?php echo $pre_heating_mode;  ?> </td>
+        <td>
+         <form method="post">
+    <input type="radio" name="edit_pre_heating_mode_set" value="0" /> Off
+            <input type="radio" name="edit_pre_heating_mode_set" value="1" /> On
+            <input type="radio" name="edit_pre_heating_mode_set" value="2" /> Auto
+            <input type='submit' name='edit_pre_heating_mode' value="Set" />
+         </form>
+         </td>
+          </tr>
+          <tr>
+         <td>Pre heating power</td>
+         <td> <?php echo $pre_heating_power . " Watt"; ?> </td>
+        <td>
+         <form method="post">
+            <select name="edit_pre_heating_power_set">
+            <option value="0">0</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+            <option value="300">300</option>
+            <option value="400">400</option>
+            <option value="500">500</option>
+            <option value="600">600</option>
+            <option value="700">700</option>
+            <option value="800">800</option>
+            <option value="900">900</option>
+            <option value="1000">1000</option>
+            <option value="1100">1100</option>
+            <option value="1200">1200</option>
+            <option value="1300">1300</option>
+            <option value="1400">1400</option>
+            <option value="1500">1500</option>
+            </select>
+            <input type='submit' name='edit_pre_heating_power' value="Set" />
+         </form>
+         </td>
+         </tr>
+
+          <tr>
+         <td>Defrost mode</td>
+         <td> <?php echo $defrost_mode; ?> </td>
+        <td>
+         <form method="post">
+            <input type="radio" name="edit_defrost_mode_set" value="0" /> Off
+            <input type="radio" name="edit_defrost_mode_set" value="1" /> On
+            <input type="radio" name="edit_defrost_mode_set" value="2" /> Auto
+            <input type='submit' name='edit_defrost_mode' value="Set" />
+         </form>
+         </td>
+         </tr>
+    </table -->
+
+    <table border="1">
     <caption>DS18B20 sensors</caption>
          <tr>
          <th>Sensor</th>
@@ -433,6 +594,12 @@ else
          <td>Exhaust air</td>
          <td> <?php echo $ds18b20_sensor2 . " *C"; ?> </td>
          <td> <?php echo $ds18b20_sensor2_ts; ?> </td>
+         </tr>
+         </tr>
+         <tr> 
+         <td>Incoming air</td>
+         <td> <?php echo $ds18b20_sensor3 . " *C"; ?> </td>
+         <td> <?php echo $ds18b20_sensor3_ts; ?> </td>
          </tr>
     </table>
 
