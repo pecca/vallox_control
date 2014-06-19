@@ -32,7 +32,7 @@ void udp_server(int port)
     {
         n = recvfrom(connfd, mesg, MSG_MAX_SIZE, 0,
                     (struct sockaddr *)&cliaddr, &clilen);
-        printf("recv: %s\n", mesg);
+        //printf("recv: %s\n", mesg);
         if (n == 0)
         {
            break;
@@ -41,7 +41,7 @@ void udp_server(int port)
         n = json_decode_message(n, mesg);                
         sendto(connfd, mesg, strlen(mesg), 0,(struct sockaddr *)&cliaddr, sizeof(cliaddr));      
 
-        printf("sent: %s\n", mesg);
+        //printf("sent: %s\n", mesg);
         memset(mesg, 0, MSG_MAX_SIZE); 
     }
 }

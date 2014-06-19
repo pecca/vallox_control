@@ -23,11 +23,27 @@ define("CTRL_VAR_ID_DEFROST_ON_TIME", "6");
 define("CTRL_VAR_ID_DEFROST_ON_TIME_TOTAL", "7");
 
 
+function pp($arr)
+{
+    $retStr = '<ul>';
+    if (is_array($arr)){
+        foreach ($arr as $key=>$val){
+            if (is_array($val)){
+                $retStr .= '<li>' . $key . ' => ' . pp($val) . '</li>';
+            }else{
+                $retStr .= '<li>' . $key . ' => ' . $val . '</li>';
+            }
+        }
+    }
+    $retStr .= '</ul>';
+    return $retStr;
+}
+
 function get_digit_vars($fp)
 {
     $id = '{"get":digit_vars}';
     fwrite($fp, $id);
-    $str = fread($fp, 1500);
+    $str = fread($fp, 3000);
     $ob = json_decode($str, true);
     return $ob;
 }
@@ -194,7 +210,7 @@ else
     
     $digit_vars = get_digit_vars($fp);
     $digit_vars = $digit_vars['digit_vars'];
-
+    
     $ds18b20_vars = get_ds18b20_vars($fp);
     $ds18b20_vars = $ds18b20_vars['ds18b20_vars'];
        
@@ -222,7 +238,7 @@ else
 
 
     $min_fan_speed = get_digit_var_test($fp, $digit_vars, "min_fan_speed", $min_fan_speed_ts);
-    // $max_fan_speed = get_digit_var($fp, MAX_FAN_SPEED, $max_fan_speed_ts);
+    $max_fan_speed = get_digit_var_test($fp, $digit_vars, "max_fan_speed", $max_fan_speed_ts);
     $hrc_bypass_temp = get_digit_var_test($fp, $digit_vars, "hrc_bypass_temp", $hrc_bypass_temp_ts);
     $input_fan_stop_temp = get_digit_var_test($fp, $digit_vars, "input_fan_stop_temp", $input_fan_stop_temp_ts);
     $cell_defrosting_hysteresis = get_digit_var_test($fp, $digit_vars, "cell_defrosting_hysteresis", $cell_defrosting_hysteresis_ts);
@@ -232,14 +248,16 @@ else
     $flags_4 = get_digit_var_test($fp, $digit_vars, "flag_4", $flags_4_ts);
     $flags_5 = get_digit_var_test($fp, $digit_vars, "flag_5", $flags_5_ts);
     $flags_6 = get_digit_var_test($fp, $digit_vars, "flag_6", $flags_6_ts);
+    
+    $panel_leds = get_digit_var_test($fp, $digit_vars, "panel_leds", $panel_leds_ts);
+    $IO_gate_3 = get_digit_var_test($fp, $digit_vars, "IO_gate_3", $IO_gate_3_ts);
+    
     $rh1_sensor = get_digit_var_test($fp, $digit_vars, "rh1_sensor", $rh1_sensor_ts);
     $basic_rh_level = get_digit_var_test($fp, $digit_vars, "basic_rh_level", $basic_rh_level_ts);
 
     $ds18b20_sensor1 = get_ds18b20_var($fp, $ds18b20_vars, "outside_temp", $ds18b20_sensor1_ts);
     $ds18b20_sensor2 = get_ds18b20_var($fp, $ds18b20_vars, "exhaust_temp", $ds18b20_sensor2_ts);
     $ds18b20_sensor3 = get_ds18b20_var($fp, $ds18b20_vars, "incoming_temp", $ds18b20_sensor3_ts);
-  
-    echo $ds18b20_sensor1;
   
     $am2302_temp = get_am2302_var($fp, AM2302_TEMP, $am2302_temp_ts);
     $am2302_rh = get_am2302_var($fp, AM2302_RH, $am2302_rh_ts);
@@ -272,12 +290,12 @@ else
     $incoming_air_efficiency_2 = round(floatval((floatval($ds18b20_sensor3) - floatval($outside_temp)) / (floatval($inside_temp) - floatval($outside_temp))) * 100,1);
     $outcoming_air_efficiency_2 = round(floatval((floatval($inside_temp) - floatval($exhaust_temp)) / (floatval($inside_temp) - floatval($outside_temp))) * 100,1);
 
-
+    
     fclose($fp);
 }
 ?> 
 
-<A HREF="/talo/">TaloLoggerGraph</A>
+
 
     <table border="1">
     <caption>Vallox 150 SE MLV: read variables</caption>
@@ -315,6 +333,15 @@ else
          <td> <?php echo $basic_rh_level . " %"; ?> </td>
          <td> <?php echo $basic_rh_level_ts; ?> </td>
          </tr>
+         <tr>
+         <td>Leds</td>
+         <td> <?php echo pp($panel_leds); ?> </td>
+         <td> <?php echo $panel_leds_ts; ?> </td>
+         </tr>
+         <td>I/O gate 3</td>
+         <td> <?php echo pp($IO_gate_3); ?> </td>
+         <td> <?php echo $IO_gate_3_ts; ?> </td>
+         </tr>          
     </table>
 
     <table border="1">
@@ -347,6 +374,17 @@ else
          </form>
          </td>   
          </tr>
+        <tr>
+         <td>MAX FAN speed</td>
+         <td> <?php echo $max_fan_speed; ?> </td>
+         <td> <?php echo $max_fan_speed_ts; ?> </td>
+         <td>
+         <form method="post">
+            <input type="number" name="edit_max_fan_speed_set" size="2" />
+            <input type='submit' name='edit_max_fan_speed' value="Set" />
+         </form>
+         </td>   
+         </tr>         
          <tr>
          <td>DC fan input adj.</td>
          <td> <?php echo $dc_fan_input . " %";  ?> </td>

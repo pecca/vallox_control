@@ -36,6 +36,9 @@
 #define RH1_SENSOR                  0x2F
 #define BASIC_RH_LEVEL              0xAE
 #define PRE_HEATING_TEMP            0xA7
+#define IO_GATE_1                   0x06
+#define IO_GATE_2                   0x07
+#define IO_GATE_3                   0x08
 
 #define CUR_FAN_SPEED_INDEX               0
 #define OUTSIDE_TEMP_INDEX                1
@@ -61,31 +64,37 @@
 #define RH1_SENSOR_INDEX                  21
 #define BASIC_RH_LEVEL_INDEX              22
 #define PRE_HEATING_TEMP_INDEX            23
-#define NUM_OF_DIGIT_VARS                 24   // must be updated if a new variable is taken into use   
+#define IO_GATE_1_INDEX                   24
+#define IO_GATE_2_INDEX                   25
+#define IO_GATE_3_INDEX                   26
+
+#define NUM_OF_DIGIT_VARS                 27   // must be updated if a new variable is taken into use   
 
 #define INVALID_VALUE        0xFF
 
-typedef struct
-{
-	byte power_key        : 1;
-	byte co2_key          : 1;
-	byte rh_key           : 1;
-	byte post_heating_key : 1;
-	byte filter_led       : 1;
-	byte post_heating_led : 1;
-	byte fault_led        : 1;
-	byte service_reminder : 1;
-} T_panel_leds;
+#define DIGIT_RETRANS_CNT       5
+
+#define BIT0   0
+#define BIT1   1
+#define BIT2   2
+#define BIT3   3
+#define BIT4   4
+#define BIT5   5
+#define BIT6   6
+#define BIT7   7
+
+#define GET_BIT(value, bit) (bool)(value & (1 << bit))
 
 typedef struct
 {
     byte id;
     char *name_str;
     byte value;
-    byte default_value;
+    byte expected_value;
     time_t timestamp;
     time_t interval;
-    bool req_ongoing;
+    bool get_ongoing;
+    bool set_ongoing;
     byte (*StrToValue) (char*);
     void (*ValueToStr) (byte, char*);
 
@@ -96,9 +105,7 @@ void digit_receive_msgs(void);
 
 void digit_update_vars();
 
-void convert_digit_var_value_to_str(byte id, char *str);
-
-bool digit_set_var(byte id, char *value);
+void digit_set_var(T_digit_var *var, byte value);
 
 float digit_get_outside_temp();
 
@@ -118,6 +125,6 @@ float digit_get_post_heating_off_cnt(void);
 
 void digit_json_encode_vars(char *str);
 
-void digit_process_set_var(char *name, char *value);
+void digit_set_var_by_name(char *name, char *value);
 
 #endif

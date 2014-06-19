@@ -20,7 +20,7 @@
 #include "Adafruit_DHT.h"
 #include "ctrl_logic.h"
 #include "RPI.h"
-#include "pre_heating.h"
+//#include "pre_heating.h"
 #include "pre_heating_resistor.h"
 
 // global variables
@@ -39,62 +39,62 @@ void *poll_rs485_bus( void *ptr );
 
 void assignRRPriority(int tPriority)
 {
-	int policy;
-	struct sched_param param;
-	pthread_getschedparam(pthread_self(), &policy, &param);
-	param.sched_priority = tPriority;
-	if (pthread_setschedparam(pthread_self(), SCHED_RR, &param) < 0)
-		printf("error while setting thread priority to %d\n", tPriority);
-	
+    int policy;
+    struct sched_param param;
+    pthread_getschedparam(pthread_self(), &policy, &param);
+    param.sched_priority = tPriority;
+    if (pthread_setschedparam(pthread_self(), SCHED_RR, &param) < 0)
+        printf("error while setting thread priority to %d\n", tPriority);
+    
 } 
 
 
 void read_DHT2302_sensor()
 {
-	char read_buf[100];
+    char read_buf[100];
 
-	g_AM2302_timestamp_prev = g_AM2302_timestamp;
+    g_AM2302_timestamp_prev = g_AM2302_timestamp;
 
-	system("sudo /home/pi/vallox_control/dht_driver/Adafruit_DHT 2302 18");
-	
-	FILE *file = fopen("AM2303_output.txt", "r");
-	if (file)
-	{
-		fscanf(file, "%s", read_buf);
-		g_AM2302_timestamp = atoi(read_buf);
-		
-		fscanf(file, "%s", read_buf);
-		g_AM2302_temp = atof(read_buf);
-		
-		fscanf(file, "%s", read_buf);
-		g_AM2302_hum = atof(read_buf);
-		fclose(file);
-	}
-	
-	if (g_AM2302_timestamp_prev != g_AM2302_timestamp)
-	{
-		g_AM2302_cnt++;
-		printf("AM2302: Temp =  %.1f *C, Hum = %.1f \%, cnt = %d\n", g_AM2302_temp, g_AM2302_hum, g_AM2302_cnt);
-	}
+    system("sudo /home/pi/vallox_control/dht_driver/Adafruit_DHT 2302 18");
+    
+    FILE *file = fopen("AM2303_output.txt", "r");
+    if (file)
+    {
+        fscanf(file, "%s", read_buf);
+        g_AM2302_timestamp = atoi(read_buf);
+        
+        fscanf(file, "%s", read_buf);
+        g_AM2302_temp = atof(read_buf);
+        
+        fscanf(file, "%s", read_buf);
+        g_AM2302_hum = atof(read_buf);
+        fclose(file);
+    }
+    
+    if (g_AM2302_timestamp_prev != g_AM2302_timestamp)
+    {
+        g_AM2302_cnt++;
+        printf("AM2302: Temp =  %.1f *C, Hum = %.1f \%, cnt = %d\n", g_AM2302_temp, g_AM2302_hum, g_AM2302_cnt);
+    }
 }
 bool read_temperature_from_DS18B20_file(FILE *file, float *temperature)
 {
-	char read_buf[100];
-	bool valid_temperature = false;
+    char read_buf[100];
+    bool valid_temperature = false;
 
 
-	while (fscanf(file, "%s", read_buf) > 0)
-	{
-		if (!strcmp(read_buf, "YES"))
-		{
-			valid_temperature = true;
-		}
-		if (!strncmp(read_buf, "t=", 2))
-		{
-			*temperature = atof(&read_buf[2]) / 1000.0f;
-		}	
-	}
-	return valid_temperature;
+    while (fscanf(file, "%s", read_buf) > 0)
+    {
+        if (!strcmp(read_buf, "YES"))
+        {
+            valid_temperature = true;
+        }
+        if (!strncmp(read_buf, "t=", 2))
+        {
+            *temperature = atof(&read_buf[2]) / 1000.0f;
+        }   
+    }
+    return valid_temperature;
 
 }
 
@@ -102,17 +102,17 @@ bool read_temperature_from_DS18B20_file(FILE *file, float *temperature)
 void *poll_rs485_bus( void *ptr )
 {
   rs485_open();
-	while (1)
-	{
-	
-	  //digit_update_vars();
-	  //	sleep(3);
-		digit_receive_msgs();
+    while (1)
+    {
+    
+      //digit_update_vars();
+      //    sleep(3);
+        digit_receive_msgs();
                 
 
-	}
+    }
 
-	return NULL;
+    return NULL;
 } 
 
 
@@ -176,10 +176,10 @@ int main(int argc, char *argv[])
 
     int  iret1, iret2, iret3, iret4, iret5, iret6, iret7, iret8;
 
-	if (argc == 2)
-	{
-		g_port = atoi(argv[1]);
-	}
+    if (argc == 2)
+    {
+        g_port = atoi(argv[1]);
+    }
 
      /* Create independent threads each of which will execute function */
 
@@ -196,7 +196,7 @@ int main(int argc, char *argv[])
     /* Wait till threads are complete before main continues. Unless we  */
     /* wait we run the risk of executing an exit which will terminate   */
     /* the process and all threads before the threads have completed.   */
-	 
+     
     pthread_join( thread1, NULL);
     pthread_join( thread2, NULL);
     pthread_join( thread3, NULL);
@@ -219,4 +219,4 @@ int main(int argc, char *argv[])
     
     exit(0);
 }
-	 
+     

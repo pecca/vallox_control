@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
-float g_tempeture_conversion_table[256] = {
+const float c_NTC_temperature_conversion_table[256] = {
 -74.0f, 
 -70.0f, 
 -66.0f, 
@@ -261,15 +261,15 @@ float g_tempeture_conversion_table[256] = {
 
 float NTC_to_celsius(unsigned char ntc)
 {
-    return g_tempeture_conversion_table[ntc];
+    return c_NTC_temperature_conversion_table[ntc];
 }
 
 unsigned char celsius_to_NTC(float celsius)
 {
     for (int i = 0; i < 255; i++)
     {
-        if (g_tempeture_conversion_table[i] <= celsius &&
-            celsius <= g_tempeture_conversion_table[i+1])
+        if (c_NTC_temperature_conversion_table[i] <= celsius &&
+            celsius <= c_NTC_temperature_conversion_table[i+1])
         {
             return i;
         }

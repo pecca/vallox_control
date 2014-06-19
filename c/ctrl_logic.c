@@ -9,7 +9,6 @@
 #include "pre_heating_resistor.h"
 #include "defrost_resistor.h"
 
-#include "pre_heating.h"
 #include "DS18B20.h"
 #include "ctrl_variables.h"
 
