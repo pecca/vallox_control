@@ -18,12 +18,15 @@ unsigned int g_rs485_recv_mgs_cnt = 0;
 
 int rs485_open_port(void)
 {
-    int fd;
+    int fd, rc;
+	
     fd = open("/dev/ttyUSB0", O_RDWR | O_NOCTTY | O_NDELAY);
     if(fd < 0)
       perror("open_port: Unable to open /dev/ttyUSB0 - ");
     else
       fcntl(fd, F_SETFL, 0);
+	
+	fsync(fd);
     return fd;
 }
 
@@ -32,7 +35,7 @@ void rs485_open(void)
 	struct termios options;
 
 	g_rs485_port = rs485_open_port();
-
+	
     //Set the baud rate to 9600 to match
     tcgetattr(g_rs485_port, &options);
     cfsetispeed(&options, B9600);

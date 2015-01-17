@@ -40,6 +40,36 @@
 #define IO_GATE_2                   0x07
 #define IO_GATE_3                   0x08
 
+#define CUR_FAN_SPEED_NAME               "cur_fan_speed"
+#define OUTSIDE_TEMP_NAME                "outside_temp"
+#define EXHAUST_TEMP_NAME                "exhaust_temp"
+#define INSIDE_TEMP_NAME                 "inside_temp"
+#define INCOMING_TEMP_NAME               "incoming_temp"
+#define POST_HEATING_ON_CNT_NAME         "post_heating_on_cnt"
+#define POST_HEATING_OFF_CNT_NAME        "post_heating_off_cnt"
+#define INCOMING_TARGET_TEMP_NAME        "incoming_target_temp"
+#define PANEL_LEDS_NAME                  "panel_leds"
+#define MAX_FAN_SPEED_NAME               "max_fan_speed"
+#define MIN_FAN_SPEED_NAME               "min_fan_speed"
+#define HRC_BYPASS_TEMP_NAME             "hrc_bypass_temp"
+#define INPUT_FAN_STOP_TEMP_NAME         "input_fan_stop_temp" 
+#define CELL_DEFROSTING_HYSTERESIS_NAME  "cell_defrosting_hysteresis"
+#define DC_FAN_INPUT_NAME                "dc_fan_input"
+#define DC_FAN_OUTPUT_NAME               "dc_fan_output"
+#define FLAGS_2_NAME                     "flags_2"
+#define FLAGS_4_NAME                     "flags_4"
+#define FLAGS_5_NAME                     "flags_5"
+#define FLAGS_6_NAME                     "flags_6"
+#define RH_MAX_NAME                      "rh_max"
+#define RH1_SENSOR_NAME                  "rh1_sensor"
+#define BASIC_RH_LEVEL_NAME              "basic_rh_level"
+#define PRE_HEATING_TEMP_NAME            "pre_heating_temp"
+#define IO_GATE_1_NAME                   "IO_gate_1"
+#define IO_GATE_2_NAME                   "IO_gate_2"
+#define IO_GATE_3_NAME                   "IO_gate_3"
+
+#define NAME_SIZE                         30
+
 #define CUR_FAN_SPEED_INDEX               0
 #define OUTSIDE_TEMP_INDEX                1
 #define EXHAUST_TEMP_INDEX                2
@@ -85,27 +115,41 @@
 
 #define GET_BIT(value, bit) (bool)(value & (1 << bit))
 
+#define DIGIT_PARAM(var) var##_INDEX , var, var##_NAME
+
+typedef byte (*StrToValue_t) (char*);
+typedef void (*ValueToStr_t) (byte, char*);
+
 typedef struct
 {
     byte id;
-    char *name_str;
+    char name_str[NAME_SIZE];
     byte value;
     byte expected_value;
     time_t timestamp;
     time_t interval;
     bool get_ongoing;
     bool set_ongoing;
-    byte (*StrToValue) (char*);
-    void (*ValueToStr) (byte, char*);
+    uint32 get_req_cnt;
+    uint32 set_req_cnt;
+    StrToValue_t StrToValue;
+    ValueToStr_t ValueToStr;
+    //byte (*StrToValue) (char*);
+    //void (*ValueToStr) (byte, char*);
 
 } T_digit_var;
 
+void digit_init(void);
+
+bool digit_vars_ok(void);
 
 void digit_receive_msgs(void);
 
 void digit_update_vars();
 
 void digit_set_var(T_digit_var *var, byte value);
+
+float digit_get_rh1_sensor();
 
 float digit_get_outside_temp();
 
@@ -114,6 +158,8 @@ float digit_get_inside_temp();
 float digit_get_exhaust_temp();
 
 float digit_get_incoming_temp();
+
+int digit_get_cur_fan_speed(void);
 
 float digit_get_incoming_target_temp();
 

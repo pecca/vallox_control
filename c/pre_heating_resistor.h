@@ -12,7 +12,7 @@ void pre_heating_set_power(uint16 u16Power);
 
 void pre_heating_resistor_thread(void);
 
-void pre_heating_resistor_check();
+void pre_heating_resistor_counter_update();
 
 void pre_heating_resistor_get_status(bool *bPreHeatingOngoing,
                                      uint32 *u32StoppedTimeElapsed);

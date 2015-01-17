@@ -4,6 +4,8 @@
 #include "jsmn.h"
 #include "json_codecs.h"
 #include "digit_protocol.h"
+#include "ctrl_variables.h"
+#include "DS18B20.h"
 
 #define MAX_NUM_JSON_TOKENS (128)
 #define MAX_TOKEN_STR_SIZE  (100)
@@ -95,7 +97,7 @@ int json_decode_message(int n, char *mesg)
         }
         else if (!strcmp(tokenStr, CONTROL_VARS))
         {
-            ctrl_json_encode_vars(mesg);
+            ctrl_json_encode(mesg);
         }
         else if (!strcmp(tokenStr, DS18B20_VARS))
         {
@@ -126,7 +128,7 @@ int json_decode_message(int n, char *mesg)
             get_json_token_str(5, mesg, tokens, name);
             get_json_token_str(6, mesg, tokens, value);
 
-            ctrl_process_set_var(name, value);
+            ctrl_set_var_by_name(name, value);
         }
     }
     else

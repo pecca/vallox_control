@@ -20,12 +20,38 @@
 #define PRE_HEATING_MODE_ON    1
 #define PRE_HEATING_MODE_AUTO  2
 
-void ctrl_variables_set(byte id, char *str);
+typedef struct
+{
+    real32 min_exhaust_temp;
+    real32 dew_point;
+    real32 in_efficiency;
+    real32 out_efficiency;
+    byte defrost_mode;
+    byte pre_heating_mode;
+} T_ctrl_vars;
 
-void ctrl_variables_get(byte id, char *str);
+extern T_ctrl_vars g_ctrl_vars;
 
-void ctrl_process_set_var(char *name, char *value);
+void ctrl_init();
 
-void ctrl_json_encode_vars(char *str);
+void ctrl_update();
+
+void ctrl_set_var_by_name(char *name, char *value);
+
+void ctrl_json_encode(char *str);
+
+byte ctrl_defrost_mode();
+
+byte ctrl_pre_heating_mode();
+
+uint16 ctrl_pre_heating_power();
+
+void ctrl_set_pre_heating_power(uint16 pre_heating_power);
+
+real32 ctrl_dew_point();
+
+real32 ctrl_min_exhaust_temp();
+
+
 
 #endif

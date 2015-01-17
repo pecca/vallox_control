@@ -11,7 +11,7 @@
 #include <string.h>
 #include "json_codecs.h"
 
-#define MSG_MAX_SIZE 2000
+#define MSG_MAX_SIZE 8000
 
 void tcp_server(int port)
 {
@@ -32,28 +32,25 @@ void tcp_server(int port)
    
    for (;;)
    {
-	   clilen = sizeof(cliaddr);
-	   connfd = accept(listenfd, (struct sockaddr *)&cliaddr, &clilen);
-		   
-	   for (;;)
-	   {
-		   n = recvfrom(connfd, mesg, MSG_MAX_SIZE, 0,
-						(struct sockaddr *)&cliaddr, &clilen);
-		   //printf("recv: %s\n", mesg);
-		   if (n == 0)
-		   {
-			   break;
-		   }
-		   
-		   n = json_decode_message(n, mesg);
-		   
-		   sendto(connfd, mesg, n, 0,
-				  (struct sockaddr *)&cliaddr, sizeof(cliaddr));
-		   //printf("sent: %s\n", mesg);
-		   memset(mesg, 0, MSG_MAX_SIZE);
-		   
-	   }
-		   
+       clilen = sizeof(cliaddr);
+       connfd = accept(listenfd, (struct sockaddr *)&cliaddr, &clilen);
+       for (;;)
+       {
+           n = recvfrom(connfd, mesg, MSG_MAX_SIZE, 0,
+                        (struct sockaddr *)&cliaddr, &clilen);
+           //printf("recv: %s\n", mesg);
+           if (n == 0)
+           {
+               break;
+           }
+           
+           n = json_decode_message(n, mesg);
+           
+           sendto(connfd, mesg, n, 0,
+                  (struct sockaddr *)&cliaddr, sizeof(cliaddr));
+           //printf("sent: %s\n", mesg);
+           memset(mesg, 0, MSG_MAX_SIZE);
+       }    
    }
    close(connfd);
 }

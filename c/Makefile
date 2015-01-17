@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-std=gnu99 -I. -lpthread -lbcm2835
+CFLAGS= -std=gnu99 -I. -lpthread -lbcm2835
 DEPS = 
 OBJ = \
     vallox_ctrl.o \
@@ -24,4 +24,4 @@ OBJ = \
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 vallox_ctrl: $(OBJ)
-	gcc -o $@ $^ $(CFLAGS) -lm
+	$(CC) -o $@ $^ $(CFLAGS) -lm

@@ -69,7 +69,7 @@ static bool read_temperature_from_DS18B20_file(FILE *file, float *temperature)
         if (!strncmp(read_buf, "t=", 2))
         {
             *temperature = atof(&read_buf[2]) / 1000.0f;
-        }	
+        }   
     }
     return valid_temperature;
     
@@ -118,64 +118,64 @@ static void read_DS18B20_sensors()
 void *poll_DS18B20_sendors( void *ptr )
 {
     while(1)
-    {	  
-	  read_DS18B20_sensors();
-	  sleep(5);
-	
+    {     
+      read_DS18B20_sensors();
+      sleep(5);
+    
     }
     return NULL;
 }
 
 void ds18b20_json_encode_vars(char *mesg)
 {
-	char sub_str1[1000];
-	char sub_str2[1000];
-	
-	strcpy(mesg, "{");
-	strcpy(sub_str1, "");
-	strcpy(sub_str2, "");
+    char sub_str1[1000];
+    char sub_str2[1000];
+    
+    strcpy(mesg, "{");
+    strcpy(sub_str1, "");
+    strcpy(sub_str2, "");
 
-	json_encode_float(sub_str2,
-					  "value",
-					  get_DS18B20_outside_temp());
-	strncat(sub_str2, ",", 1);
-	json_encode_integer(sub_str2,
-						"ts",
-						get_DS18B20_outside_temp_ts());
-	json_encode_object(sub_str1,
-					   "outside_temp",
-					   sub_str2);
-	strncat(sub_str1, ",", 1);	
+    json_encode_float(sub_str2,
+                      "value",
+                      get_DS18B20_outside_temp());
+    strncat(sub_str2, ",", 1);
+    json_encode_integer(sub_str2,
+                        "ts",
+                        get_DS18B20_outside_temp_ts());
+    json_encode_object(sub_str1,
+                       "outside_temp",
+                       sub_str2);
+    strncat(sub_str1, ",", 1);  
 
-	strcpy(sub_str2, "");
-	json_encode_float(sub_str2,
-					  "value",
-					  get_DS18B20_exhaust_temp());
-	strncat(sub_str2, ",", 1);
-	json_encode_integer(sub_str2,
-						"ts",
-						get_DS18B20_exhaust_temp_ts());
-	json_encode_object(sub_str1,
-					   "exhaust_temp",
-					   sub_str2);
-	strncat(sub_str1, ",", 1);	
-	
+    strcpy(sub_str2, "");
+    json_encode_float(sub_str2,
+                      "value",
+                      get_DS18B20_exhaust_temp());
+    strncat(sub_str2, ",", 1);
+    json_encode_integer(sub_str2,
+                        "ts",
+                        get_DS18B20_exhaust_temp_ts());
+    json_encode_object(sub_str1,
+                       "exhaust_temp",
+                       sub_str2);
+    strncat(sub_str1, ",", 1);  
+    
 
-	strcpy(sub_str2, "");
-	json_encode_float(sub_str2,
-					  "value",
-					  get_DS18B20_incoming_temp());
-	strncat(sub_str2, ",", 1);
-	json_encode_integer(sub_str2,
-						"ts",
-						get_DS18B20_incoming_temp_ts());
-	json_encode_object(sub_str1,
-					   "incoming_temp",
-					   sub_str2);
+    strcpy(sub_str2, "");
+    json_encode_float(sub_str2,
+                      "value",
+                      get_DS18B20_incoming_temp());
+    strncat(sub_str2, ",", 1);
+    json_encode_integer(sub_str2,
+                        "ts",
+                        get_DS18B20_incoming_temp_ts());
+    json_encode_object(sub_str1,
+                       "incoming_temp",
+                       sub_str2);
 
-	json_encode_object(mesg,
-					   DS18B20_VARS,
-					   sub_str1);
-	
-	strncat(mesg, "}", 1);
+    json_encode_object(mesg,
+                       DS18B20_VARS,
+                       sub_str1);
+    
+    strncat(mesg, "}", 1);
 }

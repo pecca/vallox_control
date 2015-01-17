@@ -12,7 +12,7 @@ void defrost_resistor_start(void);
 
 void defrost_resistor_stop(void);
 
-void defrost_resistor_check(void);
+void defrost_resistor_counter_update(void);
 
 bool defrost_resistor_get_status();
 

@@ -11,7 +11,7 @@
 #include <string.h>
 #include "json_codecs.h"
 
-#define MSG_MAX_SIZE 2000
+#define MSG_MAX_SIZE 8000
 
 void udp_server(int port)
 {

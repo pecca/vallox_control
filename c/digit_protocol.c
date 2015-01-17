@@ -13,8 +13,21 @@
 #include "temperature_conversion.h"
 #include "json_codecs.h"
 
-uint32 g_digit_set_var_failed_cnt;
-uint32 g_digit_retrans_cnt;
+T_digit_var g_digit_vars[NUM_OF_DIGIT_VARS];
+
+int get_fan_speed(byte value)
+{
+    int fan_speed = 1;
+    for (int i = 8; i >= 1; i--)
+    {
+        if (value & (0x1 << (i-1)))
+        {
+            fan_speed = i;
+            break;
+        }
+    }
+    return fan_speed;
+}
 
 byte StrToValue_Temperature(char *str)
 {
@@ -42,16 +55,7 @@ byte StrToValue_FanSpeed(char *str)
 
 void ValueToStr_FanSpeed(byte value, char *str)
 {
-    int fan_speed = 0;
-
-    for (int i = 8; i > 1; i--)
-    {
-        if (value & (0x1 << (i-1)))
-        {
-            fan_speed = i;
-            break;
-        }
-    } 
+    int fan_speed = get_fan_speed(value);
     sprintf(str, "%d", fan_speed);
 }
 
@@ -62,14 +66,8 @@ void ValueToStr_BitMap(byte value, char *str)
 
 void ValueToStr_IO_gate_1(byte value, char *str)
 {
-    int fan_speed;
-    for (fan_speed = 8; fan_speed > 1; fan_speed--)
-    {
-        if (value & (1 << (fan_speed -1)))
-        {
-            break;
-        }
-    }
+    int fan_speed = get_fan_speed(value);
+
     strcpy(str, "{");
     json_encode_integer(str,
                         "fan_speed",
@@ -189,37 +187,63 @@ void ValueToStr_FanPower(byte value, char *str)
     sprintf(str, "%d", value);
 }
 
-T_digit_var g_digit_vars[] = 
+void digit_init_var(byte index, byte id, char *name, time_t interval, StrToValue_t strToValue, ValueToStr_t valueToStr)
 {
-    { CUR_FAN_SPEED, "cur_fan_speed", INVALID_VALUE, 0, 0, 120, false, false, &StrToValue_FanSpeed, &ValueToStr_FanSpeed },
-    { OUTSIDE_TEMP, "outside_temp", INVALID_VALUE, 0, 0, 15, false, false, NULL, &ValueToStr_Temperature },
-    { EXHAUST_TEMP, "exhaust_temp", INVALID_VALUE, 0, 0, 15, false, false, NULL, &ValueToStr_Temperature },
-    { INSIDE_TEMP, "inside_temp", INVALID_VALUE, 0, 0, 15, false, false, NULL, &ValueToStr_Temperature },
-    { INCOMING_TEMP, "incoming_temp", INVALID_VALUE, 0, 0, 15, false, false, NULL, &ValueToStr_Temperature },
-    { POST_HEATING_ON_CNT, "post_heating_on_cnt", INVALID_VALUE, 0, 0, 5, false, false, NULL, &ValueToStr_Counter },
-    { POST_HEATING_OFF_CNT, "post_heating_off_cnt", INVALID_VALUE, 0, 0, 5, false, false, NULL, &ValueToStr_Counter },
-    { INCOMING_TARGET_TEMP, "incoming_target_temp", INVALID_VALUE, 0, 0, 200, false, false, &StrToValue_Temperature, &ValueToStr_Temperature },
-    { PANEL_LEDS, "panel_leds", INVALID_VALUE, 0, 0, 20, false, false, NULL, &ValueToStr_Leds },
-    { MAX_FAN_SPEED, "max_fan_speed", INVALID_VALUE, 0, 0, 200, false, false, &StrToValue_FanSpeed, &ValueToStr_FanSpeed },
-    { MIN_FAN_SPEED, "min_fan_speed", INVALID_VALUE, 0, 0, 20, false, false, &StrToValue_FanSpeed, &ValueToStr_FanSpeed },
-    { HRC_BYPASS_TEMP, "hrc_bypass_temp", INVALID_VALUE, 0, 0, 120, false, false, &StrToValue_Temperature, &ValueToStr_Temperature },
-    { INPUT_FAN_STOP_TEMP, "input_fan_stop_temp", INVALID_VALUE, 0, 0, 120, false, false, &StrToValue_Temperature, &ValueToStr_Temperature },
-    { CELL_DEFROSTING_HYSTERESIS, "cell_defrosting_hysteresis", INVALID_VALUE, 0, 0, 120, false, false, &StrToValue_CellDeFroHyst, &ValueToStr_CellDeFroHyst },
-    { DC_FAN_INPUT, "dc_fan_input", INVALID_VALUE, 0, 0, 120, false, false, &StrToValue_FanPower, &ValueToStr_FanPower },
-    { DC_FAN_OUTPUT, "dc_fan_output", INVALID_VALUE, 0, 0, 120, false, false, &StrToValue_FanPower, &ValueToStr_FanPower },
-    { FLAGS_2, "flags_2", INVALID_VALUE, 0, 0, 20, false, false, NULL, &ValueToStr_BitMap },
-    { FLAGS_4, "flags_4", INVALID_VALUE, 0, 0, 20, false, false, NULL, &ValueToStr_BitMap },
-    { FLAGS_5, "flags_5", INVALID_VALUE, 0, 0, 20, false, false, NULL, &ValueToStr_BitMap },
-    { FLAGS_6, "flags_6", INVALID_VALUE, 0, 0, 20, false, false, NULL, &ValueToStr_BitMap },
-    { RH_MAX, "rh_max", INVALID_VALUE, 0, 0, 200, false, false, NULL, &ValueToStr_RH },
-    { RH1_SENSOR, "rh1_sensor", INVALID_VALUE, 0, 0, 20, false, false, NULL, ValueToStr_RH},
-    { BASIC_RH_LEVEL, "basic_rh_level", INVALID_VALUE, 0, 0, 120, false, false, NULL, ValueToStr_RH},
-    { PRE_HEATING_TEMP, "pre_heating_temp", INVALID_VALUE, 0, 0, 200, false, false, &StrToValue_Temperature, &ValueToStr_Temperature },
-    { IO_GATE_1, "IO_gate_1", INVALID_VALUE, 0, 0, 200, false, false, NULL, &ValueToStr_IO_gate_1 },
-    { IO_GATE_2, "IO_gate_2", INVALID_VALUE, 0, 0, 200, false, false, NULL, &ValueToStr_IO_gate_2 },
-    { IO_GATE_3, "IO_gate_3", INVALID_VALUE, 0, 0, 200, false, false, NULL, &ValueToStr_IO_gate_3 },
-};
+    T_digit_var *digit_var = &g_digit_vars[index];
+    
+    digit_var->id = id;
+    strcpy(digit_var->name_str, name);
+    digit_var->interval = interval;
+    digit_var->StrToValue = strToValue;
+    digit_var->ValueToStr = valueToStr;
+} 
 
+void digit_init(void)
+{
+    memset(&g_digit_vars, 0, sizeof(g_digit_vars));
+    
+    digit_init_var(DIGIT_PARAM(CUR_FAN_SPEED), 120, &StrToValue_FanSpeed, &ValueToStr_FanSpeed);
+    digit_init_var(DIGIT_PARAM(OUTSIDE_TEMP), 15, NULL, &ValueToStr_Temperature);
+    digit_init_var(DIGIT_PARAM(EXHAUST_TEMP), 15, NULL, &ValueToStr_Temperature);
+    digit_init_var(DIGIT_PARAM(INSIDE_TEMP), 15, NULL, &ValueToStr_Temperature);
+    digit_init_var(DIGIT_PARAM(INCOMING_TEMP), 15, NULL, &ValueToStr_Temperature);
+    digit_init_var(DIGIT_PARAM(POST_HEATING_ON_CNT), 5, NULL, &ValueToStr_Counter);
+    digit_init_var(DIGIT_PARAM(POST_HEATING_OFF_CNT), 5, NULL, &ValueToStr_Counter);
+    digit_init_var(DIGIT_PARAM(INCOMING_TARGET_TEMP), 200, &StrToValue_Temperature, &ValueToStr_Temperature);
+    digit_init_var(DIGIT_PARAM(PANEL_LEDS), 20, NULL, &ValueToStr_Leds);
+    digit_init_var(DIGIT_PARAM(MAX_FAN_SPEED), 200, &StrToValue_FanSpeed, &ValueToStr_FanSpeed);
+    digit_init_var(DIGIT_PARAM(MIN_FAN_SPEED), 20, &StrToValue_FanSpeed, &ValueToStr_FanSpeed);
+    digit_init_var(DIGIT_PARAM(HRC_BYPASS_TEMP), 120, &StrToValue_Temperature, &ValueToStr_Temperature);
+    digit_init_var(DIGIT_PARAM(INPUT_FAN_STOP_TEMP), 120, &StrToValue_Temperature, &ValueToStr_Temperature);
+    digit_init_var(DIGIT_PARAM(CELL_DEFROSTING_HYSTERESIS), 120, &StrToValue_CellDeFroHyst, &ValueToStr_CellDeFroHyst);
+    digit_init_var(DIGIT_PARAM(DC_FAN_INPUT), 120, &StrToValue_FanPower, &ValueToStr_FanPower);
+    digit_init_var(DIGIT_PARAM(DC_FAN_OUTPUT), 120, &StrToValue_FanPower, &ValueToStr_FanPower);
+    digit_init_var(DIGIT_PARAM(FLAGS_2), 20, NULL, &ValueToStr_BitMap);
+    digit_init_var(DIGIT_PARAM(FLAGS_4), 20, NULL, &ValueToStr_BitMap);
+    digit_init_var(DIGIT_PARAM(FLAGS_5), 20, NULL, &ValueToStr_BitMap);
+    digit_init_var(DIGIT_PARAM(FLAGS_6), 20, NULL, &ValueToStr_BitMap);
+    digit_init_var(DIGIT_PARAM(RH_MAX), 200, NULL, &ValueToStr_RH);
+    digit_init_var(DIGIT_PARAM(RH1_SENSOR), 20, NULL, ValueToStr_RH);
+    digit_init_var(DIGIT_PARAM(BASIC_RH_LEVEL), 120, NULL, ValueToStr_RH);
+    digit_init_var(DIGIT_PARAM(PRE_HEATING_TEMP), 200, &StrToValue_Temperature, &ValueToStr_Temperature);
+    digit_init_var(DIGIT_PARAM(IO_GATE_1), 200, NULL, &ValueToStr_IO_gate_1);
+    digit_init_var(DIGIT_PARAM(IO_GATE_2), 200, NULL, &ValueToStr_IO_gate_2);
+    digit_init_var(DIGIT_PARAM(IO_GATE_3), 200, NULL, &ValueToStr_IO_gate_3);
+}
+
+bool digit_vars_ok(void)
+{
+    time_t curr_time = time(NULL);
+
+    for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
+    {
+        if (curr_time - g_digit_vars[i].timestamp > 300) 
+        {
+            return false;
+        }
+    }
+    return true;
+}
 
 T_digit_var *digit_get_var_by_id(byte id)
 {
@@ -249,6 +273,7 @@ T_digit_var *digit_get_var_by_name(char *name)
 void digit_recv_msg(byte id, byte value)
 {
     T_digit_var *var = digit_get_var_by_id(id);
+	//printf("recv_msg: id = %02X\n", id);
     if (var)
     {
         if (var->set_ongoing)
@@ -256,12 +281,19 @@ void digit_recv_msg(byte id, byte value)
             if (value == var->expected_value)
             {
                 // set request accomplished
+				//printf("set resp received: id = %02X, cnt = %d\n", id, var->set_req_cnt);
                 var->set_ongoing = false;
+				var->set_req_cnt = 0;
             }            
         }
         var->value = value;
         var->timestamp = time(NULL);
-        var->get_ongoing = false;
+		if (var->get_ongoing)
+		{
+			//printf("get resp received: id = %02X, cnt = %d\n", id, var->get_req_cnt);
+			var->get_ongoing = false;
+			var->get_req_cnt = 0;
+		}
     }
 }
 
@@ -310,6 +342,7 @@ void digit_send_get_var(byte id)
     // encode get request
     byte msg[6] = { SYSTEM_ID, PI_ADDRESS, DEVICE_ADDRESS, 0, id, 0 };
     digit_send_msg(msg);
+//	printf("send_msg: id = %02X\n", id);
 }
 
 void digit_send_set_var(byte id, byte value)
@@ -344,12 +377,14 @@ void digit_update_vars()
                 // send set request
                 digit_send_set_var(var->id, var->expected_value);
                 // set get flag in order to check set request
-                var->get_ongoing = true;               
+                var->get_ongoing = true;
+			    var->set_req_cnt++;
             }
             else
             {
                 // value correct, no need to send set request
                 var->set_ongoing = false;
+				var->set_req_cnt = 0;
             }
         }
     }    
@@ -360,7 +395,8 @@ void digit_update_vars()
         T_digit_var *var = &g_digit_vars[i];
         if (var->get_ongoing == true)
         {            
-            digit_send_get_var(var->id);
+           digit_send_get_var(var->id);
+		   var->get_req_cnt++;
         }
     }
     
@@ -373,6 +409,7 @@ void digit_update_vars()
         {
             // set get flag in order to send get request
             var->get_ongoing = true;
+			var->get_req_cnt++;
         }
     }    
     
@@ -405,6 +442,11 @@ void digit_receive_msgs(void)
     }
 }
 
+float digit_get_rh1_sensor()
+{
+    T_digit_var *var = &g_digit_vars[RH1_SENSOR_INDEX];	
+	return (var->value - 51)/2.04;
+}
 
 float digit_get_outside_temp()
 {
@@ -446,14 +488,21 @@ void digit_set_incoming_target_temp(float temp)
 float digit_get_post_heating_on_cnt(void)
 {
     T_digit_var *var = &g_digit_vars[POST_HEATING_ON_CNT_INDEX];
-    float ret = roundf((var->value / 2.5f) * 10.0f) / 10.0f;
+    float ret = roundf(((var->value / 2.5f) * 10.0f) / 10.0f);
     return ret;
+}
+
+int digit_get_cur_fan_speed(void)
+{
+    T_digit_var *var = &g_digit_vars[CUR_FAN_SPEED_INDEX];
+	int fan_speed = get_fan_speed(var->value);
+    return fan_speed;
 }
 
 float digit_get_post_heating_off_cnt(void)
 {
     T_digit_var *var = &g_digit_vars[POST_HEATING_OFF_CNT_INDEX];
-    float ret = roundf((var->value / 2.5f) * 10.0f) / 10.0f;
+    float ret = roundf(((var->value / 2.5f) * 10.0f) / 10.0f);
     return ret;
 }
 

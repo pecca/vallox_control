@@ -63,7 +63,7 @@ void defrost_resistor_stop(void)
     }
 }
 
-void defrost_resistor_check(void)
+void defrost_resistor_counter_update(void)
 {
     g_u32CheckCallCnt++;
     if ( (g_u32CheckCallCnt * DEFROST_RESISTOR_CHECK_INTERNAL) % 
@@ -71,8 +71,6 @@ void defrost_resistor_check(void)
     {
         save_on_time_to_file();
     }
-
-    // todo safety check
 }
 
 uint32 defrost_resistor_get_on_time()

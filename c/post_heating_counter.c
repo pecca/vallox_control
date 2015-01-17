@@ -39,9 +39,9 @@ void post_heating_counter_init()
 
 void post_heating_counter_update()
 {
-    real32 on_cnt = digit_get_post_heating_on_cnt();
-    real32 off_cnt = digit_get_post_heating_off_cnt();
-
+    byte on_cnt = (byte)digit_get_post_heating_on_cnt();
+    byte off_cnt = (byte)digit_get_post_heating_off_cnt();
+		
     g_u32UpdateCallCnt++;
     if ( (g_u32UpdateCallCnt * POST_HEATING_COUNTER_UPDATE_INTERVAL) % 
          BACKUP_ON_TIME_COUNTER_INTERVAL_IN_SEC == 0)
@@ -51,17 +51,16 @@ void post_heating_counter_update()
 
     // calculate post heating seconds
     if ( g_bPostHeatingStarted == false && 
-         on_cnt && 
-         (fmod(off_cnt,10.0f) == 0.0f) )
+         on_cnt > 0 && 
+         !(off_cnt % 10) )
     {
 
         g_bPostHeatingStarted = true;
-        g_u32OnTimeTotal += (100.0f - off_cnt);
+        g_u32OnTimeTotal += (100 - off_cnt);
     }
-    else if (g_bPostHeatingStarted == true &&
-             on_cnt == 0.0f)
+    else if (on_cnt == 0)
     {
-        g_bPostHeatingStarted == false;
+        g_bPostHeatingStarted = false;
     }
 }
 

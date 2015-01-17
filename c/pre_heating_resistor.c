@@ -133,7 +133,7 @@ void pre_heating_resistor_thread(void)
     }
 }
 
-void pre_heating_resistor_check()
+void pre_heating_resistor_counter_update()
 {
     g_u32CheckCallCnt++;
     if ( (g_u32CheckCallCnt * PRE_HEATING_RESISTOR_CHECK_INTERVAL) % 

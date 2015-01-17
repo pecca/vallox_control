@@ -95,7 +95,7 @@ function get_am2302_var($fp, $var_id, &$timestamp)
 
 function get_ctrl_var($fp, $control_vars, $var_id)
 {
-    $value = $control_vars[$var_id];
+    $value = $control_vars[$var_id]['value'];
     return $value;
 }
 
@@ -112,7 +112,7 @@ function set_ctrl_var($fp, $var_id, $value)
 }
 
 
-    $fp = fsockopen("udp://127.0.0.1", 8999, $errno, $errstr);
+    $fp = fsockopen("udp://127.0.0.1", 8056, $errno, $errstr);
 
     if (!$fp) {
         echo "ERROR: $errno - $errstr<br />\n";
@@ -191,7 +191,12 @@ function set_ctrl_var($fp, $var_id, $value)
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
-
+    else if (isset($_POST['edit_min_exhaust_temp'])) 
+    {    
+        set_ctrl_var($fp, "min_exhaust_temp", $_POST['edit_min_exhaust_temp_set']);
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit();
+    }
 
 
 
@@ -262,31 +267,34 @@ else
     $am2302_temp = get_am2302_var($fp, AM2302_TEMP, $am2302_temp_ts);
     $am2302_rh = get_am2302_var($fp, AM2302_RH, $am2302_rh_ts);
 
-    $post_heating_on_time_total = get_ctrl_var($fp, $control_vars, "post_heating_on_time");
-    $pre_heating_on_time_total = get_ctrl_var($fp,$control_vars, "pre_heating_on_time");
-    $defrost_on_time_total = get_ctrl_var($fp, $control_vars, "defrost_on_time");
+    $post_heating_on_time_total = get_ctrl_var($fp, $control_vars, "post_heating_time");
+    $pre_heating_on_time_total = get_ctrl_var($fp,$control_vars, "pre_heating_time");
+    $defrost_on_time_total = get_ctrl_var($fp, $control_vars, "defrost_time");
 
     $pre_heating_mode = get_ctrl_var($fp, $control_vars, "pre_heating_mode");
     $pre_heating_power = get_ctrl_var($fp, $control_vars, "pre_heating_power");
     $defrost_mode = get_ctrl_var($fp, $control_vars, "defrost_mode");
-
+    $min_exhaust_temp = get_ctrl_var($fp, $control_vars, "min_exhaust_temp");
+	
     $t = floatval($inside_temp);
     $rh = $rh1_sensor / 100; 
     $a = floatval(17.27);
     $b = floatval(237.7);
 
     $z =  ((($a * $t) / ($b + $t)) + log($rh));
-    $dew_point = round((($b * $z) / ($a - $z)), 1);
+    //$dew_point = round((($b * $z) / ($a - $z)), 1);
+    $dew_point = get_ctrl_var($fp, $control_vars, "dew_point");
     
   
     $air_flow = 15 + 10 * $cur_fan_speed;
     $radiator_watt = round($air_flow * 1.225 * ($ds18b20_sensor1 - $outside_temp),1); 
         
 
-    $incoming_air_efficiency = round(floatval((floatval($ds18b20_sensor3) + 2.0 - floatval($ds18b20_sensor1)) / (floatval($inside_temp) - floatval($ds18b20_sensor1))) * 100,1);
-    $outcoming_air_efficiency = round(floatval((floatval($inside_temp) - floatval($exhaust_temp)) / (floatval($inside_temp) - floatval($ds18b20_sensor1))) * 100,1);
-
-
+    //$incoming_air_efficiency = round(floatval(($incoming_temp - floatval($ds18b20_sensor1)) / (floatval($inside_temp) - floatval($ds18b20_sensor1))) * 100,1);
+    //$outcoming_air_efficiency = round(floatval((floatval($inside_temp) - floatval($exhaust_temp)) / (floatval($inside_temp) - floatval($ds18b20_sensor1))) * 100,1);
+    $incoming_air_efficiency = get_ctrl_var($fp, $control_vars, "in_efficiency");
+    $outcoming_air_efficiency = get_ctrl_var($fp, $control_vars, "out_efficiency");
+    
     $incoming_air_efficiency_2 = round(floatval((floatval($ds18b20_sensor3) - floatval($outside_temp)) / (floatval($inside_temp) - floatval($outside_temp))) * 100,1);
     $outcoming_air_efficiency_2 = round(floatval((floatval($inside_temp) - floatval($exhaust_temp)) / (floatval($inside_temp) - floatval($outside_temp))) * 100,1);
 
@@ -564,10 +572,10 @@ else
 
          <tr>
          <td>Pre heating mode</td>
-          <td> <?php echo $pre_heating_mode;  ?> </td>
+        <td> <?php echo $pre_heating_mode;  ?> </td>
         <td>
          <form method="post">
-    <input type="radio" name="edit_pre_heating_mode_set" value="0" /> Off
+			<input type="radio" name="edit_pre_heating_mode_set" value="0" /> Off
             <input type="radio" name="edit_pre_heating_mode_set" value="1" /> On
             <input type="radio" name="edit_pre_heating_mode_set" value="2" /> Auto
             <input type='submit' name='edit_pre_heating_mode' value="Set" />
@@ -601,7 +609,18 @@ else
          </form>
          </td>
          </tr>
-
+				 
+         <tr>
+         <td>Min exhaust temp</td>
+        <td> <?php echo $min_exhaust_temp . " *C"; ?> </td>
+        <td>
+         <form method="post">
+            <input type="text" name="edit_min_exhaust_temp_set" size="2" />
+            <input type='submit' name='edit_min_exhaust_temp' value="Set" />
+         </form>
+         </td>
+          </tr>
+          <tr>
           <tr>
          <td>Defrost mode</td>
          <td> <?php echo $defrost_mode; ?> </td>

@@ -32,7 +32,7 @@ unsigned int g_AM2302_timestamp_prev = 0;
 unsigned int g_AM2302_cnt = 0;
 
 int g_port = 8055;
-#define UDP_LISTEN_PORT 8999
+#define UDP_LISTEN_PORT 8056
 
 void *poll_rs485_bus( void *ptr );
 
@@ -101,7 +101,8 @@ bool read_temperature_from_DS18B20_file(FILE *file, float *temperature)
 
 void *poll_rs485_bus( void *ptr )
 {
-  rs485_open();
+    rs485_open();
+    sleep(2);
     while (1)
     {
     
@@ -118,7 +119,8 @@ void *poll_rs485_bus( void *ptr )
 
 void *poll_update_digit_vars( void *ptr )
 {
-    
+    digit_init();
+    sleep(10);
     while (1)
     {
         digit_update_vars();
