@@ -2,7 +2,7 @@
 #ifndef CTRL_VARIABLES_H
 #define CTRL_VARIABLES_H
 
-#include "types.h"
+#include "common.h"
 #include "ctrl_logic.h"
 
 #define CTRL_VAR_ID_PRE_HEATING_POWER          1

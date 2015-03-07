@@ -2,7 +2,7 @@
 #ifndef RS485_H
 #define RS485_H
 
-#include "types.h"
+#include "common.h"
 
 #define RS485_MSG_MAX_LEN 100
 #define RS485_MSG_LEN 6

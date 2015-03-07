@@ -15,17 +15,17 @@
 
 T_ctrl_vars g_ctrl_vars;
 
-void calc_in_out_effiency(float *in_eff, float *out_eff)
+void calc_in_out_effiency(real32 *in_eff, real32 *out_eff)
 {
-    float incoming_temp = get_DS18B20_incoming_temp();
-    float outside_temp = get_DS18B20_outside_temp();
-    float inside_temp = digit_get_inside_temp();
-    float exhaust_temp = digit_get_exhaust_temp();
+    real32 incoming_temp = get_DS18B20_incoming_temp();
+    real32 outside_temp = get_DS18B20_outside_temp();
+    real32 inside_temp = digit_get_inside_temp();
+    real32 exhaust_temp = digit_get_exhaust_temp();
 
-    float incoming_eff =  ((incoming_temp - outside_temp) /
+    real32 incoming_eff =  ((incoming_temp - outside_temp) /
                            (inside_temp - outside_temp)) * 100.0f;
 
-    float outcoming_eff = ((inside_temp - exhaust_temp) /
+    real32 outcoming_eff = ((inside_temp - exhaust_temp) /
                            (inside_temp - outside_temp)) * 100.0f;   
 
     if (incoming_eff > 100.0f)
@@ -49,14 +49,14 @@ void calc_in_out_effiency(float *in_eff, float *out_eff)
     *out_eff = outcoming_eff;
 }
 
-float calc_dew_point(void)
+real32 calc_dew_point(void)
 {
-    float inside_temp = digit_get_inside_temp();
-    float rh = digit_get_rh1_sensor() / 100.0f;
-    float tempA = 17.27f;
-    float tempB = 237.7f;
-    float tempZ =  (((tempA * inside_temp) / (tempB + inside_temp)) + log(rh));
-    float dew_point = ((tempB * tempZ) / (tempA - tempZ));
+    real32 inside_temp = digit_get_inside_temp();
+    real32 rh = digit_get_rh1_sensor() / 100.0f;
+    real32 tempA = 17.27f;
+    real32 tempB = 237.7f;
+    real32 tempZ =  (((tempA * inside_temp) / (tempB + inside_temp)) + log(rh));
+    real32 dew_point = ((tempB * tempZ) / (tempA - tempZ));
     return dew_point;
 }
 
@@ -193,19 +193,19 @@ void ctrl_set_var_by_name(char *name, char *value)
     }
     else if (!strcmp(name, "min_exhaust_temp"))
     {
-        float fTemp;
+        real32 fTemp;
         sscanf(value, "%f", &fTemp);
         g_ctrl_vars.min_exhaust_temp = fTemp;
     }
     else if (!strcmp(name, "defrost_start_level"))
     {
-        float fTemp;
+        real32 fTemp;
         sscanf(value, "%f", &fTemp);
         g_ctrl_vars.defrost_start_level = fTemp;
     }
     else if (!strcmp(name, "defrost_target_temp"))
     {
-        float fTemp;
+        real32 fTemp;
         sscanf(value, "%f", &fTemp);
         g_ctrl_vars.defrost_target_temp = fTemp;
     }  
@@ -234,7 +234,7 @@ void ctrl_json_encode(char *mesg)
     strcpy(sub_str2, "");
     
     // pre_heating_time
-    json_encode_float(sub_str2,
+    json_encode_real32(sub_str2,
                       "value",
                       pre_heating_resistor_get_on_time_total());
     strncat(sub_str2, ",", 1);
@@ -248,7 +248,7 @@ void ctrl_json_encode(char *mesg)
 
     // post_heating_time
     strcpy(sub_str2, "");
-    json_encode_float(sub_str2,
+    json_encode_real32(sub_str2,
                       "value",
                       post_heating_counter_get_on_time_total());
     strncat(sub_str2, ",", 1);
@@ -262,7 +262,7 @@ void ctrl_json_encode(char *mesg)
     
     // defrost_time total
     strcpy(sub_str2, "");
-    json_encode_float(sub_str2,
+    json_encode_real32(sub_str2,
                       "value",
                       defrost_resistor_get_on_time_total());
     strncat(sub_str2, ",", 1);
@@ -276,7 +276,7 @@ void ctrl_json_encode(char *mesg)
 
     // defrost_time
     strcpy(sub_str2, "");
-    json_encode_float(sub_str2,
+    json_encode_real32(sub_str2,
                       "value",
                       defrost_resistor_get_on_time());
     strncat(sub_str2, ",", 1);
@@ -290,7 +290,7 @@ void ctrl_json_encode(char *mesg)
     
     // defrost_mode
     strcpy(sub_str2, "");
-    json_encode_float(sub_str2,
+    json_encode_real32(sub_str2,
                       "value",
                       g_ctrl_vars.defrost_mode);
     strncat(sub_str2, ",", 1);
@@ -304,7 +304,7 @@ void ctrl_json_encode(char *mesg)
    
     // pre_heating_mode
     strcpy(sub_str2, "");
-    json_encode_float(sub_str2,
+    json_encode_real32(sub_str2,
                       "value",
                       g_ctrl_vars.pre_heating_mode);
     strncat(sub_str2, ",", 1);
@@ -318,7 +318,7 @@ void ctrl_json_encode(char *mesg)
   
      // pre_heating_power
     strcpy(sub_str2, "");
-    json_encode_float(sub_str2,
+    json_encode_real32(sub_str2,
                       "value",
                       pre_heating_get_power());
     strncat(sub_str2, ",", 1);
@@ -332,7 +332,7 @@ void ctrl_json_encode(char *mesg)
   
      // dew_point
     strcpy(sub_str2, "");
-    json_encode_float(sub_str2,
+    json_encode_real32(sub_str2,
                       "value",
                       g_ctrl_vars.dew_point);
     strncat(sub_str2, ",", 1);
@@ -346,7 +346,7 @@ void ctrl_json_encode(char *mesg)
  
      // dew_point
     strcpy(sub_str2, "");
-    json_encode_float(sub_str2,
+    json_encode_real32(sub_str2,
                       "value",
                       g_ctrl_vars.min_exhaust_temp);
     strncat(sub_str2, ",", 1);
@@ -360,7 +360,7 @@ void ctrl_json_encode(char *mesg)
  
      // in_efficiency
     strcpy(sub_str2, "");
-    json_encode_float(sub_str2,
+    json_encode_real32(sub_str2,
                       "value",
                       g_ctrl_vars.in_efficiency);
     strncat(sub_str2, ",", 1);
@@ -374,7 +374,7 @@ void ctrl_json_encode(char *mesg)
   
      // out_efficiency
     strcpy(sub_str2, "");
-    json_encode_float(sub_str2,
+    json_encode_real32(sub_str2,
                       "value",
                       g_ctrl_vars.out_efficiency);
     strncat(sub_str2, ",", 1);
@@ -388,7 +388,7 @@ void ctrl_json_encode(char *mesg)
 
      // in_efficiency filtered
     strcpy(sub_str2, "");
-    json_encode_float(sub_str2,
+    json_encode_real32(sub_str2,
                       "value",
                       g_ctrl_vars.in_eff.value);
     strncat(sub_str2, ",", 1);
@@ -402,7 +402,7 @@ void ctrl_json_encode(char *mesg)
   
      // out_efficiency filtered
     strcpy(sub_str2, "");
-    json_encode_float(sub_str2,
+    json_encode_real32(sub_str2,
                       "value",
                       g_ctrl_vars.out_eff.value);
     strncat(sub_str2, ",", 1);
@@ -416,7 +416,7 @@ void ctrl_json_encode(char *mesg)
 
      // defrost_start_level
     strcpy(sub_str2, "");
-    json_encode_float(sub_str2,
+    json_encode_real32(sub_str2,
                       "value",
                       g_ctrl_vars.defrost_start_level);
     strncat(sub_str2, ",", 1);
@@ -430,7 +430,7 @@ void ctrl_json_encode(char *mesg)
 
      // defrost_target_temp
     strcpy(sub_str2, "");
-    json_encode_float(sub_str2,
+    json_encode_real32(sub_str2,
                       "value",
                       g_ctrl_vars.defrost_target_temp);
     strncat(sub_str2, ",", 1);

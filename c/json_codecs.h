@@ -1,6 +1,8 @@
 #ifndef JSON_CODECS_H
 #define JSON_CODECS_H
 
+#include "common.h"
+
 #define SET             "set"
 #define GET             "get"
 #define DIGIT_VARS      "digit_vars"
@@ -13,8 +15,8 @@ void json_encode_string(char *str, char *name, char *value);
 
 void json_encode_integer(char *str, char *name, int value);
 
-void json_encode_float(char *str, char *name, float value);
-		
+void json_encode_real32(char *str, char *name, real32 value);
+
 void json_encode_object(char *str, char *name, char *value);
 
 int json_decode_message(int n, char *mesg);

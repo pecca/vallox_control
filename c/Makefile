@@ -2,16 +2,14 @@ CC=gcc
 CFLAGS= -std=gnu99 -I. -lpthread -lbcm2835
 DEPS = 
 OBJ = \
-    vallox_ctrl.o \
+    main.o \
     digit_protocol.o \
     temperature_conversion.o \
     rs485.o \
-    tcp-server.o \
     udp-server.o \
     DS18B20.o \
-    Adafruit_DHT.o \
-    ctrl_logic.o \
     RPI.o \
+    ctrl_logic.o \
     relay_control.o \
     defrost_resistor.o \
     pre_heating_resistor.o \

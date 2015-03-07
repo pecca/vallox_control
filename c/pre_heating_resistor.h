@@ -2,7 +2,7 @@
 #ifndef PRE_HEATING_RESISTOR_H
 #define PRE_HEATING_RESISTOR_H
 
-#include "types.h"
+#include "common.h"
 
 #define PRE_HEATING_RESISTOR_CHECK_INTERVAL 5
 
@@ -20,5 +20,7 @@ void pre_heating_resistor_get_status(bool *bPreHeatingOngoing,
 uint32 pre_heating_resistor_get_on_time_total();
 
 uint16 pre_heating_get_power();
+
+void *pvPre_heating_thread(void *ptr);
 
 #endif

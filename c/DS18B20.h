@@ -1,13 +1,13 @@
 #ifndef DS18B20_H
 #define DS18B20_H
 
-void *poll_DS18B20_sendors( void *ptr );
+void *pvDS18B20_thread(void *ptr);
 
-float get_DS18B20_outside_temp();
+real32 get_DS18B20_outside_temp();
 
-float get_DS18B20_exhaust_temp();
+real32 get_DS18B20_exhaust_temp();
 
-float get_DS18B20_incoming_temp();
+real32 get_DS18B20_incoming_temp();
 
 time_t get_DS18B20_outside_temp_ts();
 

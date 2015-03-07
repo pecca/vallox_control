@@ -2,7 +2,7 @@
 #ifndef POST_HEATING_COUNTER_H
 #define POST_HEATING_COUNTER_H
 
-#include "types.h"
+#include "common.h"
 
 #define POST_HEATING_COUNTER_UPDATE_INTERVAL 5
 

@@ -2,7 +2,7 @@
 #ifndef DEFROST_RESISTOR_H
 #define DEFROST_RESISTOR_H
 
-#include "types.h"
+#include "common.h"
 
 #define DEFROST_RESISTOR_CHECK_INTERNAL 5
 

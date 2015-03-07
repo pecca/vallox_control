@@ -40,4 +40,6 @@ uint16 defrost_mode_get();
 
 E_defrost_state defrost_state();
 
+void *pvCtrl_logic_thread(void *ptr);
+
 #endif

@@ -2,7 +2,7 @@
 #ifndef RELAY_CONTROL_H
 #define RELAY_CONTROL_H
 
-#include "types.h"
+#include "common.h"
 
 void relay_control_init(uint16 u16Port);
 

@@ -5,7 +5,7 @@
 #include <time.h>
 #include <string.h>
 
-#include "types.h"
+#include "common.h"
 #include "ctrl_logic.h"
 #include "digit_protocol.h"
 
@@ -48,6 +48,17 @@ E_defrost_state defrost_state()
     return g_defrost_control.state;
 }
 
+void *pvCtrl_logic_thread(void *ptr)
+{
+    ctrl_logic_init();
+    while(1)
+    {
+        ctrl_logic_run();
+        sleep(CTRL_LOGIC_TIMELEVEL);
+    }
+    return NULL;
+}
+
 static int32 pre_heating_calc_power(real32 exhaust_target_temp)
 {
     real32 inside_temp = digit_get_inside_temp();
@@ -55,8 +66,8 @@ static int32 pre_heating_calc_power(real32 exhaust_target_temp)
     real32 target_incoming_temp = inside_temp - ((inside_temp - exhaust_target_temp) / 0.8f);
     real32 temp_diff = target_incoming_temp - digit_get_outside_temp();
     
-    float air_flow = 15 + 10 * digit_get_cur_fan_speed();
-    float pre_heating_power = (air_flow * 1.225 * temp_diff);
+    real32 air_flow = 15 + 10 * digit_get_cur_fan_speed();
+    real32 pre_heating_power = (air_flow * 1.225 * temp_diff);
 
     int32 ret = ceil(pre_heating_power / 100.0f) * 100;
     if (ret < 0)

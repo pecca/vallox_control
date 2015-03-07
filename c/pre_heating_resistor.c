@@ -96,6 +96,12 @@ void pre_heating_set_power(uint16 u16Power)
     g_u16PreHeatingActivePowerIndex = u16PowerIndex;
 }
 
+void *pvPre_heating_thread(void *ptr)
+{
+    pre_heating_resistor_thread();
+    return NULL;
+}
+
 void pre_heating_resistor_thread(void)
 {
     bool bResistorOn = false;

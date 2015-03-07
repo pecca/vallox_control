@@ -15,6 +15,30 @@
 
 T_digit_var g_digit_vars[NUM_OF_DIGIT_VARS];
 
+void *pvDigit_receive_thread( void *ptr )
+{
+    rs485_open();
+    sleep(2);
+    while (true)
+    {
+        digit_receive_msgs();
+    }
+    return NULL;
+} 
+
+
+void *pvDigit_update_thread( void *ptr )
+{
+    digit_init();
+    sleep(10);
+    while (1)
+    {
+        digit_update_vars();
+        sleep(3);
+    }
+    return NULL;
+} 
+
 int get_fan_speed(byte value)
 {
     int fan_speed = 1;
@@ -31,7 +55,7 @@ int get_fan_speed(byte value)
 
 byte StrToValue_Temperature(char *str)
 {
-    float temp;
+    real32 temp;
     sscanf(str, "%f", &temp); 
     return celsius_to_NTC(temp);
 }
@@ -442,53 +466,53 @@ void digit_receive_msgs(void)
     }
 }
 
-float digit_get_rh1_sensor()
+real32 digit_get_rh1_sensor()
 {
     T_digit_var *var = &g_digit_vars[RH1_SENSOR_INDEX]; 
     return (var->value - 51)/2.04;
 }
 
-float digit_get_outside_temp()
+real32 digit_get_outside_temp()
 {
     T_digit_var *var = &g_digit_vars[OUTSIDE_TEMP_INDEX];
     return  NTC_to_celsius(var->value); 
 }
 
-float digit_get_inside_temp()
+real32 digit_get_inside_temp()
 {
     T_digit_var *var = &g_digit_vars[INSIDE_TEMP_INDEX];
     return  NTC_to_celsius(var->value); 
 }
 
-float digit_get_exhaust_temp()
+real32 digit_get_exhaust_temp()
 {
     T_digit_var *var = &g_digit_vars[EXHAUST_TEMP_INDEX];
     return  NTC_to_celsius(var->value); 
 }
 
-float digit_get_incoming_temp()
+real32 digit_get_incoming_temp()
 {
     T_digit_var *var = &g_digit_vars[INCOMING_TEMP_INDEX];
     return  NTC_to_celsius(var->value); 
 }
 
-float digit_get_incoming_target_temp()
+real32 digit_get_incoming_target_temp()
 {
     T_digit_var *var = &g_digit_vars[INCOMING_TARGET_TEMP_INDEX];
     return  NTC_to_celsius(var->value);
 }
 
-void digit_set_incoming_target_temp(float temp)
+void digit_set_incoming_target_temp(real32 temp)
 {
     byte value = celsius_to_NTC(temp);
     T_digit_var *var = &g_digit_vars[INCOMING_TARGET_TEMP_INDEX];
     digit_set_var(var, value);
 }
 
-float digit_get_post_heating_on_cnt(void)
+real32 digit_get_post_heating_on_cnt(void)
 {
     T_digit_var *var = &g_digit_vars[POST_HEATING_ON_CNT_INDEX];
-    float ret = roundf(((var->value / 2.5f) * 10.0f) / 10.0f);
+    real32 ret = roundf(((var->value / 2.5f) * 10.0f) / 10.0f);
     return ret;
 }
 
@@ -499,10 +523,10 @@ int digit_get_cur_fan_speed(void)
     return fan_speed;
 }
 
-float digit_get_post_heating_off_cnt(void)
+real32 digit_get_post_heating_off_cnt(void)
 {
     T_digit_var *var = &g_digit_vars[POST_HEATING_OFF_CNT_INDEX];
-    float ret = roundf(((var->value / 2.5f) * 10.0f) / 10.0f);
+    real32 ret = roundf(((var->value / 2.5f) * 10.0f) / 10.0f);
     return ret;
 }
 

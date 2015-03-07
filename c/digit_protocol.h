@@ -3,7 +3,7 @@
 #define DIGIT_PROTOCOL_H
 
 #include <time.h>
-#include "types.h"
+#include "common.h"
 
 #define SYSTEM_ID      0x01
 
@@ -139,6 +139,10 @@ typedef struct
 
 } T_digit_var;
 
+void *pvDigit_receive_thread(void *ptr);
+
+void *pvDigit_update_thread(void *ptr);
+
 void digit_init(void);
 
 bool digit_vars_ok(void);
@@ -149,25 +153,25 @@ void digit_update_vars();
 
 void digit_set_var(T_digit_var *var, byte value);
 
-float digit_get_rh1_sensor();
+real32 digit_get_rh1_sensor();
 
-float digit_get_outside_temp();
+real32 digit_get_outside_temp();
 
-float digit_get_inside_temp();
+real32 digit_get_inside_temp();
 
-float digit_get_exhaust_temp();
+real32 digit_get_exhaust_temp();
 
-float digit_get_incoming_temp();
+real32 digit_get_incoming_temp();
 
 int digit_get_cur_fan_speed(void);
 
-float digit_get_incoming_target_temp();
+real32 digit_get_incoming_target_temp();
 
-void digit_set_incoming_target_temp(float temp);
+void digit_set_incoming_target_temp(real32 temp);
 
-float digit_get_post_heating_on_cnt(void);
+real32 digit_get_post_heating_on_cnt(void);
 
-float digit_get_post_heating_off_cnt(void);
+real32 digit_get_post_heating_off_cnt(void);
 
 void digit_json_encode_vars(char *str);
 

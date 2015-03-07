@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "common.h"
 #include "jsmn.h"
 #include "json_codecs.h"
 #include "digit_protocol.h"
@@ -11,7 +12,7 @@
 #define MAX_TOKEN_STR_SIZE  (100)
 
 #define INT_STR_MAX_SIZE    (100)
-#define FLOAT_STR_MAX_SIZE  (100)
+#define real32_STR_MAX_SIZE  (100)
 
 static char *get_json_token_str(int n, char* mesg, jsmntok_t *tokens, char* tokenStr)
 {
@@ -45,13 +46,13 @@ void json_encode_integer(char *str, char *name, int value)
     strncat(str, int_str, strlen(int_str));
 }
 
-void json_encode_float(char *str, char *name, float value)
+void json_encode_real32(char *str, char *name, real32 value)
 {
-    char float_str[FLOAT_STR_MAX_SIZE];
+    char real32_str[real32_STR_MAX_SIZE];
     
     json_encode_variable_name(str, name);
-    sprintf(float_str, "%.1f", value);
-    strncat(str, float_str, strlen(float_str));
+    sprintf(real32_str, "%.1f", value);
+    strncat(str, real32_str, strlen(real32_str));
 }
         
 void json_encode_object(char *str, char *name, char *value)

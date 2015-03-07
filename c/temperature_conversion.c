@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 
-const float c_NTC_temperature_conversion_table[256] = {
+#include "common.h"
+
+const real32 c_NTC_temperature_conversion_table[256] = {
 -74.0f, 
 -70.0f, 
 -66.0f, 
@@ -259,12 +261,12 @@ const float c_NTC_temperature_conversion_table[256] = {
  100.0f,
  100 };
 
-float NTC_to_celsius(unsigned char ntc)
+real32 NTC_to_celsius(unsigned char ntc)
 {
     return c_NTC_temperature_conversion_table[ntc];
 }
 
-unsigned char celsius_to_NTC(float celsius)
+unsigned char celsius_to_NTC(real32 celsius)
 {
     for (int i = 0; i < 255; i++)
     {

@@ -13,11 +13,14 @@
 #include <time.h>
 #include <errno.h>
 #include <stdbool.h>
+
+#include "common.h"
+
 #include "json_codecs.h"
 
-float g_DS18B20_temp_s1;
-float g_DS18B20_temp_s2;
-float g_DS18B20_temp_s3;
+real32 g_DS18B20_temp_s1;
+real32 g_DS18B20_temp_s2;
+real32 g_DS18B20_temp_s3;
 time_t g_DS18B20_timestamp_s1;
 time_t g_DS18B20_timestamp_s2;
 time_t g_DS18B20_timestamp_s3;
@@ -40,17 +43,17 @@ bool DS18B20_vars_ok()
     }
 }
 
-float get_DS18B20_outside_temp()
+real32 get_DS18B20_outside_temp()
 {
     return g_DS18B20_temp_s1;
 }
 
-float get_DS18B20_exhaust_temp()
+real32 get_DS18B20_exhaust_temp()
 {
     return g_DS18B20_temp_s2;
 }
 
-float get_DS18B20_incoming_temp()
+real32 get_DS18B20_incoming_temp()
 {
     return g_DS18B20_temp_s3;
 }
@@ -69,7 +72,8 @@ time_t get_DS18B20_incoming_temp_ts()
 {
     return g_DS18B20_timestamp_s3;
 }
-static bool read_temperature_from_DS18B20_file(FILE *file, float *temperature)
+
+static bool read_temperature_from_DS18B20_file(FILE *file, real32 *temperature)
 {
     char read_buf[100];
     bool valid_temperature = false;
@@ -92,7 +96,7 @@ static bool read_temperature_from_DS18B20_file(FILE *file, float *temperature)
 
 static void read_DS18B20_sensors()
 {
-    float temperature;
+    real32 temperature;
     FILE *file_sensor_1 = fopen("/sys/bus/w1/devices/28-000004afcbb3/w1_slave", "r");
     FILE *file_sensor_2 = fopen("/sys/bus/w1/devices/28-000004b0aa24/w1_slave", "r");
     FILE *file_sensor_3 = fopen("/sys/bus/w1/devices/28-0000054bdcd4/w1_slave", "r");
@@ -130,7 +134,7 @@ static void read_DS18B20_sensors()
     }
 }
 
-void *poll_DS18B20_sendors( void *ptr )
+void *pvDS18B20_thread( void *ptr )
 {
     while(1)
     {     
@@ -150,7 +154,7 @@ void ds18b20_json_encode_vars(char *mesg)
     strcpy(sub_str1, "");
     strcpy(sub_str2, "");
 
-    json_encode_float(sub_str2,
+    json_encode_real32(sub_str2,
                       "value",
                       get_DS18B20_outside_temp());
     strncat(sub_str2, ",", 1);
@@ -163,7 +167,7 @@ void ds18b20_json_encode_vars(char *mesg)
     strncat(sub_str1, ",", 1);  
 
     strcpy(sub_str2, "");
-    json_encode_float(sub_str2,
+    json_encode_real32(sub_str2,
                       "value",
                       get_DS18B20_exhaust_temp());
     strncat(sub_str2, ",", 1);
@@ -177,7 +181,7 @@ void ds18b20_json_encode_vars(char *mesg)
     
 
     strcpy(sub_str2, "");
-    json_encode_float(sub_str2,
+    json_encode_real32(sub_str2,
                       "value",
                       get_DS18B20_incoming_temp());
     strncat(sub_str2, ",", 1);

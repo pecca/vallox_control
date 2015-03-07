@@ -13,6 +13,16 @@
 
 #define MSG_MAX_SIZE 8000
 
+ #define UDP_LISTEN_PORT 8056
+ 
+extern void udp_server(int port);
+
+void *pvUdp_server_thread( void *ptr)
+{
+    printf("udp_server started: listen to port %d\n", UDP_LISTEN_PORT);
+    udp_server(UDP_LISTEN_PORT);
+}
+ 
 void udp_server(int port)
 {
     int connfd,n;
