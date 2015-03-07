@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+#include <string.h>
 
 #include "types.h"
 #include "ctrl_logic.h"
@@ -17,6 +18,8 @@
 
 #define PRE_HEATING_EXHAUST_TEMP_MAX 3.0f
 
+uint32 g_call_cnt= 0;
+
 typedef struct
 {
     bool active;
@@ -25,12 +28,27 @@ typedef struct
     time_t check_interval;
     time_t check_time;
     time_t start_time;
+    real32 exhaust_temp_diff_prev;
 } T_pre_heating;
+
+typedef struct
+{
+    E_defrost_state state;
+    time_t check_time;
+    int32 pre_heating_power;
+    real32 in_eff_prev;
+} T_defrost;
 
 T_pre_heating g_pre_heating;
 
+T_defrost g_defrost_control;
 
-int32 pre_heating_calc_power(real32 exhaust_target_temp)
+E_defrost_state defrost_state()
+{
+    return g_defrost_control.state;
+}
+
+static int32 pre_heating_calc_power(real32 exhaust_target_temp)
 {
     real32 inside_temp = digit_get_inside_temp();
     
@@ -40,14 +58,14 @@ int32 pre_heating_calc_power(real32 exhaust_target_temp)
     float air_flow = 15 + 10 * digit_get_cur_fan_speed();
     float pre_heating_power = (air_flow * 1.225 * temp_diff);
 
-    int32 ret = round(pre_heating_power / 100.0f) * 100;
+    int32 ret = ceil(pre_heating_power / 100.0f) * 100;
     if (ret < 0)
         ret = 0;
     
     return ret;
 }
 
-void pre_heating_control()
+static void pre_heating_control()
 {
     if (ctrl_pre_heating_mode() == PRE_HEATING_MODE_ON)
     {
@@ -60,10 +78,14 @@ void pre_heating_control()
     else if (ctrl_pre_heating_mode() == PRE_HEATING_MODE_AUTO)
     {
         // get the smallest exhaust temp
-        real32 current_exhaust_temp = min(digit_get_exhaust_temp(), get_DS18B20_exhaust_temp());
+        //real32 current_exhaust_temp = min(digit_get_exhaust_temp(), get_DS18B20_exhaust_temp());
+        real32 current_exhaust_temp = digit_get_exhaust_temp();
+        
         // get the biggest exhaust target temp
         real32 target_exhaust_temp = max(ctrl_dew_point(), ctrl_min_exhaust_temp());
-                
+        int32 i32Power = 0;
+        
+       
         if (target_exhaust_temp > PRE_HEATING_EXHAUST_TEMP_MAX)
         {
             target_exhaust_temp = PRE_HEATING_EXHAUST_TEMP_MAX;
@@ -71,112 +93,134 @@ void pre_heating_control()
 
         real32 exhaust_temp_diff = target_exhaust_temp - current_exhaust_temp;
         
-        int32 power = pre_heating_calc_power(target_exhaust_temp);
+        real32 exhaust_temp_derivate = g_pre_heating.exhaust_temp_diff_prev - exhaust_temp_diff;
         
-        //printf("curr_exhaust_temp %.1f, target_exhaust_temp %.1f, power_delta %d\n",  current_exhaust_temp, target_exhaust_temp, power);
+        int32 i32CalcPower = pre_heating_calc_power(target_exhaust_temp);
+        
+        g_pre_heating.exhaust_temp_diff_prev = exhaust_temp_diff;
+        
    
-   
-   
-        if (exhaust_temp_diff > 2)
+        if (exhaust_temp_diff > 0 && exhaust_temp_derivate < 0)
         {
-            pre_heating_set_power(power * 2);
+            i32Power = 1500;
         }
-        else if (exhaust_temp_diff < -2)
+        else if (exhaust_temp_diff > 4.0f)
         {
-            pre_heating_set_power(power / 3);
+            i32Power = 1500;
         }
-        else if (exhaust_temp_diff < -1)
+        else if (exhaust_temp_diff > 3.0f)
         {
-             pre_heating_set_power(power / 4);
+            i32Power = 1000;
+        }
+        else if (exhaust_temp_diff > 2.0f)
+        {
+            i32Power = i32CalcPower * 2;
+        }          
+        else if (exhaust_temp_diff > 1.0f)
+        {
+            i32Power = i32CalcPower * 1.5f;
+        }       
+        else if (exhaust_temp_diff > 0)
+        {
+            i32Power = i32CalcPower;
+        }
+        else if (exhaust_temp_diff > -1.0f)
+        {
+            i32Power = i32CalcPower / 2;
+        }
+        else if (exhaust_temp_diff > -1.5f)
+        {
+            i32Power  = i32CalcPower / 3;
+        }
+        else 
+        {
+            i32Power  = 0;
+        }
+        
+        if (g_defrost_control.state == e_Defrost_Ongoing)
+        {
+            pre_heating_set_power(g_defrost_control.pre_heating_power);
         }
         else
         {
-             pre_heating_set_power(power);
+            pre_heating_set_power(i32Power);
         }
-        
-        
-  
-        
-        /*
-        if (!g_pre_heating.active)
-        {
-            if (exhaust_temp_diff > 0)
-            {
-                // start pre-heating
-                g_pre_heating.active = true;
-                g_pre_heating.calc_power = 0;
-                g_pre_heating.check_time = time(NULL) + 60;
-                pre_heating_set_power(1500);
-            }
-        }
-        else
-        {
-            if  (time(NULL) > g_pre_heating.check_time)
-            {              
-                if (g_pre_heating.calc_power + power_delta < 0)
-                {
-                    g_pre_heating.calc_power = 0;
-                    g_pre_heating.active = false;
-                }
-                else if (g_pre_heating.calc_power + power_delta > 1500)
-                {
-                    g_pre_heating.calc_power = 1500;
-                }
-                else
-                {
-                    g_pre_heating.calc_power += power_delta;
-                }
-            
-                pre_heating_set_power(g_pre_heating.calc_power);
-                
-                g_pre_heating.check_time = time(NULL) + 60;
-            }
-        }
-        */
     }
-   /* 
-		if (g_call_cnt % 12 == 0)
-		{
-			float exhaust = min(exhaust_temp, exhaust_temp_ds);
-			float target_exhaust_temp = exhaust;
-			int fan_speed = digit_get_cur_fan_speed();
-		
-			if (target_exhaust_temp < g_dew_point ||
-			    exhaust > g_dew_point)
-			{
-				target_exhaust_temp = g_dew_point;
-			}			
-			
-			if (target_exhaust_temp < g_min_exhaust_temp)
-			{
-				target_exhaust_temp = g_min_exhaust_temp;
-			}
-			if (target_exhaust_temp > 6.0f)
-			{
-				target_exhaust_temp = 6.0f;
-			}
-		
-			printf("target exhaust_temp = %f, current exhaust_temp = %f\n", target_exhaust_temp, exhaust);
-		
-			float air_flow = 15 + 10 * fan_speed;
-			float pre_heating_power = (air_flow * 1.225 * (target_exhaust_temp - exhaust)) / 0.6f;
-		
-			int ipre_heating_power = ceil(pre_heating_power / 100.0f) * 100;
-			
-			printf("pre_heating_power delta = %d\n", ipre_heating_power);		
-			pre_heating_set_power( pre_heating_get_power() + ipre_heating_power);
-			printf("new pre heating power = %d\n", pre_heating_get_power());
-			
-		}
-    }
-    */
     else
     {
         pre_heating_set_power(0);
     }
-
 }
 
+void defrost_control()
+{    
+    if (ctrl_defrost_mode() == DEFROST_MODE_ON)
+    {
+        defrost_resistor_start();
+        g_defrost_control.state = e_Measuring;
+    }        
+    else if (ctrl_defrost_mode() == DEFROST_MODE_OFF)
+    {
+        defrost_resistor_stop();
+        g_defrost_control.state = e_Measuring;
+    }
+    else
+    {
+        real32 in_eff = ctrl_filtered_in_efficiency();
+        time_t current_time = time(NULL);
+                
+        if (g_defrost_control.state == e_Measuring ||
+            g_defrost_control.state == e_Below_Limit)
+        {  
+            if (in_eff < ctrl_defrost_start_level())
+            {
+                if (g_defrost_control.state == e_Measuring)
+                {
+                    g_defrost_control.check_time = current_time;
+                    g_defrost_control.state = e_Below_Limit;
+                }
+                /*
+                else if (in_eff > g_defrost_control.in_eff_prev)
+                {
+                     g_defrost_control.state = e_Measuring;
+                }
+                */
+                else if (current_time - g_defrost_control.check_time > 
+                           ctrl_defrost_start_duration())
+                {
+                    g_defrost_control.check_time = current_time;
+                    g_defrost_control.state = e_Defrost_Ongoing;
+                }
+            }
+        }
+        else if (g_defrost_control.state == e_Defrost_Ongoing)
+        {
+            if (get_DS18B20_incoming_temp() > ctrl_defrost_target_temp() ||
+                current_time - g_defrost_control.check_time > ctrl_defrost_max_duration())
+            {
+                g_defrost_control.check_time = current_time;
+                g_defrost_control.state = e_Defrost_Stopped;
+            }
+        }
+        else if (g_defrost_control.state == e_Defrost_Stopped)
+        {
+            if (current_time - g_defrost_control.check_time > DEFROST_STOP_TIME)
+            {
+                g_defrost_control.state = e_Measuring;
+            }
+        }
+        
+        if (g_defrost_control.state == e_Defrost_Ongoing)
+        {
+            defrost_resistor_start();
+        }
+        else
+        {
+            defrost_resistor_stop();
+        }
+        g_defrost_control.in_eff_prev = in_eff;
+    }
+}
 
 
 void ctrl_logic_init()
@@ -185,9 +229,11 @@ void ctrl_logic_init()
     post_heating_counter_init();
     pre_heating_resistor_init();
     defrost_resistor_init();
+    
+    memset(&g_pre_heating, 0x0, sizeof(g_pre_heating));
+    memset(&g_defrost_control, 0x0, sizeof(g_defrost_control));
+    g_defrost_control.pre_heating_power = 1000;
 }
-
-uint32 g_call_cnt= 0;
 
 void ctrl_logic_run()
 {
@@ -196,24 +242,20 @@ void ctrl_logic_run()
     post_heating_counter_update();
     pre_heating_resistor_counter_update();
     defrost_resistor_counter_update();
-
-    ctrl_update();
     
-    if (digit_vars_ok())
+    if (digit_vars_ok() && DS18B20_vars_ok())
     {
-        pre_heating_control();
-
-        if (ctrl_defrost_mode() == DEFROST_MODE_ON)
+        ctrl_update();
+        
+        if (g_call_cnt % 2)
         {
-            defrost_resistor_start();
-        }
-        else
-        {
-            defrost_resistor_stop();
+            pre_heating_control();
+            defrost_control();
         }
     }
     else
     {
+        ctrl_init();
         pre_heating_set_power(0);
         defrost_resistor_stop();
     }

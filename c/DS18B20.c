@@ -25,6 +25,21 @@ unsigned int g_DS18B20_cnt_s1 = 0;
 unsigned int g_DS18B20_cnt_s2 = 0;
 unsigned int g_DS18B20_cnt_s3 = 0;
 
+bool DS18B20_vars_ok()
+{
+    time_t current_time = time(NULL);
+    if (current_time - g_DS18B20_timestamp_s1 > 100 ||
+        current_time - g_DS18B20_timestamp_s2 > 100 ||
+        current_time - g_DS18B20_timestamp_s3 > 100)
+    {
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+}
+
 float get_DS18B20_outside_temp()
 {
     return g_DS18B20_temp_s1;
@@ -143,7 +158,7 @@ void ds18b20_json_encode_vars(char *mesg)
                         "ts",
                         get_DS18B20_outside_temp_ts());
     json_encode_object(sub_str1,
-                       "outside_temp",
+                       "ds_outside_temp",
                        sub_str2);
     strncat(sub_str1, ",", 1);  
 
@@ -156,7 +171,7 @@ void ds18b20_json_encode_vars(char *mesg)
                         "ts",
                         get_DS18B20_exhaust_temp_ts());
     json_encode_object(sub_str1,
-                       "exhaust_temp",
+                       "ds_exhaust_temp",
                        sub_str2);
     strncat(sub_str1, ",", 1);  
     
@@ -170,7 +185,7 @@ void ds18b20_json_encode_vars(char *mesg)
                         "ts",
                         get_DS18B20_incoming_temp_ts());
     json_encode_object(sub_str1,
-                       "incoming_temp",
+                       "ds_incoming_temp",
                        sub_str2);
 
     json_encode_object(mesg,

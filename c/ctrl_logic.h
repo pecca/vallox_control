@@ -12,6 +12,14 @@
 #define PRE_HEATING_STOP_TEMP   6
 #define PRE_HEATING_ONGOING     7
 
+typedef enum
+{
+    e_Measuring,
+    e_Below_Limit,
+    e_Defrost_Ongoing,
+    e_Defrost_Stopped
+} E_defrost_state;
+
 void ctrl_logic_init();
 
 void ctrl_logic_run();
@@ -29,5 +37,7 @@ uint16 pre_heating_power_get();
 void defrost_mode_set(uint16 u16DefrostMode);
 
 uint16 defrost_mode_get();
+
+E_defrost_state defrost_state();
 
 #endif

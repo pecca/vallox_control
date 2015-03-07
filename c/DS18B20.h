@@ -17,4 +17,6 @@ time_t get_DS18B20_incoming_temp_ts();
 
 void ds18b20_json_encode_vars(char *mesg);
 
+bool DS18B20_vars_ok();
+
 #endif

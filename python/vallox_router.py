@@ -2,43 +2,113 @@ import threading
 import socket
 import time
 import sys
+import json
+import logging
+import requests
+
+VALLOX_CONTROL_UDP_PORT = 8056
+VALLOX_ROUTER_TCP_PORT = 8093
+
+DATABASE = 'test1'
+
+INFLUXDB_SERVER_IP = '178.217.128.239'
 
 udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
 tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 # Bind the socket to the port
-server_address = ('', 8092)
-print >>sys.stderr, 'starting up on %s port %s' % server_address
+server_address = ('', VALLOX_ROUTER_TCP_PORT)
+
+logging.basicConfig(filename='vallox_router.log',level=logging.DEBUG)
+
+logging.info('starting up on port %s' % VALLOX_ROUTER_TCP_PORT)
+
 tcp_sock.bind(server_address)
 
-digit_vars_str = "";
-control_vars_str = "";
-ds18b20_vars_str = "";
+DIGIT_VARS = "digit_vars"
+CONTROL_VARS = "control_vars"
+DS18B20_VARS = "ds18b20_vars"
 
+def decode_json(json_str):
+    ret = {}
+    if len(json_str) > 0 and json_str.count('{') == json_str.count('}'):
+        try:
+            ret = json.loads(json_str)
+            return ret
+        except Exception as e:
+            logging.error(e)
+            return ret
+    else:
+        logging.error("parenthesis are incorrect: " + json_str)
+        return ret
+
+def tcp_recv(socket):
+    msgOk = False
+    recv_msg = ''
+    while not msgOk:
+        try:
+            recv_msg += socket.recv(8000)
+        except Exception as e:
+            logging.error(e)
+            return ""
+        if len(recv_msg) > 0 and recv_msg.count('{') == recv_msg.count('}'):
+            msgOk = True
+    return recv_msg
+    
+    
 class UDPClientThread(threading.Thread):
-     def __init__(self):
-         super(UDPClientThread, self).__init__()
-         self.kill_received = False
+    def __init__(self):
+        super(UDPClientThread, self).__init__()
+        self.kill_received = False
+        self.vars = {}
+        self.vars[DIGIT_VARS] = {}
+        self.vars[CONTROL_VARS] = {}
+        self.vars[DS18B20_VARS] = {}
+        
+    def get_vars_from_vallox_ctrl(self, type):
+        send_msg = '{"get":"%s"}' % (type)
+        try:
+            udp_socket.sendto(send_msg, ("localhost",VALLOX_CONTROL_UDP_PORT))
+            recv_msg, addr = udp_socket.recvfrom(8000)
+            self.vars[type] = decode_json(recv_msg)
+        except Exception as e:
+            logging.error(e)   
+        
 
-     def run(self):
-        global digit_vars_str, control_vars_str, ds18b20_vars_str
+    def get_vars(self, type):
+        return self.vars[type]
+
+    def update_vars_to_database(self):
+        var_list = []
+        for type in self.vars:
+            for group in self.vars[type]:
+                for var in self.vars[type][group]:
+                    var_obj = self.vars[type][group][var]
+                    value = var_obj['value']
+                    ts = var_obj['ts']    
+                    if isinstance(value, int) or isinstance(value, float):
+                        influxdb_var = {'name' : var, 'columns' : ['val'], 'points' : [[value]]}
+                        var_list.append(influxdb_var)
+        #print "len = " + str(len(json.dumps(var_list)))
+        #print var_list
+    
+        try:
+            r = requests.post('http://%s:8086/db/%s/series?u=root&p=root' % (INFLUXDB_SERVER_IP, DATABASE), data=json.dumps(var_list))
+            if r.status_code != 200:
+                print 'Failed to add point to influxdb --aborting.'
+        except Exception as e:
+            print str(e)
+
+    
+    def run(self):
         while(not self.kill_received):
-            data = '{"get":"digit_vars"}'
-            udp_socket.sendto(data, ("localhost",8056))
-            digit_vars_str, addr = udp_socket.recvfrom(8000)
-            time.sleep(1)
-            
-            data = '{"get":"control_vars"}'
-            udp_socket.sendto(data, ("localhost",8056))
-            control_vars_str, addr = udp_socket.recvfrom(8000)
-            time.sleep(1)
-            
-            data = '{"get":"ds18b20_vars"}'
-            udp_socket.sendto(data, ("localhost",8056))
-            ds18b20_vars_str, addr = udp_socket.recvfrom(8000)
+            self.get_vars_from_vallox_ctrl(DIGIT_VARS)
+            time.sleep(2)
+            self.get_vars_from_vallox_ctrl(CONTROL_VARS)
+            time.sleep(2)            
+            self.get_vars_from_vallox_ctrl(DS18B20_VARS)
             time.sleep(10)
-
+            self.update_vars_to_database()
 
 udp_thread = UDPClientThread()
 udp_thread.daemon = True
@@ -50,34 +120,35 @@ except (KeyboardInterrupt, SystemExit):
 # Listen for incoming connections
 tcp_sock.listen(1)
 
+responseCnt = 0
+
 while True:
     # Wait for a connection
-    print >>sys.stderr, 'waiting for a connection'
-    connection, client_address = tcp_sock.accept()
+    logging.info('waiting for a connection')
+    
+    tcp_connection, client_address = tcp_sock.accept()
     try:
-        print >>sys.stderr, 'connection from', client_address
-
+        logging.info('connection from ' + str(client_address))
         while True:
-            data = connection.recv(8000)
-            print data
-            if data.find("digit_vars") > -1:
-                response_data = digit_vars_str
-            elif data.find("control_vars") > -1:          
-                response_data = control_vars_str
-            elif data.find("ds18b20_vars") > -1:
-                response_data = ds18b20_vars_str
+            msg_recv = tcp_recv(tcp_connection)
+            get_var = decode_json(msg_recv)
+            if (get_var != {}):
+                send_msg = json.dumps(udp_thread.get_vars(get_var['get']))
+                tcp_connection.sendall(send_msg)
+                responseCnt += 1
             else:
-                response_data = "no data"
+                logging.info('empty message received') 
+                time.sleep(5)
+            if not responseCnt % 50:
+                logging.info('responseCnt' + str(responseCnt))
             
-            connection.sendall(response_data)
-            #print response_data
     except:
-        connection.close()
+        tcp_connection.close()
         continue
             
     finally:
         # Clean up the connection
-        connection.close()
+        tcp_connection.close()
 
 try:
     udp_thread.join()

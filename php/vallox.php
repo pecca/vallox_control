@@ -197,11 +197,31 @@ function set_ctrl_var($fp, $var_id, $value)
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
-
-
-
-
-
+    
+    else if (isset($_POST['edit_defrost_max_duration'])) 
+    {        
+        set_ctrl_var($fp, "defrost_max_duration", $_POST['edit_defrost_max_duration_set']);
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit();
+    }
+    else if (isset($_POST['edit_defrost_start_duration'])) 
+    {        
+        set_ctrl_var($fp, "defrost_start_duration", $_POST['edit_defrost_start_duration_set']);
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit();
+    }
+    else if (isset($_POST['edit_defrost_start_level'])) 
+    {    
+        set_ctrl_var($fp, "defrost_start_level", $_POST['edit_defrost_start_level_set']);
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit();
+    }
+    else if (isset($_POST['edit_defrost_target_temp'])) 
+    {    
+        set_ctrl_var($fp, "defrost_target_temp", $_POST['edit_defrost_target_temp_set']);
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit();
+    }
 
 
 //$fp = fsockopen("udp://127.0.0.1", 32000, $errno, $errstr);
@@ -260,9 +280,9 @@ else
     $rh1_sensor = get_digit_var_test($fp, $digit_vars, "rh1_sensor", $rh1_sensor_ts);
     $basic_rh_level = get_digit_var_test($fp, $digit_vars, "basic_rh_level", $basic_rh_level_ts);
 
-    $ds18b20_sensor1 = get_ds18b20_var($fp, $ds18b20_vars, "outside_temp", $ds18b20_sensor1_ts);
-    $ds18b20_sensor2 = get_ds18b20_var($fp, $ds18b20_vars, "exhaust_temp", $ds18b20_sensor2_ts);
-    $ds18b20_sensor3 = get_ds18b20_var($fp, $ds18b20_vars, "incoming_temp", $ds18b20_sensor3_ts);
+    $ds18b20_sensor1 = get_ds18b20_var($fp, $ds18b20_vars, "ds_outside_temp", $ds18b20_sensor1_ts);
+    $ds18b20_sensor2 = get_ds18b20_var($fp, $ds18b20_vars, "ds_exhaust_temp", $ds18b20_sensor2_ts);
+    $ds18b20_sensor3 = get_ds18b20_var($fp, $ds18b20_vars, "ds_incoming_temp", $ds18b20_sensor3_ts);
   
     $am2302_temp = get_am2302_var($fp, AM2302_TEMP, $am2302_temp_ts);
     $am2302_rh = get_am2302_var($fp, AM2302_RH, $am2302_rh_ts);
@@ -270,12 +290,20 @@ else
     $post_heating_on_time_total = get_ctrl_var($fp, $control_vars, "post_heating_time");
     $pre_heating_on_time_total = get_ctrl_var($fp,$control_vars, "pre_heating_time");
     $defrost_on_time_total = get_ctrl_var($fp, $control_vars, "defrost_time");
-
+    $defrost_on_time = get_ctrl_var($fp, $control_vars, "defrost_on_time");
+    
     $pre_heating_mode = get_ctrl_var($fp, $control_vars, "pre_heating_mode");
     $pre_heating_power = get_ctrl_var($fp, $control_vars, "pre_heating_power");
     $defrost_mode = get_ctrl_var($fp, $control_vars, "defrost_mode");
     $min_exhaust_temp = get_ctrl_var($fp, $control_vars, "min_exhaust_temp");
-	
+    
+
+    $defrost_max_duration = get_ctrl_var($fp, $control_vars, "defrost_max_duration");
+    $defrost_start_duration = get_ctrl_var($fp, $control_vars, "defrost_start_duration");
+    $defrost_start_level = get_ctrl_var($fp, $control_vars, "defrost_start_level");
+    $defrost_target_temp = get_ctrl_var($fp, $control_vars, "defrost_target_temp");
+    
+    
     $t = floatval($inside_temp);
     $rh = $rh1_sensor / 100; 
     $a = floatval(17.27);
@@ -294,6 +322,8 @@ else
     //$outcoming_air_efficiency = round(floatval((floatval($inside_temp) - floatval($exhaust_temp)) / (floatval($inside_temp) - floatval($ds18b20_sensor1))) * 100,1);
     $incoming_air_efficiency = get_ctrl_var($fp, $control_vars, "in_efficiency");
     $outcoming_air_efficiency = get_ctrl_var($fp, $control_vars, "out_efficiency");
+    $incoming_air_efficiency_filtered = get_ctrl_var($fp, $control_vars, "in_efficiency_filtered");
+    $outcoming_air_efficiency_filtered = get_ctrl_var($fp, $control_vars, "out_efficiency_filtered");    
     
     $incoming_air_efficiency_2 = round(floatval((floatval($ds18b20_sensor3) - floatval($outside_temp)) / (floatval($inside_temp) - floatval($outside_temp))) * 100,1);
     $outcoming_air_efficiency_2 = round(floatval((floatval($inside_temp) - floatval($exhaust_temp)) / (floatval($inside_temp) - floatval($outside_temp))) * 100,1);
@@ -489,9 +519,24 @@ else
          <td>Average</td>
           <td><?php echo  round(($outcoming_air_efficiency + $incoming_air_efficiency) / 2, 1) . " %";  ?></td>
          </tr>
-
     </table>
 
+    <table border="1">
+    <caption>LTO efficiency filtered (after radioator)</caption>
+         <tr>
+         <td>Incoming air</td>
+          <td><?php echo  $incoming_air_efficiency_filtered . " %";  ?></td>
+         </tr>
+         <tr>
+         <td>Outcoming air</td>
+          <td><?php echo  $outcoming_air_efficiency_filtered . " %";  ?></td>
+         </tr>
+         <tr>
+         <td>Average</td>
+          <td><?php echo  round(($outcoming_air_efficiency_filtered + $incoming_air_efficiency_filtered) / 2, 1) . " %";  ?></td>
+         </tr>
+    </table>    
+    
     <table border="1">
     <caption>LTO efficiency (outside temp) </caption>
          <tr>
@@ -568,14 +613,13 @@ else
     </table>
 
    <table border="1">
-    <caption>Heating control</caption>
-
+    <caption>Pre heating control</caption>
          <tr>
          <td>Pre heating mode</td>
         <td> <?php echo $pre_heating_mode;  ?> </td>
         <td>
          <form method="post">
-			<input type="radio" name="edit_pre_heating_mode_set" value="0" /> Off
+            <input type="radio" name="edit_pre_heating_mode_set" value="0" /> Off
             <input type="radio" name="edit_pre_heating_mode_set" value="1" /> On
             <input type="radio" name="edit_pre_heating_mode_set" value="2" /> Auto
             <input type='submit' name='edit_pre_heating_mode' value="Set" />
@@ -609,7 +653,7 @@ else
          </form>
          </td>
          </tr>
-				 
+                 
          <tr>
          <td>Min exhaust temp</td>
         <td> <?php echo $min_exhaust_temp . " *C"; ?> </td>
@@ -620,21 +664,68 @@ else
          </form>
          </td>
           </tr>
-          <tr>
-          <tr>
-         <td>Defrost mode</td>
-         <td> <?php echo $defrost_mode; ?> </td>
-        <td>
-         <form method="post">
-            <input type="radio" name="edit_defrost_mode_set" value="0" /> Off
-            <input type="radio" name="edit_defrost_mode_set" value="1" /> On
-            <input type="radio" name="edit_defrost_mode_set" value="2" /> Auto
-            <input type='submit' name='edit_defrost_mode' value="Set" />
-         </form>
-         </td>
-         </tr>
     </table -->
 
+   <table border="1">
+    <caption>Defrost control</caption>
+        <tr>
+        <td>Defrost mode</td>
+        <td> <?php echo $defrost_mode; ?> </td>
+        <td>
+            <form method="post">
+                <input type="radio" name="edit_defrost_mode_set" value="0" /> Off
+                <input type="radio" name="edit_defrost_mode_set" value="1" /> On
+                <input type="radio" name="edit_defrost_mode_set" value="2" /> Auto
+                <input type='submit' name='edit_defrost_mode' value="Set" />
+            </form>
+        </td>
+        </tr>
+        <tr>
+        <td>Defrost time</td>
+        <td> <?php echo $defrost_on_time . " s"; ?> </td>
+        </tr> 
+        <tr>
+        <td>Start level (LTO efficiency incoming air)</td>
+        <td> <?php echo $defrost_start_level . " %"; ?> </td>
+        <td>
+            <form method="post">
+                <input type="text" name="edit_defrost_start_level_set" size="2" />
+                <input type='submit' name='edit_defrost_start_level' value="Set" />
+            </form>
+        </td>
+        </tr>
+        <tr>
+        <td>Start duration (LTO efficiency incoming air is below the start level)</td>
+        <td> <?php echo $defrost_start_duration . " min"; ?> </td>
+        <td>
+            <form method="post">
+                <input type="text" name="edit_defrost_start_duration_set" size="2" />
+                <input type='submit' name='edit_defrost_start_duration' value="Set" />
+            </form>
+        </td>
+        </tr>
+        <tr>
+        <td>Max duration of defrost</td>
+        <td> <?php echo $defrost_max_duration . " min"; ?> </td>
+        <td>
+            <form method="post">
+                <input type="text" name="edit_defrost_max_duration_set" size="2" />
+                <input type='submit' name='edit_defrost_max_duration' value="Set" />
+            </form>
+        </td>
+        </tr>
+        <tr>
+        <td>Target incoming temp</td>
+        <td> <?php echo $defrost_target_temp . " *C"; ?> </td>
+        <td>
+            <form method="post">
+                <input type="text" name="edit_defrost_target_temp_set" size="2" />
+                <input type='submit' name='edit_defrost_target_temp' value="Set" />
+            </form>
+        </td>
+        </tr>        
+    </table -->    
+    
     <table border="1">
     <caption>DS18B20 sensors</caption>
          <tr>

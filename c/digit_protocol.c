@@ -273,7 +273,7 @@ T_digit_var *digit_get_var_by_name(char *name)
 void digit_recv_msg(byte id, byte value)
 {
     T_digit_var *var = digit_get_var_by_id(id);
-	//printf("recv_msg: id = %02X\n", id);
+    //printf("recv_msg: id = %02X\n", id);
     if (var)
     {
         if (var->set_ongoing)
@@ -281,19 +281,19 @@ void digit_recv_msg(byte id, byte value)
             if (value == var->expected_value)
             {
                 // set request accomplished
-				//printf("set resp received: id = %02X, cnt = %d\n", id, var->set_req_cnt);
+                //printf("set resp received: id = %02X, cnt = %d\n", id, var->set_req_cnt);
                 var->set_ongoing = false;
-				var->set_req_cnt = 0;
+                var->set_req_cnt = 0;
             }            
         }
         var->value = value;
         var->timestamp = time(NULL);
-		if (var->get_ongoing)
-		{
-			//printf("get resp received: id = %02X, cnt = %d\n", id, var->get_req_cnt);
-			var->get_ongoing = false;
-			var->get_req_cnt = 0;
-		}
+        if (var->get_ongoing)
+        {
+            //printf("get resp received: id = %02X, cnt = %d\n", id, var->get_req_cnt);
+            var->get_ongoing = false;
+            var->get_req_cnt = 0;
+        }
     }
 }
 
@@ -342,7 +342,7 @@ void digit_send_get_var(byte id)
     // encode get request
     byte msg[6] = { SYSTEM_ID, PI_ADDRESS, DEVICE_ADDRESS, 0, id, 0 };
     digit_send_msg(msg);
-//	printf("send_msg: id = %02X\n", id);
+//  printf("send_msg: id = %02X\n", id);
 }
 
 void digit_send_set_var(byte id, byte value)
@@ -378,13 +378,13 @@ void digit_update_vars()
                 digit_send_set_var(var->id, var->expected_value);
                 // set get flag in order to check set request
                 var->get_ongoing = true;
-			    var->set_req_cnt++;
+                var->set_req_cnt++;
             }
             else
             {
                 // value correct, no need to send set request
                 var->set_ongoing = false;
-				var->set_req_cnt = 0;
+                var->set_req_cnt = 0;
             }
         }
     }    
@@ -396,7 +396,7 @@ void digit_update_vars()
         if (var->get_ongoing == true)
         {            
            digit_send_get_var(var->id);
-		   var->get_req_cnt++;
+           var->get_req_cnt++;
         }
     }
     
@@ -409,7 +409,7 @@ void digit_update_vars()
         {
             // set get flag in order to send get request
             var->get_ongoing = true;
-			var->get_req_cnt++;
+            var->get_req_cnt++;
         }
     }    
     
@@ -444,8 +444,8 @@ void digit_receive_msgs(void)
 
 float digit_get_rh1_sensor()
 {
-    T_digit_var *var = &g_digit_vars[RH1_SENSOR_INDEX];	
-	return (var->value - 51)/2.04;
+    T_digit_var *var = &g_digit_vars[RH1_SENSOR_INDEX]; 
+    return (var->value - 51)/2.04;
 }
 
 float digit_get_outside_temp()
@@ -495,7 +495,7 @@ float digit_get_post_heating_on_cnt(void)
 int digit_get_cur_fan_speed(void)
 {
     T_digit_var *var = &g_digit_vars[CUR_FAN_SPEED_INDEX];
-	int fan_speed = get_fan_speed(var->value);
+    int fan_speed = get_fan_speed(var->value);
     return fan_speed;
 }
 
