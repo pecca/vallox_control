@@ -1,4 +1,6 @@
 
+#if 0
+
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -8,6 +10,11 @@
 #include <time.h>
 #include <math.h>
 #include <string.h>
+
+#endif
+
+#include "common.h"
+
 #include "digit_protocol.h"
 #include "rs485.h"
 #include "temperature_conversion.h"
