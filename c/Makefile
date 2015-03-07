@@ -14,7 +14,6 @@ OBJ = \
     defrost_resistor.o \
     pre_heating_resistor.o \
     post_heating_counter.o \
-    ctrl_variables.o \
     jsmn.o \
     json_codecs.o
 

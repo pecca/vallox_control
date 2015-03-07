@@ -1,11 +1,10 @@
 
-#include <stdio.h>
-#include <string.h>
 #include "common.h"
+
 #include "jsmn.h"
 #include "json_codecs.h"
 #include "digit_protocol.h"
-#include "ctrl_variables.h"
+#include "ctrl_logic.h"
 #include "DS18B20.h"
 
 #define MAX_NUM_JSON_TOKENS (128)
