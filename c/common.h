@@ -25,6 +25,7 @@
 #endif
 
 typedef unsigned char  byte;
+typedef unsigned char  uint8;
 typedef unsigned int   uint32;
 typedef unsigned short uint16;
 typedef float          real32;

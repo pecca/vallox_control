@@ -5,12 +5,13 @@
 #include <time.h>
 #include "common.h"
 
+#if 0
+
 #define SYSTEM_ID      0x01
 
 #define DEVICE_ADDRESS 0x11
 #define PANEL_ADDRESS  0x21
 #define PI_ADDRESS     0x22
-
 
 #define CUR_FAN_SPEED               0x29
 #define OUTSIDE_TEMP                0x32
@@ -139,9 +140,11 @@ typedef struct
 
 } T_digit_var;
 
-void *pvDigit_receive_thread(void *ptr);
+#endif
 
-void *pvDigit_update_thread(void *ptr);
+void *digit_receive_thread(void *ptr);
+
+void *digit_update_thread(void *ptr);
 
 void digit_init(void);
 
@@ -151,7 +154,7 @@ void digit_receive_msgs(void);
 
 void digit_update_vars();
 
-void digit_set_var(T_digit_var *var, byte value);
+//void digit_set_var(T_digit_var *var, byte value);
 
 real32 digit_get_rh1_sensor();
 
