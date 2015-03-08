@@ -133,10 +133,10 @@
  *  Data type declarations
  ******************************************************************************/
 
-// Encode function type
-typedef uint8 (*u8_encode_t) (char*);
 // Decode function type
-typedef void (*decode_t) (uint8, char*);
+typedef uint8 (*u8_decode_t) (char*);
+// Encode function type
+typedef void (*encode_t) (uint8, char*);
 
 typedef struct
 {
@@ -150,8 +150,8 @@ typedef struct
     bool set_ongoing;
     uint32 get_req_cnt;
     uint32 set_req_cnt;
-    u8_encode_t StrToValue;
-    decode_t ValueToStr;
+    u8_decode_t decodeFunPtr;
+    encode_t encodeFunPtr;
 } T_digit_var;
 
 /******************************************************************************
@@ -214,7 +214,7 @@ void digit_json_encode_vars(char *str)
     {
         strcpy(sub_str2, "");
     
-        g_digit_vars[i].ValueToStr(g_digit_vars[i].value, sub_str3);
+        g_digit_vars[i].encodeFunPtr(g_digit_vars[i].value, sub_str3);
         json_encode_string(sub_str2,
                            "value",
                            sub_str3);
@@ -242,7 +242,7 @@ void digit_json_encode_vars(char *str)
 void digit_set_var_by_name(char *name, char *str_value)
 {
     T_digit_var *var = digit_get_var_by_name(name);
-    uint8 value = var->StrToValue(str_value);
+    uint8 value = var->decodeFunPtr(str_value);
     
     digit_set_var(var, value);
 }
@@ -267,19 +267,19 @@ int get_fan_speed(uint8 value)
 
 
 
-uint8 u8_encode_Temperature(char *str)
+uint8 StrToValue_Temperature(char *str)
 {
     real32 temp;
     sscanf(str, "%f", &temp); 
     return celsius_to_NTC(temp);
 }
 
-void decode_Temperature(uint8 value, char *str)
+void ValueToStr_Temperature(uint8 value, char *str)
 {
     sprintf(str, "%.1f", NTC_to_celsius(value));
 }
 
-uint8 u8_encode_FanSpeed(char *str)
+uint8 StrToValue_FanSpeed(char *str)
 {
     uint8 ret = 0;
     int fan_speed;
@@ -291,18 +291,18 @@ uint8 u8_encode_FanSpeed(char *str)
     return ret;
 }
 
-void decode_FanSpeed(uint8 value, char *str)
+void ValueToStr_FanSpeed(uint8 value, char *str)
 {
     int fan_speed = get_fan_speed(value);
     sprintf(str, "%d", fan_speed);
 }
 
-void decode_BitMap(uint8 value, char *str)
+void ValueToStr_BitMap(uint8 value, char *str)
 {
     sprintf(str, "\"%X\"", value);
 }
 
-void decode_IO_gate_1(uint8 value, char *str)
+void ValueToStr_IO_gate_1(uint8 value, char *str)
 {
     int fan_speed = get_fan_speed(value);
 
@@ -313,7 +313,7 @@ void decode_IO_gate_1(uint8 value, char *str)
     strncat(str, "}", 1);
 }
 
-void decode_IO_gate_2(uint8 value, char *str)
+void ValueToStr_IO_gate_2(uint8 value, char *str)
 {
     strcpy(str, "{");
     json_encode_integer(str,
@@ -322,7 +322,7 @@ void decode_IO_gate_2(uint8 value, char *str)
     strncat(str, "}", 1);                         
 }
 
-void decode_IO_gate_3(uint8 value, char *str)
+void ValueToStr_IO_gate_3(uint8 value, char *str)
 {
     strcpy(str, "{");
     json_encode_integer(str,
@@ -351,7 +351,7 @@ void decode_IO_gate_3(uint8 value, char *str)
     strncat(str, "}", 1);                        
 }
 
-void decode_Leds(uint8 value, char *str)
+void ValueToStr_Leds(uint8 value, char *str)
 {
     strcpy(str, "{");
     json_encode_integer(str,
@@ -388,85 +388,85 @@ void decode_Leds(uint8 value, char *str)
     strncat(str, "}", 1); 
 }
 
-void decode_RH(uint8 value, char *str)
+void ValueToStr_RH(uint8 value, char *str)
 {
     int rh = (value - 51)/2.04;
     sprintf(str, "%d", rh);
 }
 
-void decode_Counter(uint8 value, char *str)
+void ValueToStr_Counter(uint8 value, char *str)
 {
     int secs = value/2.5;
     sprintf(str, "%d", secs);
 }
 
-uint8 u8_encode_CellDeFroHyst(char *str)
+uint8 StrToValue_CellDeFroHyst(char *str)
 {
     int hyst;
     sscanf(str, "%d", &hyst);
     return hyst + 2;
 }
 
-void decode_CellDeFroHyst(uint8 value, char *str)
+void ValueToStr_CellDeFroHyst(uint8 value, char *str)
 {
     int hysteresis = value - 2;
     sprintf(str, "%d", hysteresis);
 }
 
-uint8 u8_encode_FanPower(char *str)
+uint8 StrToValue_FanPower(char *str)
 {
     int fan_power;
     sscanf(str, "%d", &fan_power);
     return fan_power;
 }
 
-void decode_FanPower(uint8 value, char *str)
+void ValueToStr_FanPower(uint8 value, char *str)
 {
     sprintf(str, "%d", value);
 }
 
-void digit_init_var(uint8 index, uint8 id, char *name, time_t interval, u8_encode_t strToValue, decode_t valueToStr)
+void digit_init_var(uint8 index, uint8 id, char *name, time_t interval, u8_decode_t decodeFunPtr, encode_t encodeFunPtr)
 {
     T_digit_var *digit_var = &g_digit_vars[index];
     
     digit_var->id = id;
     strcpy(digit_var->name_str, name);
     digit_var->interval = interval;
-    digit_var->StrToValue = strToValue;
-    digit_var->ValueToStr = valueToStr;
+    digit_var->decodeFunPtr = decodeFunPtr;
+    digit_var->encodeFunPtr = encodeFunPtr;
 } 
 
 void digit_init(void)
 {
     memset(&g_digit_vars, 0, sizeof(g_digit_vars));
     
-    digit_init_var(DIGIT_PARAM(CUR_FAN_SPEED), 120, &u8_encode_FanSpeed, &decode_FanSpeed);
-    digit_init_var(DIGIT_PARAM(OUTSIDE_TEMP), 15, NULL, &decode_Temperature);
-    digit_init_var(DIGIT_PARAM(EXHAUST_TEMP), 15, NULL, &decode_Temperature);
-    digit_init_var(DIGIT_PARAM(INSIDE_TEMP), 15, NULL, &decode_Temperature);
-    digit_init_var(DIGIT_PARAM(INCOMING_TEMP), 15, NULL, &decode_Temperature);
-    digit_init_var(DIGIT_PARAM(POST_HEATING_ON_CNT), 5, NULL, &decode_Counter);
-    digit_init_var(DIGIT_PARAM(POST_HEATING_OFF_CNT), 5, NULL, &decode_Counter);
-    digit_init_var(DIGIT_PARAM(INCOMING_TARGET_TEMP), 200, &u8_encode_Temperature, &decode_Temperature);
-    digit_init_var(DIGIT_PARAM(PANEL_LEDS), 20, NULL, &decode_Leds);
-    digit_init_var(DIGIT_PARAM(MAX_FAN_SPEED), 200, &u8_encode_FanSpeed, &decode_FanSpeed);
-    digit_init_var(DIGIT_PARAM(MIN_FAN_SPEED), 20, &u8_encode_FanSpeed, &decode_FanSpeed);
-    digit_init_var(DIGIT_PARAM(HRC_BYPASS_TEMP), 120, &u8_encode_Temperature, &decode_Temperature);
-    digit_init_var(DIGIT_PARAM(INPUT_FAN_STOP_TEMP), 120, &u8_encode_Temperature, &decode_Temperature);
-    digit_init_var(DIGIT_PARAM(CELL_DEFROSTING_HYSTERESIS), 120, &u8_encode_CellDeFroHyst, &decode_CellDeFroHyst);
-    digit_init_var(DIGIT_PARAM(DC_FAN_INPUT), 120, &u8_encode_FanPower, &decode_FanPower);
-    digit_init_var(DIGIT_PARAM(DC_FAN_OUTPUT), 120, &u8_encode_FanPower, &decode_FanPower);
-    digit_init_var(DIGIT_PARAM(FLAGS_2), 20, NULL, &decode_BitMap);
-    digit_init_var(DIGIT_PARAM(FLAGS_4), 20, NULL, &decode_BitMap);
-    digit_init_var(DIGIT_PARAM(FLAGS_5), 20, NULL, &decode_BitMap);
-    digit_init_var(DIGIT_PARAM(FLAGS_6), 20, NULL, &decode_BitMap);
-    digit_init_var(DIGIT_PARAM(RH_MAX), 200, NULL, &decode_RH);
-    digit_init_var(DIGIT_PARAM(RH1_SENSOR), 20, NULL, decode_RH);
-    digit_init_var(DIGIT_PARAM(BASIC_RH_LEVEL), 120, NULL, decode_RH);
-    digit_init_var(DIGIT_PARAM(PRE_HEATING_TEMP), 200, &u8_encode_Temperature, &decode_Temperature);
-    digit_init_var(DIGIT_PARAM(IO_GATE_1), 200, NULL, &decode_IO_gate_1);
-    digit_init_var(DIGIT_PARAM(IO_GATE_2), 200, NULL, &decode_IO_gate_2);
-    digit_init_var(DIGIT_PARAM(IO_GATE_3), 200, NULL, &decode_IO_gate_3);
+    digit_init_var(DIGIT_PARAM(CUR_FAN_SPEED), 120, &StrToValue_FanSpeed, &ValueToStr_FanSpeed);
+    digit_init_var(DIGIT_PARAM(OUTSIDE_TEMP), 15, NULL, &ValueToStr_Temperature);
+    digit_init_var(DIGIT_PARAM(EXHAUST_TEMP), 15, NULL, &ValueToStr_Temperature);
+    digit_init_var(DIGIT_PARAM(INSIDE_TEMP), 15, NULL, &ValueToStr_Temperature);
+    digit_init_var(DIGIT_PARAM(INCOMING_TEMP), 15, NULL, &ValueToStr_Temperature);
+    digit_init_var(DIGIT_PARAM(POST_HEATING_ON_CNT), 5, NULL, &ValueToStr_Counter);
+    digit_init_var(DIGIT_PARAM(POST_HEATING_OFF_CNT), 5, NULL, &ValueToStr_Counter);
+    digit_init_var(DIGIT_PARAM(INCOMING_TARGET_TEMP), 200, &StrToValue_Temperature, &ValueToStr_Temperature);
+    digit_init_var(DIGIT_PARAM(PANEL_LEDS), 20, NULL, &ValueToStr_Leds);
+    digit_init_var(DIGIT_PARAM(MAX_FAN_SPEED), 200, &StrToValue_FanSpeed, &ValueToStr_FanSpeed);
+    digit_init_var(DIGIT_PARAM(MIN_FAN_SPEED), 20, &StrToValue_FanSpeed, &ValueToStr_FanSpeed);
+    digit_init_var(DIGIT_PARAM(HRC_BYPASS_TEMP), 120, &StrToValue_Temperature, &ValueToStr_Temperature);
+    digit_init_var(DIGIT_PARAM(INPUT_FAN_STOP_TEMP), 120, &StrToValue_Temperature, &ValueToStr_Temperature);
+    digit_init_var(DIGIT_PARAM(CELL_DEFROSTING_HYSTERESIS), 120, &StrToValue_CellDeFroHyst, &ValueToStr_CellDeFroHyst);
+    digit_init_var(DIGIT_PARAM(DC_FAN_INPUT), 120, &StrToValue_FanPower, &ValueToStr_FanPower);
+    digit_init_var(DIGIT_PARAM(DC_FAN_OUTPUT), 120, &StrToValue_FanPower, &ValueToStr_FanPower);
+    digit_init_var(DIGIT_PARAM(FLAGS_2), 20, NULL, &ValueToStr_BitMap);
+    digit_init_var(DIGIT_PARAM(FLAGS_4), 20, NULL, &ValueToStr_BitMap);
+    digit_init_var(DIGIT_PARAM(FLAGS_5), 20, NULL, &ValueToStr_BitMap);
+    digit_init_var(DIGIT_PARAM(FLAGS_6), 20, NULL, &ValueToStr_BitMap);
+    digit_init_var(DIGIT_PARAM(RH_MAX), 200, NULL, &ValueToStr_RH);
+    digit_init_var(DIGIT_PARAM(RH1_SENSOR), 20, NULL, ValueToStr_RH);
+    digit_init_var(DIGIT_PARAM(BASIC_RH_LEVEL), 120, NULL, ValueToStr_RH);
+    digit_init_var(DIGIT_PARAM(PRE_HEATING_TEMP), 200, &StrToValue_Temperature, &ValueToStr_Temperature);
+    digit_init_var(DIGIT_PARAM(IO_GATE_1), 200, NULL, &ValueToStr_IO_gate_1);
+    digit_init_var(DIGIT_PARAM(IO_GATE_2), 200, NULL, &ValueToStr_IO_gate_2);
+    digit_init_var(DIGIT_PARAM(IO_GATE_3), 200, NULL, &ValueToStr_IO_gate_3);
 }
 
 bool digit_vars_ok(void)
