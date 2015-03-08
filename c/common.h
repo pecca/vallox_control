@@ -1,6 +1,16 @@
+/**
+ * @file   common.h
+ * @Author Pekka Mäkelä (pekka.makela@iki.fi)
+ * @brief  Common declarations. 
+ */
+
 #ifndef COMMON_H
 #define COMMON_H
 
+ /******************************************************************************
+ *  Includes
+ ******************************************************************************/ 
+ 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,11 +30,19 @@
 #include <termios.h>
 #include <stdbool.h>
 
+/******************************************************************************
+ *  Macros
+ ******************************************************************************/ 
+ 
 #ifndef max
 #define max(a,b) (((a) > (b)) ? (a) : (b))
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #endif
 
+/******************************************************************************
+ *  Data type declarations
+ ******************************************************************************/ 
+ 
 typedef unsigned char  byte;
 typedef unsigned char  uint8;
 typedef unsigned int   uint32;

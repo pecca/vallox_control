@@ -5,23 +5,10 @@
 <body>
 <?php 
 
-
 $page = $_SERVER['PHP_SELF'];
 $sec = "30";
 
 header("Refresh: $sec; url=$page");
-
-define("AM2302_TEMP", "1");
-define("AM2302_RH", "2");
-
-define("CTRL_VAR_ID_PRE_HEATING_POWER", "1");
-define("CTRL_VAR_ID_PRE_HEATING_MODE", "2");
-define("CTRL_VAR_ID_PRE_HEATING_ON_TIME_TOTAL", "3");
-define("CTRL_VAR_ID_POST_HEATING_ON_TIME_TOTAL", "4");
-define("CTRL_VAR_ID_DEFROST_MODE", "5");
-define("CTRL_VAR_ID_DEFROST_ON_TIME", "6");
-define("CTRL_VAR_ID_DEFROST_ON_TIME_TOTAL", "7");
-
 
 function pp($arr)
 {
@@ -197,7 +184,6 @@ function set_ctrl_var($fp, $var_id, $value)
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
-    
     else if (isset($_POST['edit_defrost_max_duration'])) 
     {        
         set_ctrl_var($fp, "defrost_max_duration", $_POST['edit_defrost_max_duration_set']);
@@ -224,15 +210,14 @@ function set_ctrl_var($fp, $var_id, $value)
     }
 
 
-//$fp = fsockopen("udp://127.0.0.1", 32000, $errno, $errstr);
 
-if (!$fp) {
-    echo "ERROR: $errno - $errstr<br />\n";
-}
-else
-{
 
-    
+    if (!$fp) 
+    {
+        echo "ERROR: $errno - $errstr<br />\n";
+    }
+    else
+    {  
     $digit_vars = get_digit_vars($fp);
     $digit_vars = $digit_vars['digit_vars'];
     
@@ -308,18 +293,10 @@ else
     $rh = $rh1_sensor / 100; 
     $a = floatval(17.27);
     $b = floatval(237.7);
-
     $z =  ((($a * $t) / ($b + $t)) + log($rh));
-    //$dew_point = round((($b * $z) / ($a - $z)), 1);
     $dew_point = get_ctrl_var($fp, $control_vars, "dew_point");
-    
-  
     $air_flow = 15 + 10 * $cur_fan_speed;
     $radiator_watt = round($air_flow * 1.225 * ($ds18b20_sensor1 - $outside_temp),1); 
-        
-
-    //$incoming_air_efficiency = round(floatval(($incoming_temp - floatval($ds18b20_sensor1)) / (floatval($inside_temp) - floatval($ds18b20_sensor1))) * 100,1);
-    //$outcoming_air_efficiency = round(floatval((floatval($inside_temp) - floatval($exhaust_temp)) / (floatval($inside_temp) - floatval($ds18b20_sensor1))) * 100,1);
     $incoming_air_efficiency = get_ctrl_var($fp, $control_vars, "in_efficiency");
     $outcoming_air_efficiency = get_ctrl_var($fp, $control_vars, "out_efficiency");
     $incoming_air_efficiency_filtered = get_ctrl_var($fp, $control_vars, "in_efficiency_filtered");
@@ -327,8 +304,6 @@ else
     
     $incoming_air_efficiency_2 = round(floatval((floatval($ds18b20_sensor3) - floatval($outside_temp)) / (floatval($inside_temp) - floatval($outside_temp))) * 100,1);
     $outcoming_air_efficiency_2 = round(floatval((floatval($inside_temp) - floatval($exhaust_temp)) / (floatval($inside_temp) - floatval($outside_temp))) * 100,1);
-
-    
     fclose($fp);
 }
 ?> 

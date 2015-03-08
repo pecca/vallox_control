@@ -89,9 +89,6 @@ class UDPClientThread(threading.Thread):
                     if isinstance(value, int) or isinstance(value, float):
                         influxdb_var = {'name' : var, 'columns' : ['val'], 'points' : [[value]]}
                         var_list.append(influxdb_var)
-        #print "len = " + str(len(json.dumps(var_list)))
-        #print var_list
-    
         try:
             r = requests.post('http://%s:8086/db/%s/series?u=root&p=root' % (INFLUXDB_SERVER_IP, DATABASE), data=json.dumps(var_list))
             if r.status_code != 200:
