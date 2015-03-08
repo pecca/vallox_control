@@ -1,32 +1,45 @@
-#include "pre_heating_resistor.h"
+/**
+ * @file   pre_heating_resistor.c
+ * @Author Pekka Mäkelä (pekka.makela@iki.fi)
+ * @brief  Implementation of pre-heating resistor. 
+ */
+
+/******************************************************************************
+ *  Includes
+ ******************************************************************************/ 
+
+#include "common.h"
 #include "relay_control.h"
-#include <time.h>
-#include <unistd.h>
-#include <stdio.h>
-
-#define BACKUP_FILE_NAME "pre_heating_value.txt"
-
-#define CHECK_CALL_CNT_INTERVAL_IN_SEC 5 //
-
-#define BACKUP_ON_TIME_COUNTER_INTERVAL_IN_SEC (60*60) // once per hour  
-
-const uint16 c_u16PreHeatingRelayPin = 17;
-
-static uint32 g_u32StoppedTime = 0;
-
-static uint32 g_u32OnTimeTotal = 0;
-
-static uint32 g_u32CheckCallCnt = 0;
-
-static uint16 g_u16PreHeatingActivePowerIndex = 0;
-
-static bool g_bInitDone = false;
-
+#include "ctrl_logic.h"
+ 
+/******************************************************************************
+ *  Constants
+ ******************************************************************************/ 
+ 
+#define BACKUP_FILE_NAME                        "pre_heating_value.txt"
+#define BACKUP_ON_TIME_COUNTER_INTERVAL_IN_SEC  (60*60) // once per hour  
+#define PRE_HEATING_RESISTOR_CHECK_INTERVAL     CTRL_LOGIC_TIMELEVEL
+#define PRE_HEATING_RELAY_PIN                   17
+ 
+/******************************************************************************
+ *  Data type declarations
+ ******************************************************************************/
+ 
 typedef struct
 {
     uint16 u16OnTime;
     uint16 u16OffTime;
 } T_pre_heating_power;
+ 
+/******************************************************************************
+ *  Local variables
+ ******************************************************************************/
+
+static uint32 g_u32StoppedTime = 0;
+static uint32 g_u32OnTimeTotal = 0;
+static uint32 g_u32CheckCallCnt = 0;
+static uint16 g_u16PreHeatingActivePowerIndex = 0;
+static bool g_bInitDone = false;
 
 T_pre_heating_power g_atpre_heating_power[] = 
 { 
@@ -48,32 +61,21 @@ T_pre_heating_power g_atpre_heating_power[] =
   {5,  0}   // 1500 W
 };
 
-static void read_on_time_from_file()
-{
-    FILE *file = fopen(BACKUP_FILE_NAME, "r");
-    if (file)
-    {
-        fscanf(file, "%d", &g_u32OnTimeTotal);
-        fclose(file);
-    }
-}
+/******************************************************************************
+ *  Local function declarations
+ ******************************************************************************/
 
-static void save_on_time_to_file()
-{
-    FILE *file = fopen(BACKUP_FILE_NAME, "w");
-    if (file)
-    {
-        fprintf(file, "%d\n", g_u32OnTimeTotal);
-        fclose(file);
-    }
-}
+static void read_on_time_from_file();
+static void save_on_time_to_file();
+
+/******************************************************************************
+ *  Global function implementation
+ ******************************************************************************/
 
 void pre_heating_resistor_init(void)
 {
-    relay_control_init(c_u16PreHeatingRelayPin);
-
+    relay_control_init(PRE_HEATING_RELAY_PIN);
     read_on_time_from_file();
-
     g_bInitDone = true;
 }
 
@@ -92,51 +94,42 @@ void pre_heating_set_power(uint16 u16Power)
     {
         g_u32StoppedTime = time(NULL);
     }
-
     g_u16PreHeatingActivePowerIndex = u16PowerIndex;
 }
 
-void *pvPre_heating_thread(void *ptr)
-{
-    pre_heating_resistor_thread();
-    return NULL;
-}
-
-void pre_heating_resistor_thread(void)
+void *pre_heating_thread(void *ptr)
 {
     bool bResistorOn = false;
 
-    while(1)
+    while(true)
     {
         if (g_bInitDone == false) 
         {
             sleep(1);
             continue; 
         }
-
         T_pre_heating_power *power = &g_atpre_heating_power[g_u16PreHeatingActivePowerIndex];
         if (power->u16OnTime > 0)
         {
             if (bResistorOn == false)
             {
-                relay_control_set_on(c_u16PreHeatingRelayPin);
+                relay_control_set_on(PRE_HEATING_RELAY_PIN);
                 bResistorOn = true;
             }
             sleep(power->u16OnTime);
             g_u32OnTimeTotal += power->u16OnTime;
         }
-        
         if (power->u16OffTime > 0)
         {
             if (bResistorOn == true)
             {
-                relay_control_set_off(c_u16PreHeatingRelayPin);
+                relay_control_set_off(PRE_HEATING_RELAY_PIN);
                 bResistorOn = false;
             }
             sleep(power->u16OffTime);
         }
-
     }
+    return NULL;
 }
 
 void pre_heating_resistor_counter_update()
@@ -165,12 +158,37 @@ void pre_heating_resistor_get_status(bool *bPreHeatingOngoing,
 }
 
 
-uint32 pre_heating_resistor_get_on_time_total()
+uint32 u32_pre_heating_resistor_get_on_time_total()
 {
     return g_u32OnTimeTotal;
 }
 
-uint16 pre_heating_get_power()
+uint16 u16_pre_heating_get_power()
 {
     return (g_u16PreHeatingActivePowerIndex * 100);
 }
+
+/******************************************************************************
+ *  Local function implementation
+ ******************************************************************************/
+
+static void read_on_time_from_file()
+{
+    FILE *file = fopen(BACKUP_FILE_NAME, "r");
+    if (file)
+    {
+        fscanf(file, "%d", &g_u32OnTimeTotal);
+        fclose(file);
+    }
+}
+
+static void save_on_time_to_file()
+{
+    FILE *file = fopen(BACKUP_FILE_NAME, "w");
+    if (file)
+    {
+        fprintf(file, "%d\n", g_u32OnTimeTotal);
+        fclose(file);
+    }
+}
+

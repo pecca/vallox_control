@@ -197,7 +197,7 @@ void ctrl_json_encode(char *sMesg)
     // pre_heating_time
     json_encode_real32(sSubStr2,
                       "value",
-                      pre_heating_resistor_get_on_time_total());
+                      u32_pre_heating_resistor_get_on_time_total());
     strncat(sSubStr2, ",", 1);
     json_encode_integer(sSubStr2,
                         "ts",
@@ -281,7 +281,7 @@ void ctrl_json_encode(char *sMesg)
     strcpy(sSubStr2, "");
     json_encode_real32(sSubStr2,
                       "value",
-                      pre_heating_get_power());
+                      u16_pre_heating_get_power());
     strncat(sSubStr2, ",", 1);
     json_encode_integer(sSubStr2,
                         "ts",
@@ -450,7 +450,7 @@ static void ctrl_init()
     g_tCtrlVars.r32MinExhaustTemp = -3.0f;
     g_tCtrlVars.u8DefrostMode = DEFROST_MODE_OFF;
     g_tCtrlVars.u8PreHeatingMode = PRE_HEATING_MODE_OFF;
-    pre_heating_get_power(0);
+    pre_heating_set_power(0);
     
     g_tCtrlVars.u32DefrostMaxDuration = DEFROST_MAX_DURATION;
     g_tCtrlVars.u32DefrostStartDuration = DEFROST_START_DURATION;
@@ -648,7 +648,7 @@ static void defrost_control()
         }
         else if (g_tDefrostCtrl.eState == e_Defrost_Ongoing)
         {
-            if (get_DS18B20_incoming_temp() > g_tCtrlVars.r32DefrostTargetTemp ||
+            if (r32_DS18B20_incoming_temp() > g_tCtrlVars.r32DefrostTargetTemp ||
                 tCurrentTime - g_tDefrostCtrl.tCheckTime > (g_tCtrlVars.u32DefrostMaxDuration * 60))
             {
                 g_tDefrostCtrl.tCheckTime = tCurrentTime;
@@ -677,8 +677,8 @@ static void defrost_control()
 
 static void calc_in_out_effiency(real32 *pr32InEff, real32 *pr32OutEff)
 {
-    real32 r32IncomingTemp = get_DS18B20_incoming_temp();
-    real32 r32OutsideTemp = get_DS18B20_outside_temp();
+    real32 r32IncomingTemp = r32_DS18B20_incoming_temp();
+    real32 r32OutsideTemp = r32_DS18B20_outside_temp();
     real32 r32InsideTemp = r32_digit_inside_temp();
     real32 r32ExhaustTemp = r32_digit_exhaust_temp();
 

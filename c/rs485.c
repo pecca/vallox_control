@@ -22,9 +22,9 @@
  *  Local variables
  ******************************************************************************/ 
  
-int32 g_i32RS485_port;
-uint8 g_au8RecvBuf[RS485_MSG_MAX_LEN];
-uint32 g_u32RecvMsgCnt = 0;
+static int32 g_i32RS485_port;
+static uint8 g_au8RecvBuf[RS485_MSG_MAX_LEN];
+static uint32 g_u32RecvMsgCnt = 0;
 
 /******************************************************************************
  *  Global function implementation

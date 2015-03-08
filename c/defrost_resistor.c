@@ -1,7 +1,7 @@
 /**
- * @file   post_heating_counter.c
+ * @file   defrost_resistor.c
  * @Author Pekka Mäkelä (pekka.makela@iki.fi)
- * @brief  Implementation of post heating counter. 
+ * @brief  Implementation of defrost resistor. 
  */
 
 /******************************************************************************
@@ -11,6 +11,7 @@
 #include "common.h"
 #include "relay_control.h"
 #include "defrost_resistor.h"
+#include "ctrl_logic.h"
  
 /******************************************************************************
  *  Constants
@@ -18,7 +19,7 @@
  
 #define BACKUP_FILE_NAME                    "defrost_heating_value.txt"
 #define BACKUP_DEFROST_TIME_INTERVAL_IN_SEC (60*60) // once per hour
-#define DEFROST_RESISTOR_CHECK_INTERNAL     5
+#define DEFROST_RESISTOR_CHECK_INTERNAL     CTRL_LOGIC_TIMELEVEL
 #define DEFROST_RELAY_PIN                   22
 
 /******************************************************************************

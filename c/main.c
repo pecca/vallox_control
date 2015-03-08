@@ -24,12 +24,12 @@ int main(int argc, char *argv[])
     char *message6 = "Thread: pre heating";
     
      /* Create independent threads each of which will execute function */
-    pthread_create( &thread1, NULL, pvDS18B20_thread, (void*) message1);
+    pthread_create( &thread1, NULL, DS18B20_thread, (void*) message1);
     pthread_create( &thread2, NULL, digit_receive_thread, (void*) message2);
     pthread_create( &thread4, NULL, digit_update_thread, (void*) message3);    
     pthread_create( &thread3, NULL, udp_server_thread, (void*) message4);    
     pthread_create( &thread5, NULL, ctrl_logic_thread, (void*) message5);
-    pthread_create( &thread6, NULL, pvPre_heating_thread, (void*) message6);
+    pthread_create( &thread6, NULL, pre_heating_thread, (void*) message6);
     
     /* Wait till threads are complete  */ 
     pthread_join( thread1, NULL);

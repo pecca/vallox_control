@@ -345,41 +345,41 @@ real32 r32_digit_rh1_sensor()
 real32 r32_digit_outside_temp()
 {
     T_digit_var *var = &g_digit_vars[OUTSIDE_TEMP_INDEX];
-    return  NTC_to_celsius(var->u8Value); 
+    return  r32_NTC_to_celsius(var->u8Value); 
 }
 
 // Return inside temperature
 real32 r32_digit_inside_temp()
 {
     T_digit_var *var = &g_digit_vars[INSIDE_TEMP_INDEX];
-    return  NTC_to_celsius(var->u8Value); 
+    return  r32_NTC_to_celsius(var->u8Value); 
 }
 
 // Return exhaust air temperature
 real32 r32_digit_exhaust_temp()
 {
     T_digit_var *var = &g_digit_vars[EXHAUST_TEMP_INDEX];
-    return  NTC_to_celsius(var->u8Value); 
+    return  r32_NTC_to_celsius(var->u8Value); 
 }
 
 // Return incoming air temperature
 real32 r32_digit_incoming_temp()
 {
     T_digit_var *var = &g_digit_vars[INCOMING_TEMP_INDEX];
-    return  NTC_to_celsius(var->u8Value); 
+    return  r32_NTC_to_celsius(var->u8Value); 
 }
 
 // Return temperature of target incoming air
 real32 r32_digit_incoming_target_temp()
 {
     T_digit_var *var = &g_digit_vars[INCOMING_TARGET_TEMP_INDEX];
-    return  NTC_to_celsius(var->u8Value);
+    return  r32_NTC_to_celsius(var->u8Value);
 }
 
 // Set incoming target temperature
 void digit_set_incoming_target_temp(real32 temp)
 {
-    uint8 value = celsius_to_NTC(temp);
+    uint8 value = u16_celsius_to_NTC(temp);
     T_digit_var *var = &g_digit_vars[INCOMING_TARGET_TEMP_INDEX];
     digit_set_change_req(var, value);
 }
@@ -656,12 +656,12 @@ static uint8 u8_decode_Temperature(char *str)
 {
     real32 temp;
     sscanf(str, "%f", &temp); 
-    return celsius_to_NTC(temp);
+    return u16_celsius_to_NTC(temp);
 }
 
 static void encode_Temperature(uint8 value, char *str)
 {
-    sprintf(str, "%.1f", NTC_to_celsius(value));
+    sprintf(str, "%.1f", r32_NTC_to_celsius(value));
 }
 
 static uint8 u8_decode_FanSpeed(char *str)

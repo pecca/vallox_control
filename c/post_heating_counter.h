@@ -8,7 +8,7 @@
 #define POST_HEATING_COUNTER_H
 
 /******************************************************************************
- *  Global function implementation
+ *  Global function declaration
  ******************************************************************************/
 
 void post_heating_counter_init();

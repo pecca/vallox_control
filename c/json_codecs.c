@@ -109,7 +109,7 @@ uint32 u32_json_decode_message(uint32 u32MsgLen, char *sMesg)
         }
         else if (!strcmp(tokenStr, DS18B20_VARS))
         {
-            ds18b20_json_encode_vars(sMesg);
+            DS18B20_json_encode_vars(sMesg);
         }
     }
     else if (!strcmp(tokenStr, SET))
