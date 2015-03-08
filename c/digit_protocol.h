@@ -156,25 +156,25 @@ void digit_update_vars();
 
 //void digit_set_var(T_digit_var *var, byte value);
 
-real32 digit_get_rh1_sensor();
+real32 r32_digit_rh1_sensor();
 
-real32 digit_get_outside_temp();
+real32 r32_digit_outside_temp();
 
-real32 digit_get_inside_temp();
+real32 r32_digit_inside_temp();
 
-real32 digit_get_exhaust_temp();
+real32 r32_digit_exhaust_temp();
 
-real32 digit_get_incoming_temp();
+real32 r32_digit_incoming_temp();
 
-int digit_get_cur_fan_speed(void);
+uint8 u8_digit_cur_fan_speed(void);
 
-real32 digit_get_incoming_target_temp();
+real32 r32_digit_incoming_target_temp();
 
 void digit_set_incoming_target_temp(real32 temp);
 
-real32 digit_get_post_heating_on_cnt(void);
+real32 r32_digit_post_heating_on_cnt(void);
 
-real32 digit_get_post_heating_off_cnt(void);
+real32 r32_digit_post_heating_off_cnt(void);
 
 void digit_json_encode_vars(char *str);
 

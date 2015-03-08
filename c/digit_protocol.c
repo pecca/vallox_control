@@ -24,7 +24,7 @@
 #define PANEL_ADDRESS  0x21
 #define PI_ADDRESS     0x22
 
-// Parameters IDs
+// Variable IDs
 #define CUR_FAN_SPEED                   0x29
 #define OUTSIDE_TEMP                    0x32
 #define EXHAUST_TEMP                    0x33
@@ -53,7 +53,7 @@
 #define IO_GATE_2                       0x07
 #define IO_GATE_3                       0x08
 
-// Parameter names
+// Variable names
 #define CUR_FAN_SPEED_NAME              "cur_fan_speed"
 #define OUTSIDE_TEMP_NAME               "outside_temp"
 #define EXHAUST_TEMP_NAME               "exhaust_temp"
@@ -82,7 +82,7 @@
 #define IO_GATE_2_NAME                  "IO_gate_2"
 #define IO_GATE_3_NAME                  "IO_gate_3"
 
-// Parameter indexes
+// Variable indexes
 #define CUR_FAN_SPEED_INDEX               0
 #define OUTSIDE_TEMP_INDEX                1
 #define EXHAUST_TEMP_INDEX                2
@@ -113,7 +113,7 @@
 
 #define NUM_OF_DIGIT_VARS                 27 
 
-// Combines parameter index, id, name 
+// Combines variable's index, id and name 
 #define DIGIT_PARAM(var) var##_INDEX , var, var##_NAME  
  
 #define NAME_MAX_SIZE                     30
@@ -129,6 +129,10 @@
 #define BIT6   6
 #define BIT7   7
  
+#define ENCODE_STR1_SIZE 2000
+#define ENCODE_STR2_SIZE 1000
+#define ENCODE_STR3_SIZE 200 
+
 #define DIGIT_MSG_LEN 6 
 
 /******************************************************************************
@@ -142,18 +146,18 @@ typedef void (*encode_t) (uint8, char*);
 
 typedef struct
 {
-    uint8 id;
-    char name_str[NAME_MAX_SIZE];
-    uint8 value;
-    uint8 expected_value;
-    time_t timestamp;
-    time_t interval;
-    bool get_ongoing;
-    bool set_ongoing;
-    uint32 get_req_cnt;
-    uint32 set_req_cnt;
-    u8_decode_t decodeFunPtr;
-    encode_t encodeFunPtr;
+    uint8 u8Id;                     // ID
+    char sNameStr[NAME_MAX_SIZE];   // name
+    uint8 u8Value;                  // Current value
+    uint8 u8ExpectedValue;          // Expected value
+    time_t tTimestamp;              // Timestamp when value updated
+    time_t tInternal;               // Value update interval
+    bool bGetOngoing;               // Status of get request
+    bool bSetOngoing;               // Status of set request
+    uint32 u32GetReqCnt;            // Get request sent counter
+    uint32 u32SetReqCnt;            // Set request sent counter
+    u8_decode_t decodeFunPtr;       // JSON decode function
+    encode_t encodeFunPtr;          // Json encode function
 } T_digit_var;
 
 /******************************************************************************
@@ -166,21 +170,50 @@ T_digit_var g_digit_vars[NUM_OF_DIGIT_VARS];
  *  Local function declarations
  ******************************************************************************/
 
-void digit_receive_msgs(void); 
+// Initialize module
+void digit_init(void);
+void digit_init_var(uint8 index, uint8 id, char *name, time_t tInternal, 
+                    u8_decode_t decodeFunPtr, encode_t encodeFunPtr); 
 
+// Read message(s) from RS485 bus and process message(s)
+void digit_receive_msgs(void);
+
+// Check through variable statuses. Set set or get request if needed. 
 void digit_update_vars(void);
 
-int get_fan_speed(uint8 value);
+// Process received message
+void digit_process_msg(uint8 id, uint8 value);
 
+// Activate set request
+void digit_set_change_req(T_digit_var *var, uint8 value);
+
+// Send set request
+void digit_send_set_req(uint8 id, uint8 value);
+
+// Send get request
+void digit_send_get_req(uint8 id);
+
+// Calculates message CRC
+uint16 digit_calc_crc(uint8 msg[DIGIT_MSG_LEN]);
+
+// Check is message valid
+bool digit_is_valid_msg(uint8 msg[DIGIT_MSG_LEN]);
+
+// Send message to RS485 bus
+void digit_send_msg(uint8 msg[DIGIT_MSG_LEN]);
+
+// Search functions
 T_digit_var *digit_get_var_by_name(char *name);
+T_digit_var *digit_get_var_by_id(uint8 id);
 
-void digit_set_var(T_digit_var *var, uint8 value);
-
-
-uint8 u8_decode_Temperature(char *str);
-void encode_Temperature(uint8 value, char *str);
-
+// JSON decode functions 
 uint8 u8_decode_FanSpeed(char *str);
+uint8 u8_decode_Temperature(char *str);
+uint8 u8_decode_CellDeFroHyst(char *str);
+uint8 u8_decode_FanPower(char *str);
+
+// JSON encode function
+void encode_Temperature(uint8 value, char *str);
 void encode_FanSpeed(uint8 value, char *str);
 void encode_BitMap(uint8 value, char *str);
 void encode_IO_gate_1(uint8 value, char *str);
@@ -188,34 +221,16 @@ void encode_IO_gate_2(uint8 value, char *str);
 void encode_IO_gate_3(uint8 value, char *str);
 void encode_Leds(uint8 value, char *str);
 void encode_RH(uint8 value, char *str);
-
 void encode_Counter(uint8 value, char *str);
-uint8 u8_decode_CellDeFroHyst(char *str);
 void encode_CellDeFroHyst(uint8 value, char *str);
-uint8 u8_decode_FanPower(char *str);
-
 void encode_FanPower(uint8 value, char *str);
-
-void digit_init_var(uint8 index, uint8 id, char *name, time_t interval, u8_decode_t decodeFunPtr, encode_t encodeFunPtr); 
-
-void digit_init(void);
-
-void digit_process_msg(uint8 id, uint8 value);
-
-T_digit_var *digit_get_var_by_id(uint8 id);
-
-uint16 digit_calc_crc(uint8 msg[DIGIT_MSG_LEN]);
-
-bool digit_is_valid_msg(uint8 msg[DIGIT_MSG_LEN]);
-void digit_send_msg(uint8 msg[DIGIT_MSG_LEN]);
-void digit_send_get_var(uint8 id);
-void digit_send_set_var(uint8 id, uint8 value);
-
+uint8 u8_encode_fan_speed(uint8 value);
 
 /******************************************************************************
  *  Global function implementation
  ******************************************************************************/
 
+// Listen RS485 bus and process received messages.
 void *digit_receive_thread(void *ptr)
 {
     rs485_open();
@@ -227,6 +242,7 @@ void *digit_receive_thread(void *ptr)
     return NULL;
 } 
 
+// Check variable statuses and send get and set requests. 
 void *digit_update_thread( void *ptr )
 {
     digit_init();
@@ -239,59 +255,62 @@ void *digit_update_thread( void *ptr )
     return NULL;
 } 
 
+// Generates JSON message containing all variables
 void digit_json_encode_vars(char *str)
 {
-    char sub_str1[2000];
-    char sub_str2[1000];
-    char sub_str3[200];    
+    char sSubStr1[ENCODE_STR1_SIZE];
+    char sSubStr2[ENCODE_STR2_SIZE];
+    char sSubStr3[ENCODE_STR3_SIZE];    
     
-    strcpy(sub_str1, "");
+    strcpy(sSubStr1, "");
     strcpy(str, "{");   
 
     for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
     {
-        strcpy(sub_str2, "");
+        strcpy(sSubStr2, "");
     
-        g_digit_vars[i].encodeFunPtr(g_digit_vars[i].value, sub_str3);
-        json_encode_string(sub_str2,
+        g_digit_vars[i].encodeFunPtr(g_digit_vars[i].u8Value, sSubStr3);
+        json_encode_string(sSubStr2,
                            "value",
-                           sub_str3);
+                           sSubStr3);
                            
-        strncat(sub_str2, ",", 1);
-        json_encode_integer(sub_str2,
+        strncat(sSubStr2, ",", 1);
+        json_encode_integer(sSubStr2,
                             "ts",
-                            g_digit_vars[i].timestamp);
+                            g_digit_vars[i].tTimestamp);
                             
-        json_encode_object(sub_str1,
-                           g_digit_vars[i].name_str,
-                           sub_str2);
+        json_encode_object(sSubStr1,
+                           g_digit_vars[i].sNameStr,
+                           sSubStr2);
                            
         if (i != (NUM_OF_DIGIT_VARS - 1))
         {
-            strncat(sub_str1, ",", 1);
+            strncat(sSubStr1, ",", 1);
         }
     }   
     json_encode_object(str,
                        DIGIT_VARS,
-                       sub_str1);
+                       sSubStr1);
     strncat(str, "}", 1);                   
 }
 
+// Process JSON message for changing value and update set request status.
 void digit_set_var_by_name(char *name, char *str_value)
 {
     T_digit_var *var = digit_get_var_by_name(name);
     uint8 value = var->decodeFunPtr(str_value);
     
-    digit_set_var(var, value);
+    digit_set_change_req(var, value);
 }
 
+// Check that variables are updated within intervals.
 bool digit_vars_ok(void)
 {
     time_t curr_time = time(NULL);
 
     for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
     {
-        if (curr_time - g_digit_vars[i].timestamp > 300) 
+        if (curr_time - g_digit_vars[i].tTimestamp > 300) 
         {
             return false;
         }
@@ -299,67 +318,67 @@ bool digit_vars_ok(void)
     return true;
 }
 
-real32 digit_get_rh1_sensor()
+real32 r32_digit_rh1_sensor()
 {
     T_digit_var *var = &g_digit_vars[RH1_SENSOR_INDEX]; 
-    return (var->value - 51)/2.04;
+    return (var->u8Value - 51)/2.04;
 }
 
-real32 digit_get_outside_temp()
+real32 r32_digit_outside_temp()
 {
     T_digit_var *var = &g_digit_vars[OUTSIDE_TEMP_INDEX];
-    return  NTC_to_celsius(var->value); 
+    return  NTC_to_celsius(var->u8Value); 
 }
 
-real32 digit_get_inside_temp()
+real32 r32_digit_inside_temp()
 {
     T_digit_var *var = &g_digit_vars[INSIDE_TEMP_INDEX];
-    return  NTC_to_celsius(var->value); 
+    return  NTC_to_celsius(var->u8Value); 
 }
 
-real32 digit_get_exhaust_temp()
+real32 r32_digit_exhaust_temp()
 {
     T_digit_var *var = &g_digit_vars[EXHAUST_TEMP_INDEX];
-    return  NTC_to_celsius(var->value); 
+    return  NTC_to_celsius(var->u8Value); 
 }
 
-real32 digit_get_incoming_temp()
+real32 r32_digit_incoming_temp()
 {
     T_digit_var *var = &g_digit_vars[INCOMING_TEMP_INDEX];
-    return  NTC_to_celsius(var->value); 
+    return  NTC_to_celsius(var->u8Value); 
 }
 
-real32 digit_get_incoming_target_temp()
+real32 r32_digit_incoming_target_temp()
 {
     T_digit_var *var = &g_digit_vars[INCOMING_TARGET_TEMP_INDEX];
-    return  NTC_to_celsius(var->value);
+    return  NTC_to_celsius(var->u8Value);
 }
 
 void digit_set_incoming_target_temp(real32 temp)
 {
     uint8 value = celsius_to_NTC(temp);
     T_digit_var *var = &g_digit_vars[INCOMING_TARGET_TEMP_INDEX];
-    digit_set_var(var, value);
+    digit_set_change_req(var, value);
 }
 
-real32 digit_get_post_heating_on_cnt(void)
+real32 r32_digit_post_heating_on_cnt(void)
 {
     T_digit_var *var = &g_digit_vars[POST_HEATING_ON_CNT_INDEX];
-    real32 ret = roundf(((var->value / 2.5f) * 10.0f) / 10.0f);
+    real32 ret = roundf(((var->u8Value / 2.5f) * 10.0f) / 10.0f);
     return ret;
 }
 
-int digit_get_cur_fan_speed(void)
+uint8 u8_digit_cur_fan_speed(void)
 {
     T_digit_var *var = &g_digit_vars[CUR_FAN_SPEED_INDEX];
-    int fan_speed = get_fan_speed(var->value);
+    int fan_speed = u8_encode_fan_speed(var->u8Value);
     return fan_speed;
 }
 
-real32 digit_get_post_heating_off_cnt(void)
+real32 r32_digit_post_heating_off_cnt(void)
 {
     T_digit_var *var = &g_digit_vars[POST_HEATING_OFF_CNT_INDEX];
-    real32 ret = roundf(((var->value / 2.5f) * 10.0f) / 10.0f);
+    real32 ret = roundf(((var->u8Value / 2.5f) * 10.0f) / 10.0f);
     return ret;
 }
 
@@ -400,22 +419,22 @@ void digit_init(void)
     digit_init_var(DIGIT_PARAM(IO_GATE_3), 200, NULL, &encode_IO_gate_3);
 }
 
-void digit_init_var(uint8 index, uint8 id, char *name, time_t interval, u8_decode_t decodeFunPtr, encode_t encodeFunPtr)
+void digit_init_var(uint8 index, uint8 u8Id, char *name, time_t tInternal, u8_decode_t decodeFunPtr, encode_t encodeFunPtr)
 {
     T_digit_var *digit_var = &g_digit_vars[index];
     
-    digit_var->id = id;
-    strcpy(digit_var->name_str, name);
-    digit_var->interval = interval;
+    digit_var->u8Id = u8Id;
+    strcpy(digit_var->sNameStr, name);
+    digit_var->tInternal = tInternal;
     digit_var->decodeFunPtr = decodeFunPtr;
     digit_var->encodeFunPtr = encodeFunPtr;
 } 
 
-T_digit_var *digit_get_var_by_id(uint8 id)
+T_digit_var *digit_get_var_by_id(uint8 u8Id)
 {
     for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
     {
-        if (id == g_digit_vars[i].id)
+        if (u8Id == g_digit_vars[i].u8Id)
         {
             return &g_digit_vars[i];
         }
@@ -427,7 +446,7 @@ T_digit_var *digit_get_var_by_name(char *name)
 {
     for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
     {
-        if (!strcmp(name, g_digit_vars[i].name_str))
+        if (!strcmp(name, g_digit_vars[i].sNameStr))
         {
             return &g_digit_vars[i];
         }
@@ -441,20 +460,20 @@ void digit_process_msg(uint8 id, uint8 value)
     T_digit_var *var = digit_get_var_by_id(id);
     if (var)
     {
-        if (var->set_ongoing)
+        if (var->bSetOngoing)
         {
-            if (value == var->expected_value)
+            if (value == var->u8ExpectedValue)
             {
-                var->set_ongoing = false;
-                var->set_req_cnt = 0;
+                var->bSetOngoing = false;
+                var->u32SetReqCnt = 0;
             }            
         }
-        var->value = value;
-        var->timestamp = time(NULL);
-        if (var->get_ongoing)
+        var->u8Value = value;
+        var->tTimestamp = time(NULL);
+        if (var->bGetOngoing)
         {
-            var->get_ongoing = false;
-            var->get_req_cnt = 0;
+            var->bGetOngoing = false;
+            var->u32GetReqCnt = 0;
         }
     }
 }
@@ -499,25 +518,25 @@ void digit_send_msg(uint8 msg[DIGIT_MSG_LEN])
     usleep(100000); // sleep 100 ms
 }
 
-void digit_send_get_var(uint8 id)
+void digit_send_get_req(uint8 id)
 {
     uint8 msg[DIGIT_MSG_LEN] = { SYSTEM_ID, PI_ADDRESS, DEVICE_ADDRESS, 0, id, 0 };
     digit_send_msg(msg);
 }
 
-void digit_send_set_var(uint8 id, uint8 value)
+void digit_send_set_req(uint8 id, uint8 value)
 {
     uint8 msg[DIGIT_MSG_LEN] = { SYSTEM_ID, PI_ADDRESS, DEVICE_ADDRESS, id, value, 0 };
     digit_send_msg(msg);
 }
 
 
-void digit_set_var(T_digit_var *var, uint8 value)
+void digit_set_change_req(T_digit_var *var, uint8 value)
 {
-    if (var->value != value)
+    if (var->u8Value != value)
     {
-        var->set_ongoing = true;
-        var->expected_value = value;
+        var->bSetOngoing = true;
+        var->u8ExpectedValue = value;
     }
 }
 
@@ -529,21 +548,21 @@ void digit_update_vars()
     for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
     {
         T_digit_var *var = &g_digit_vars[i];
-        if (var->set_ongoing == true)
+        if (var->bSetOngoing == true)
         {  
-            if (var->value != var->expected_value)
+            if (var->u8Value != var->u8ExpectedValue)
             {
                 // send set request
-                digit_send_set_var(var->id, var->expected_value);
+                digit_send_set_req(var->u8Id, var->u8ExpectedValue);
                 // set get flag in order to check set request
-                var->get_ongoing = true;
-                var->set_req_cnt++;
+                var->bGetOngoing = true;
+                var->u32SetReqCnt++;
             }
             else
             {
                 // value correct, no need to send set request
-                var->set_ongoing = false;
-                var->set_req_cnt = 0;
+                var->bSetOngoing = false;
+                var->u32SetReqCnt = 0;
             }
         }
     }    
@@ -552,10 +571,10 @@ void digit_update_vars()
     for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
     {
         T_digit_var *var = &g_digit_vars[i];
-        if (var->get_ongoing == true)
+        if (var->bGetOngoing == true)
         {            
-           digit_send_get_var(var->id);
-           var->get_req_cnt++;
+           digit_send_get_req(var->u8Id);
+           var->u32GetReqCnt++;
         }
     }
     
@@ -564,11 +583,11 @@ void digit_update_vars()
     {
         T_digit_var *var = &g_digit_vars[i];
         // no active get request ongoing and the given interval has elapsed since last value received
-        if (var->get_ongoing == false && curr_time - var->timestamp >= var->interval)
+        if (var->bGetOngoing == false && curr_time - var->tTimestamp >= var->tInternal)
         {
             // set get flag in order to send get request
-            var->get_ongoing = true;
-            var->get_req_cnt++;
+            var->bGetOngoing = true;
+            var->u32GetReqCnt++;
         }
     }    
     
@@ -603,18 +622,18 @@ void digit_receive_msgs(void)
 
 
 
-int get_fan_speed(uint8 value)
+uint8 u8_encode_fan_speed(uint8 u8Value)
 {
-    int fan_speed = 1;
+    uint8 u8FanSpeed = 1;
     for (int i = 8; i >= 1; i--)
     {
-        if (value & (0x1 << (i-1)))
+        if (u8Value & (0x1 << (i-1)))
         {
-            fan_speed = i;
+            u8FanSpeed = i;
             break;
         }
     }
-    return fan_speed;
+    return u8FanSpeed;
 }
 
 uint8 u8_decode_Temperature(char *str)
@@ -643,7 +662,7 @@ uint8 u8_decode_FanSpeed(char *str)
 
 void encode_FanSpeed(uint8 value, char *str)
 {
-    int fan_speed = get_fan_speed(value);
+    int fan_speed = u8_encode_fan_speed(value);
     sprintf(str, "%d", fan_speed);
 }
 
@@ -654,7 +673,7 @@ void encode_BitMap(uint8 value, char *str)
 
 void encode_IO_gate_1(uint8 value, char *str)
 {
-    int fan_speed = get_fan_speed(value);
+    int fan_speed = u8_encode_fan_speed(value);
 
     strcpy(str, "{");
     json_encode_integer(str,

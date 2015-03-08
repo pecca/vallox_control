@@ -526,7 +526,7 @@ static void pre_heating_control(void)
     }
     else if (g_tCtrlVars.u8PreHeatingMode == PRE_HEATING_MODE_AUTO)
     {
-        real32 r32CurrentExhaustTemp = digit_get_exhaust_temp();
+        real32 r32CurrentExhaustTemp = r32_digit_exhaust_temp();
         real32 r32TargetExhaustTemp = max(g_tCtrlVars.r32DewPoint, g_tCtrlVars.r32MinExhaustTemp);
         uint16 u16Power = 0;
         
@@ -598,12 +598,12 @@ static void pre_heating_control(void)
 
 static uint16 u16_pre_heating_calc_power(real32 r32ExhaustTargetTemp)
 {
-    real32 r32InsideTemp = digit_get_inside_temp();
+    real32 r32InsideTemp = r32_digit_inside_temp();
     
     real32 r32TargetIncomingTemp = r32InsideTemp - ((r32InsideTemp - r32ExhaustTargetTemp) / 0.8f);
-    real32 r32TempDiff = r32TargetIncomingTemp - digit_get_outside_temp();
+    real32 r32TempDiff = r32TargetIncomingTemp - r32_digit_outside_temp();
     
-    uint16 u16AirFlow = 15 + 10 * digit_get_cur_fan_speed();
+    uint16 u16AirFlow = 15 + 10 * u8_digit_cur_fan_speed();
     real32 r32PreHeatingPower = (u16AirFlow * 1.225 * r32TempDiff);
 
     int32 i32Ret = ceil(r32PreHeatingPower / 100.0f) * 100;
@@ -681,8 +681,8 @@ static void calc_in_out_effiency(real32 *pr32InEff, real32 *pr32OutEff)
 {
     real32 r32IncomingTemp = get_DS18B20_incoming_temp();
     real32 r32OutsideTemp = get_DS18B20_outside_temp();
-    real32 r32InsideTemp = digit_get_inside_temp();
-    real32 r32ExhaustTemp = digit_get_exhaust_temp();
+    real32 r32InsideTemp = r32_digit_inside_temp();
+    real32 r32ExhaustTemp = r32_digit_exhaust_temp();
 
     real32 r32IncomingEff =  ((r32IncomingTemp - r32OutsideTemp) /
                            (r32InsideTemp - r32OutsideTemp)) * 100.0f;
@@ -713,11 +713,11 @@ static void calc_in_out_effiency(real32 *pr32InEff, real32 *pr32OutEff)
 
 static real32 r32_calc_dew_point(void)
 {
-    real32 inside_temp = digit_get_inside_temp();
-    real32 rh = digit_get_rh1_sensor() / 100.0f;
+    real32 inside_temp = r32_digit_inside_temp();
+    real32 r32Rh = r32_digit_rh1_sensor() / 100.0f;
     real32 tempA = 17.27f;
     real32 tempB = 237.7f;
-    real32 tempZ =  (((tempA * inside_temp) / (tempB + inside_temp)) + log(rh));
+    real32 tempZ =  (((tempA * inside_temp) / (tempB + inside_temp)) + log(r32Rh));
     real32 dew_point = ((tempB * tempZ) / (tempA - tempZ));
     return dew_point;
 }

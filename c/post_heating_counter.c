@@ -39,8 +39,8 @@ void post_heating_counter_init()
 
 void post_heating_counter_update()
 {
-    byte on_cnt = (byte)digit_get_post_heating_on_cnt();
-    byte off_cnt = (byte)digit_get_post_heating_off_cnt();
+    byte on_cnt = (byte) r32_digit_post_heating_on_cnt();
+    byte off_cnt = (byte) r32_digit_post_heating_off_cnt();
 		
     g_u32UpdateCallCnt++;
     if ( (g_u32UpdateCallCnt * POST_HEATING_COUNTER_UPDATE_INTERVAL) % 
