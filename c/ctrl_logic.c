@@ -20,8 +20,6 @@
 /******************************************************************************
  *  Constants
  ******************************************************************************/
-
-#define CTRL_LOGIC_TIMELEVEL            (5) // sec 
  
 #define DEFROST_MODE_OFF                (0)
 #define DEFROST_MODE_ON                 (1)
@@ -213,7 +211,7 @@ void ctrl_json_encode(char *sMesg)
     strcpy(sSubStr2, "");
     json_encode_real32(sSubStr2,
                       "value",
-                      post_heating_counter_get_on_time_total());
+                      u32_post_heating_counter_get_on_time_total());
     strncat(sSubStr2, ",", 1);
     json_encode_integer(sSubStr2,
                         "ts",
@@ -227,7 +225,7 @@ void ctrl_json_encode(char *sMesg)
     strcpy(sSubStr2, "");
     json_encode_real32(sSubStr2,
                       "value",
-                      defrost_resistor_get_on_time_total());
+                      u32_defrost_resistor_get_on_time_total());
     strncat(sSubStr2, ",", 1);
     json_encode_integer(sSubStr2,
                         "ts",
@@ -241,7 +239,7 @@ void ctrl_json_encode(char *sMesg)
     strcpy(sSubStr2, "");
     json_encode_real32(sSubStr2,
                       "value",
-                      defrost_resistor_get_on_time());
+                      u32_defrost_resistor_get_on_time());
     strncat(sSubStr2, ",", 1);
     json_encode_integer(sSubStr2,
                         "ts",

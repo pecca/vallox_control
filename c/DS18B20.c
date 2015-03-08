@@ -1,3 +1,10 @@
+/**
+ * @file   defrost_resistor.h
+ * @Author Pekka Mäkelä (pekka.makela@iki.fi)
+ * @brief  Interface of defrost resistor. 
+ */
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
