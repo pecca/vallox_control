@@ -1,34 +1,43 @@
+/**
+ * @file   json_codecs.c
+ * @Author Pekka Mäkelä (pekka.makela@iki.fi)
+ * @brief  Implementation of JSON codecs. Uses jsmn (minimalistic JSON parser in C) 
+ */
 
+/******************************************************************************
+ *  Includes
+ ******************************************************************************/  
+ 
 #include "common.h"
-
-#include "jsmn.h"
 #include "json_codecs.h"
+#include "jsmn.h" 
 #include "digit_protocol.h"
 #include "ctrl_logic.h"
 #include "DS18B20.h"
 
+/******************************************************************************
+ *  Constants and macros
+ ******************************************************************************/ 
+ 
+#define SET                 "set"
+#define GET                 "get"
+ 
 #define MAX_NUM_JSON_TOKENS (128)
 #define MAX_TOKEN_STR_SIZE  (100)
-
 #define INT_STR_MAX_SIZE    (100)
-#define real32_STR_MAX_SIZE  (100)
+#define REAL32_STR_MAX_SIZE (100)
+#define DECODE_STR_SIZE     (100)
+ 
+/******************************************************************************
+ *  Local function declarations
+ ******************************************************************************/ 
+ 
+static char *get_json_token_str(int n, char* mesg, jsmntok_t *tokens, char* tokenStr);
+static void json_encode_variable_name(char *str, char *name);
 
-static char *get_json_token_str(int n, char* mesg, jsmntok_t *tokens, char* tokenStr)
-{
-    jsmntok_t key = tokens[n];
-    unsigned int length = key.end - key.start;
-
-    memcpy(tokenStr, &mesg[key.start], length);
-    tokenStr[length] = '\0';
-    return tokenStr;
-}
-
-void json_encode_variable_name(char *str, char *name)
-{
-    strncat(str, "\"", 1);
-    strncat(str, name, strlen(name));
-    strncat(str, "\":", 2);
-}
+/******************************************************************************
+ *  Global function implementation
+ ******************************************************************************/
 
 void json_encode_string(char *str, char *name, char *value)
 {
@@ -47,7 +56,7 @@ void json_encode_integer(char *str, char *name, int value)
 
 void json_encode_real32(char *str, char *name, real32 value)
 {
-    char real32_str[real32_STR_MAX_SIZE];
+    char real32_str[REAL32_STR_MAX_SIZE];
     
     json_encode_variable_name(str, name);
     sprintf(real32_str, "%.1f", value);
@@ -77,63 +86,80 @@ void json_decode_variable_name(char *str, char *name)
     }
 }
     
-int json_decode_message(int n, char *mesg)
+uint32 u32_json_decode_message(uint32 u32MsgLen, char *sMesg)
 {
-    int resultCode;
-    jsmn_parser p;
-    jsmntok_t tokens[MAX_NUM_JSON_TOKENS]; // a number >= total number of tokens
+    jsmn_parser parser;
+    jsmntok_t tokens[MAX_NUM_JSON_TOKENS];
     char tokenStr[MAX_TOKEN_STR_SIZE];
     
-    jsmn_init(&p);
-    resultCode = jsmn_parse(&p, mesg, strlen(mesg), tokens, MAX_NUM_JSON_TOKENS);
+    jsmn_init(&parser);
+    jsmn_parse(&parser, sMesg, strlen(sMesg), tokens, MAX_NUM_JSON_TOKENS);
     
-    get_json_token_str(1, mesg, tokens, tokenStr);
+    get_json_token_str(1, sMesg, tokens, tokenStr);
     if (!strcmp(tokenStr, GET))
     {
-        get_json_token_str(2, mesg, tokens, tokenStr);
+        get_json_token_str(2, sMesg, tokens, tokenStr);
         if (!strcmp(tokenStr, DIGIT_VARS))
         {
-            digit_json_encode_vars(mesg);
+            digit_json_encode_vars(sMesg);
         }
         else if (!strcmp(tokenStr, CONTROL_VARS))
         {
-            ctrl_json_encode(mesg);
+            ctrl_json_encode(sMesg);
         }
         else if (!strcmp(tokenStr, DS18B20_VARS))
         {
-            ds18b20_json_encode_vars(mesg);
+            ds18b20_json_encode_vars(sMesg);
         }
-        else
-        {
-            // todo error
-        }
-        
     }
     else if (!strcmp(tokenStr, SET))
     {
-        get_json_token_str(3, mesg, tokens, tokenStr);
+        get_json_token_str(3, sMesg, tokens, tokenStr);
         if (!strcmp(tokenStr, DIGIT_VAR))
         {
-            char name[100], value[100];
+            char sName[DECODE_STR_SIZE], sValue[DECODE_STR_SIZE];
             
-            get_json_token_str(5, mesg, tokens, name);
-            get_json_token_str(6, mesg, tokens, value);
+            get_json_token_str(5, sMesg, tokens, sName);
+            get_json_token_str(6, sMesg, tokens, sValue);
 
-            digit_set_var_by_name(name, value);
+            digit_set_var_by_name(sName, sValue);
         }
         else if (!strcmp(tokenStr, CONTROL_VAR))
         {
-            char name[100], value[100];
+            char sName[DECODE_STR_SIZE], sValue[DECODE_STR_SIZE];
             
-            get_json_token_str(5, mesg, tokens, name);
-            get_json_token_str(6, mesg, tokens, value);
+            get_json_token_str(5, sMesg, tokens, sName);
+            get_json_token_str(6, sMesg, tokens, sValue);
 
-            ctrl_set_var_by_name(name, value);
+            ctrl_set_var_by_name(sName, sValue);
         }
     }
     else
     {
         // todo error
     }
-    return strlen(mesg);
+    return strlen(sMesg);
+}
+
+/******************************************************************************
+ *  Local function implementation
+ ******************************************************************************/
+
+// Encode variable name 
+static void json_encode_variable_name(char *sStr, char *sName)
+{
+    strncat(sStr, "\"", 1);
+    strncat(sStr, sName, strlen(sName));
+    strncat(sStr, "\":", 2);
+}
+
+// Parse token
+static char *get_json_token_str(int n, char* mesg, jsmntok_t *tokens, char* tokenStr)
+{
+    jsmntok_t key = tokens[n];
+    uint32 u32Length = key.end - key.start;
+
+    memcpy(tokenStr, &mesg[key.start], u32Length);
+    tokenStr[u32Length] = '\0';
+    return tokenStr;
 }

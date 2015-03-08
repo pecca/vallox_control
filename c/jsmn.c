@@ -1,3 +1,9 @@
+/**
+ * @file   jsmn.c
+ * @Author Open source module (http://zserge.com/jsmn.html)
+ * @brief  Minimalistic JSON parser in C 
+ */
+
 #include <stdlib.h>
 
 #include "jsmn.h"

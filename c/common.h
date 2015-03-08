@@ -9,14 +9,15 @@
 #include <sys/types.h>
 #include <sys/signal.h>
 #include <sys/time.h>
-#include <stdio.h>
-#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <unistd.h>
 #include <signal.h>
 #include <poll.h>
 #include <fcntl.h>
 #include <time.h>
 #include <errno.h>
+#include <termios.h>
 #include <stdbool.h>
 
 #ifndef max

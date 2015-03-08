@@ -53,6 +53,8 @@
 #define IO_GATE_2                       0x07
 #define IO_GATE_3                       0x08
 
+ #define NAME_MAX_SIZE                  30
+ 
 // Variable names
 #define CUR_FAN_SPEED_NAME              "cur_fan_speed"
 #define OUTSIDE_TEMP_NAME               "outside_temp"
@@ -116,9 +118,7 @@
 // Combines variable's index, id and name 
 #define DIGIT_PARAM(var) \
     var##_INDEX , var, var##_NAME  
- 
-#define NAME_MAX_SIZE                     30
- 
+  
 // Message size
 #define DIGIT_MSG_LEN       6
 
@@ -147,8 +147,9 @@
 #define ENCODE_STR3_SIZE 200 
 
 #define RS485_READ_ATTEMPTS 20
+#define RS485_FILE          "/dev/ttyUSB0"
 
-// #define DEBUG_DIGIT_RECV
+// #define DEBUG_DIGIT_RECV // uncomment for debugging
  
 /******************************************************************************
  *  Data type declarations
@@ -179,67 +180,67 @@ typedef struct
  *  Local variables
  ******************************************************************************/
  
-T_digit_var g_digit_vars[NUM_OF_DIGIT_VARS];
+static T_digit_var g_digit_vars[NUM_OF_DIGIT_VARS];
 
 /******************************************************************************
  *  Local function declarations
  ******************************************************************************/
 
 // Initialize module
-void digit_init(void);
-void digit_init_var(uint8 index, uint8 id, char *name, time_t tInternal, 
-                    u8_decode_t decodeFunPtr, encode_t encodeFunPtr); 
+static void digit_init(void);
+static void digit_init_var(uint8 u8Index, uint8 u8Id, char *sName, time_t tInternal, 
+                           u8_decode_t decodeFunPtr, encode_t encodeFunPtr); 
 
 // Read message(s) from RS485 bus and process message(s)
-void digit_receive_msgs(void);
+static void digit_receive_msgs(void);
 
-// Check through variable statuses. Set set or get request if needed. 
-void digit_update_vars(void);
+// Check through variable statuses. Send set or get request if needed. 
+static void digit_update_vars(void);
 
 // Process received message
-void digit_process_msg(uint8 id, uint8 value);
+static void digit_process_msg(uint8 u8Id, uint8 value);
 
 // Activate set request
-void digit_set_change_req(T_digit_var *var, uint8 value);
+static void digit_set_change_req(T_digit_var *ptVar, uint8 u8Value);
 
 // Send set request
-void digit_send_set_req(uint8 id, uint8 value);
+static void digit_send_set_req(uint8 u8Id, uint8 u8Value);
 
 // Send get request
-void digit_send_get_req(uint8 id);
+static void digit_send_get_req(uint8 u8Id);
 
 // Calculates message CRC
-uint16 digit_calc_crc(uint8 msg[DIGIT_MSG_LEN]);
+static uint16 u16_digit_calc_crc(uint8 msg[DIGIT_MSG_LEN]);
 
 // Check is message valid
-bool digit_is_valid_msg(uint8 msg[DIGIT_MSG_LEN]);
+static bool digit_is_valid_msg(uint8 msg[DIGIT_MSG_LEN]);
 
 // Send message to RS485 bus
-void digit_send_msg(uint8 msg[DIGIT_MSG_LEN]);
+static void digit_send_msg(uint8 msg[DIGIT_MSG_LEN]);
 
 // Search functions
-T_digit_var *digit_get_var_by_name(char *name);
-T_digit_var *digit_get_var_by_id(uint8 id);
+static T_digit_var *digit_get_var_by_name(char *sName);
+static T_digit_var *digit_get_var_by_id(uint8 u8Id);
 
 // JSON decode functions 
-uint8 u8_decode_FanSpeed(char *str);
-uint8 u8_decode_Temperature(char *str);
-uint8 u8_decode_CellDeFroHyst(char *str);
-uint8 u8_decode_FanPower(char *str);
+static uint8 u8_decode_FanSpeed(char *sStr);
+static uint8 u8_decode_Temperature(char *sStr);
+static uint8 u8_decode_CellDeFroHyst(char *sStr);
+static uint8 u8_decode_FanPower(char *sStr);
 
 // JSON encode function
-void encode_Temperature(uint8 value, char *str);
-void encode_FanSpeed(uint8 value, char *str);
-void encode_BitMap(uint8 value, char *str);
-void encode_IO_gate_1(uint8 value, char *str);
-void encode_IO_gate_2(uint8 value, char *str);
-void encode_IO_gate_3(uint8 value, char *str);
-void encode_Leds(uint8 value, char *str);
-void encode_RH(uint8 value, char *str);
-void encode_Counter(uint8 value, char *str);
-void encode_CellDeFroHyst(uint8 value, char *str);
-void encode_FanPower(uint8 value, char *str);
-uint8 u8_encode_fan_speed(uint8 value);
+static void encode_Temperature(uint8 u8Value, char *sStr);
+static void encode_FanSpeed(uint8 u8Value, char *sStr);
+static void encode_BitMap(uint8 u8Value, char *sStr);
+static void encode_IO_gate_1(uint8 u8Value, char *sStr);
+static void encode_IO_gate_2(uint8 u8Value, char *sStr);
+static void encode_IO_gate_3(uint8 u8Value, char *sStr);
+static void encode_Leds(uint8 u8Value, char *sStr);
+static void encode_RH(uint8 u8Value, char *sStr);
+static void encode_Counter(uint8 u8Value, char *sStr);
+static void encode_CellDeFroHyst(uint8 u8Value, char *sStr);
+static void encode_FanPower(uint8 u8Value, char *sStr);
+static uint8 u8_encode_fan_speed(uint8 u8Value);
 
 /******************************************************************************
  *  Global function implementation
@@ -248,7 +249,7 @@ uint8 u8_encode_fan_speed(uint8 value);
 // Listen RS485 bus and process received messages.
 void *digit_receive_thread(void *ptr)
 {
-    rs485_open();
+    rs485_open(RS485_FILE);
     sleep(2); // sec
     while (true)
     {
@@ -411,7 +412,7 @@ uint8 u8_digit_cur_fan_speed(void)
  *  Local function implementation
  ******************************************************************************/
 
-void digit_init(void)
+static void digit_init(void)
 {
     memset(&g_digit_vars, 0, sizeof(g_digit_vars));
     
@@ -447,18 +448,19 @@ void digit_init(void)
     digit_init_var(DIGIT_PARAM(IO_GATE_3), 200, NULL, &encode_IO_gate_3);
 }
 
-void digit_init_var(uint8 index, uint8 u8Id, char *name, time_t tInternal, u8_decode_t decodeFunPtr, encode_t encodeFunPtr)
+static void digit_init_var(uint8 u8Index, uint8 u8Id, char *sName, time_t tInternal, 
+                           u8_decode_t decodeFunPtr, encode_t encodeFunPtr)
 {
-    T_digit_var *digit_var = &g_digit_vars[index];
+    T_digit_var *digit_var = &g_digit_vars[u8Index];
     
     digit_var->u8Id = u8Id;
-    strcpy(digit_var->sNameStr, name);
+    strcpy(digit_var->sNameStr, sName);
     digit_var->tInternal = tInternal;
     digit_var->decodeFunPtr = decodeFunPtr;
     digit_var->encodeFunPtr = encodeFunPtr;
 } 
 
-T_digit_var *digit_get_var_by_id(uint8 u8Id)
+static T_digit_var *digit_get_var_by_id(uint8 u8Id)
 {
     for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
     {
@@ -470,7 +472,7 @@ T_digit_var *digit_get_var_by_id(uint8 u8Id)
     return NULL;
 }
 
-T_digit_var *digit_get_var_by_name(char *name)
+static T_digit_var *digit_get_var_by_name(char *name)
 {
     for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
     {
@@ -482,42 +484,42 @@ T_digit_var *digit_get_var_by_name(char *name)
     return NULL;
 }
 
-void digit_process_msg(uint8 id, uint8 value)
+static void digit_process_msg(uint8 u8Id, uint8 u8Value)
 {
-    T_digit_var *var = digit_get_var_by_id(id);
-    if (var)
+    T_digit_var *ptVar = digit_get_var_by_id(u8Id);
+    if (ptVar)
     {
-        if (var->bSetOngoing)
+        if (ptVar->bSetOngoing)
         {
-            if (value == var->u8ExpectedValue)
+            if (u8Value == ptVar->u8ExpectedValue)
             {
-                var->bSetOngoing = false;
-                var->u32SetReqCnt = 0;
+                ptVar->bSetOngoing = false;
+                ptVar->u32SetReqCnt = 0;
             }            
         }
-        var->u8Value = value;
-        var->tTimestamp = time(NULL);
-        if (var->bGetOngoing)
+        ptVar->u8Value = u8Value;
+        ptVar->tTimestamp = time(NULL);
+        if (ptVar->bGetOngoing)
         {
-            var->bGetOngoing = false;
-            var->u32GetReqCnt = 0;
+            ptVar->bGetOngoing = false;
+            ptVar->u32GetReqCnt = 0;
         }
     }
 }
 
-uint16 digit_calc_crc(uint8 msg[DIGIT_MSG_LEN])
+static uint16 u16_digit_calc_crc(uint8 au8Msg[DIGIT_MSG_LEN])
 {
     uint16 u16Checksum = 0;
     for (int i = 0; i < (DIGIT_MSG_LEN - 1); i++)
     {
-        u16Checksum += msg[i];
+        u16Checksum += au8Msg[i];
     }
     u16Checksum %= 256;
     
     return u16Checksum;
 }
 
-bool digit_is_valid_msg(uint8 au8Msg[DIGIT_MSG_LEN])
+static bool digit_is_valid_msg(uint8 au8Msg[DIGIT_MSG_LEN])
 {
     uint16 u16Checksum;
  
@@ -527,7 +529,7 @@ bool digit_is_valid_msg(uint8 au8Msg[DIGIT_MSG_LEN])
         return false;
     }
 
-    u16Checksum = digit_calc_crc(au8Msg);
+    u16Checksum = u16_digit_calc_crc(au8Msg);
     
     if (u16Checksum == au8Msg[DIGIT_MSG_CRC])
     {
@@ -539,80 +541,80 @@ bool digit_is_valid_msg(uint8 au8Msg[DIGIT_MSG_LEN])
     }
 }
 
-void digit_send_msg(uint8 au8Msg[DIGIT_MSG_LEN])
+static void digit_send_msg(uint8 au8Msg[DIGIT_MSG_LEN])
 {
-    au8Msg[DIGIT_MSG_CRC] = digit_calc_crc(au8Msg);
+    au8Msg[DIGIT_MSG_CRC] = u16_digit_calc_crc(au8Msg);
     rs485_send_msg(DIGIT_MSG_LEN, au8Msg);
     usleep(100000); // sleep 100 ms
 }
 
-void digit_send_get_req(uint8 id)
+static void digit_send_get_req(uint8 u8Id)
 {
-    uint8 au8Msg[DIGIT_MSG_LEN] = { SYSTEM_ID, PI_ADDRESS, DEVICE_ADDRESS, 0, id, 0 };
+    uint8 au8Msg[DIGIT_MSG_LEN] = { SYSTEM_ID, PI_ADDRESS, DEVICE_ADDRESS, 0, u8Id, 0 };
     digit_send_msg(au8Msg);
 }
 
-void digit_send_set_req(uint8 id, uint8 value)
+static void digit_send_set_req(uint8 u8Id, uint8 u8Value)
 {
-    uint8 au8Msg[DIGIT_MSG_LEN] = { SYSTEM_ID, PI_ADDRESS, DEVICE_ADDRESS, id, value, 0 };
+    uint8 au8Msg[DIGIT_MSG_LEN] = { SYSTEM_ID, PI_ADDRESS, DEVICE_ADDRESS, u8Id, u8Value, 0 };
     digit_send_msg(au8Msg);
 }
 
-void digit_set_change_req(T_digit_var *var, uint8 value)
+static void digit_set_change_req(T_digit_var *ptVar, uint8 u8Value)
 {
-    if (var->u8Value != value)
+    if (ptVar->u8Value != u8Value)
     {
-        var->bSetOngoing = true;
-        var->u8ExpectedValue = value;
+        ptVar->bSetOngoing = true;
+        ptVar->u8ExpectedValue = u8Value;
     }
 }
 
-void digit_update_vars()
+static void digit_update_vars()
 {
     time_t tCurrentTime = time(NULL);
 
     // First process ongoing set requests
     for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
     {
-        T_digit_var *var = &g_digit_vars[i];
-        if (var->bSetOngoing == true)
+        T_digit_var *ptVar = &g_digit_vars[i];
+        if (ptVar->bSetOngoing == true)
         {  
-            if (var->u8Value != var->u8ExpectedValue)
+            if (ptVar->u8Value != ptVar->u8ExpectedValue)
             {
-                digit_send_set_req(var->u8Id, var->u8ExpectedValue);
-                var->bGetOngoing = true;
-                var->u32SetReqCnt++;
+                digit_send_set_req(ptVar->u8Id, ptVar->u8ExpectedValue);
+                ptVar->bGetOngoing = true;
+                ptVar->u32SetReqCnt++;
             }
             else
             {
-                var->bSetOngoing = false;
-                var->u32SetReqCnt = 0;
+                ptVar->bSetOngoing = false;
+                ptVar->u32SetReqCnt = 0;
             }
         }
     }    
     // Second process ongoing get requests
     for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
     {
-        T_digit_var *var = &g_digit_vars[i];
-        if (var->bGetOngoing == true)
+        T_digit_var *ptVar = &g_digit_vars[i];
+        if (ptVar->bGetOngoing == true)
         {            
-           digit_send_get_req(var->u8Id);
-           var->u32GetReqCnt++;
+           digit_send_get_req(ptVar->u8Id);
+           ptVar->u32GetReqCnt++;
         }
     }
     // Last process get request if interval has expired
     for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
     {
-        T_digit_var *var = &g_digit_vars[i];
-        if (var->bGetOngoing == false && tCurrentTime - var->tTimestamp >= var->tInternal)
+        T_digit_var *ptVar = &g_digit_vars[i];
+        if (ptVar->bGetOngoing == false && tCurrentTime - ptVar->tTimestamp >= ptVar->tInternal)
         {
-            var->bGetOngoing = true;
-            var->u32GetReqCnt++;
+            ptVar->bGetOngoing = true;
+            ptVar->u32GetReqCnt++;
         }
     }    
 }
 
-void digit_receive_msgs(void)
+static void digit_receive_msgs(void)
 {
     uint8 au8RecvMsg[DIGIT_MSG_LEN];
   
@@ -636,7 +638,7 @@ void digit_receive_msgs(void)
     }
 }
 
-uint8 u8_encode_fan_speed(uint8 u8Value)
+static uint8 u8_encode_fan_speed(uint8 u8Value)
 {
     uint8 u8FanSpeed = 1;
     for (int i = 8; i >= 1; i--)
@@ -650,19 +652,19 @@ uint8 u8_encode_fan_speed(uint8 u8Value)
     return u8FanSpeed;
 }
 
-uint8 u8_decode_Temperature(char *str)
+static uint8 u8_decode_Temperature(char *str)
 {
     real32 temp;
     sscanf(str, "%f", &temp); 
     return celsius_to_NTC(temp);
 }
 
-void encode_Temperature(uint8 value, char *str)
+static void encode_Temperature(uint8 value, char *str)
 {
     sprintf(str, "%.1f", NTC_to_celsius(value));
 }
 
-uint8 u8_decode_FanSpeed(char *str)
+static uint8 u8_decode_FanSpeed(char *str)
 {
     uint8 ret = 0;
     int fan_speed;
@@ -674,18 +676,18 @@ uint8 u8_decode_FanSpeed(char *str)
     return ret;
 }
 
-void encode_FanSpeed(uint8 value, char *str)
+static void encode_FanSpeed(uint8 value, char *str)
 {
     int fan_speed = u8_encode_fan_speed(value);
     sprintf(str, "%d", fan_speed);
 }
 
-void encode_BitMap(uint8 value, char *str)
+static void encode_BitMap(uint8 value, char *str)
 {
     sprintf(str, "\"%X\"", value);
 }
 
-void encode_IO_gate_1(uint8 value, char *str)
+static void encode_IO_gate_1(uint8 value, char *str)
 {
     int fan_speed = u8_encode_fan_speed(value);
 
@@ -696,7 +698,7 @@ void encode_IO_gate_1(uint8 value, char *str)
     strncat(str, "}", 1);
 }
 
-void encode_IO_gate_2(uint8 value, char *str)
+static void encode_IO_gate_2(uint8 value, char *str)
 {
     strcpy(str, "{");
     json_encode_integer(str,
@@ -705,7 +707,7 @@ void encode_IO_gate_2(uint8 value, char *str)
     strncat(str, "}", 1);                         
 }
 
-void encode_IO_gate_3(uint8 value, char *str)
+static void encode_IO_gate_3(uint8 value, char *str)
 {
     strcpy(str, "{");
     json_encode_integer(str,
@@ -734,7 +736,7 @@ void encode_IO_gate_3(uint8 value, char *str)
     strncat(str, "}", 1);                        
 }
 
-void encode_Leds(uint8 value, char *str)
+static void encode_Leds(uint8 value, char *str)
 {
     strcpy(str, "{");
     json_encode_integer(str,
@@ -771,39 +773,39 @@ void encode_Leds(uint8 value, char *str)
     strncat(str, "}", 1); 
 }
 
-void encode_RH(uint8 value, char *str)
+static void encode_RH(uint8 value, char *str)
 {
     int rh = (value - 51)/2.04;
     sprintf(str, "%d", rh);
 }
 
-void encode_Counter(uint8 value, char *str)
+static void encode_Counter(uint8 value, char *str)
 {
     int secs = value/2.5;
     sprintf(str, "%d", secs);
 }
 
-uint8 u8_decode_CellDeFroHyst(char *str)
+static uint8 u8_decode_CellDeFroHyst(char *str)
 {
     int hyst;
     sscanf(str, "%d", &hyst);
     return hyst + 2;
 }
 
-void encode_CellDeFroHyst(uint8 value, char *str)
+static void encode_CellDeFroHyst(uint8 value, char *str)
 {
     int hysteresis = value - 2;
     sprintf(str, "%d", hysteresis);
 }
 
-uint8 u8_decode_FanPower(char *str)
+static uint8 u8_decode_FanPower(char *str)
 {
     int fan_power;
     sscanf(str, "%d", &fan_power);
     return fan_power;
 }
 
-void encode_FanPower(uint8 value, char *str)
+static void encode_FanPower(uint8 value, char *str)
 {
     sprintf(str, "%d", value);
 }
