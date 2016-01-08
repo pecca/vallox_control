@@ -30,12 +30,15 @@
 #define PRE_HEATING_MODE_ON             (1)
 #define PRE_HEATING_MODE_AUTO           (2)
 
+#define FIREPLACE_OFF                   (0)
+#define FIREPLACE_ON                    (1)
+
 #define MOVING_AVERAGE_SIZE             (60 * 60 / CTRL_LOGIC_TIMELEVEL)
 
 #define DEFROST_MAX_DURATION            (15)
 #define DEFROST_START_DURATION          (10)
 #define DEFROST_TARGET_LEVEL            (72)
-#define DEFROST_TARGET_TEMP             (17)
+#define DEFROST_TARGET_IN_EFF           (85)
 #define DEFROST_STOP_TIME               (10 * 60)
  
 #define SUB_STR_MAX_SIZE                (1000)
@@ -48,7 +51,8 @@ typedef enum
 {
     e_Measuring,
     e_Below_Limit,
-    e_Defrost_Ongoing,
+    e_Defrost_Heating,
+    e_Defrost_InputFanStop,
     e_Defrost_Stopped
 } E_DefrostState;
 
@@ -70,10 +74,11 @@ typedef struct
     T_AvfFilter tOutEff;
     byte u8PreHeatingMode;    
     byte u8DefrostMode;
+    byte u8FirePlaceMode;
     uint32 u32DefrostMaxDuration;
     uint32 u32DefrostStartDuration;
     real32 r32DefrostStartLevel;
-    real32 r32DefrostTargetTemp;
+    real32 r32DefrostTargetInEff;
 } T_CtrlVars;
 
 typedef struct
@@ -153,6 +158,12 @@ void ctrl_set_var_by_name(char *sName, char *sValue)
         sscanf(sValue, "%d", &u16Temp);
         g_tCtrlVars.u8DefrostMode = u16Temp;
     }
+    else if (!strcmp(sName, "fireplace_mode"))
+    {
+        uint16 u16Temp;
+        sscanf(sValue, "%d", &u16Temp);
+        g_tCtrlVars.u8FirePlaceMode = u16Temp;
+    }    
     else if (!strcmp(sName, "min_exhaust_temp"))
     {
         real32 fTemp;
@@ -165,11 +176,11 @@ void ctrl_set_var_by_name(char *sName, char *sValue)
         sscanf(sValue, "%f", &fTemp);
         g_tCtrlVars.r32DefrostStartLevel = fTemp;
     }
-    else if (!strcmp(sName, "defrost_target_temp"))
+    else if (!strcmp(sName, "defrost_target_in_eff"))
     {
         real32 fTemp;
         sscanf(sValue, "%f", &fTemp);
-        g_tCtrlVars.r32DefrostTargetTemp = fTemp;
+        g_tCtrlVars.r32DefrostTargetInEff = fTemp;
     }  
     else if (!strcmp(sName, "defrost_max_duration"))
     {
@@ -262,7 +273,21 @@ void ctrl_json_encode(char *sMesg)
                        "defrost_mode",
                        sSubStr2);
     strncat(sSubStr1, ",", 1); 
-   
+
+    // fireplace_mode
+    strcpy(sSubStr2, "");
+    json_encode_real32(sSubStr2,
+                      "value",
+                      g_tCtrlVars.u8FirePlaceMode);
+    strncat(sSubStr2, ",", 1);
+    json_encode_integer(sSubStr2,
+                        "ts",
+                        time(NULL));
+    json_encode_object(sSubStr1,
+                       "fireplace_mode",
+                       sSubStr2);
+    strncat(sSubStr1, ",", 1); 
+    
     // pre_heating_mode
     strcpy(sSubStr2, "");
     json_encode_real32(sSubStr2,
@@ -393,13 +418,13 @@ void ctrl_json_encode(char *sMesg)
     strcpy(sSubStr2, "");
     json_encode_real32(sSubStr2,
                       "value",
-                      g_tCtrlVars.r32DefrostTargetTemp);
+                      g_tCtrlVars.r32DefrostTargetInEff);
     strncat(sSubStr2, ",", 1);
     json_encode_integer(sSubStr2,
                         "ts",
                         time(NULL));
     json_encode_object(sSubStr1,
-                       "defrost_target_temp",
+                       "defrost_target_in_eff",
                        sSubStr2);
     strncat(sSubStr1, ",", 1); 
     
@@ -450,12 +475,13 @@ static void ctrl_init()
     g_tCtrlVars.r32MinExhaustTemp = -3.0f;
     g_tCtrlVars.u8DefrostMode = DEFROST_MODE_OFF;
     g_tCtrlVars.u8PreHeatingMode = PRE_HEATING_MODE_OFF;
+    g_tCtrlVars.u8FirePlaceMode = FIREPLACE_OFF;
     pre_heating_set_power(0);
     
     g_tCtrlVars.u32DefrostMaxDuration = DEFROST_MAX_DURATION;
     g_tCtrlVars.u32DefrostStartDuration = DEFROST_START_DURATION;
     g_tCtrlVars.r32DefrostStartLevel = DEFROST_TARGET_LEVEL;
-    g_tCtrlVars.r32DefrostTargetTemp = DEFROST_TARGET_TEMP;
+    g_tCtrlVars.r32DefrostTargetInEff = DEFROST_TARGET_IN_EFF;
     
     post_heating_counter_init();
     pre_heating_resistor_init();
@@ -480,9 +506,9 @@ static void ctrl_run()
     }
     else
     {
-        ctrl_init();
-        pre_heating_set_power(0);
-        defrost_resistor_stop();
+        //ctrl_init();
+        //pre_heating_set_power(0);
+        //defrost_resistor_stop();
     }
 }
 
@@ -500,9 +526,9 @@ static void ctrl_update_vars()
         real32 in_eff = g_tCtrlVars.r32InEfficiency;
         real32 out_eff = g_tCtrlVars.r32OutEfficiency;        
         
-        if (g_tDefrostCtrl.eState == e_Defrost_Ongoing)
+        if (g_tDefrostCtrl.eState == e_Defrost_Heating)
         {
-            in_eff = g_tCtrlVars.tInEff.r32Value;
+     //       in_eff = g_tCtrlVars.tInEff.r32Value;
             out_eff = g_tCtrlVars.tOutEff.r32Value;
         }
     
@@ -579,7 +605,7 @@ static void pre_heating_control(void)
             u16Power  = 0;
         }
         
-        if (g_tDefrostCtrl.eState == e_Defrost_Ongoing)
+        if (g_tDefrostCtrl.eState == e_Defrost_Heating)
         {
             pre_heating_set_power(g_tDefrostCtrl.u16PreHeatingPower);
         }
@@ -631,7 +657,15 @@ static void defrost_control()
         if (g_tDefrostCtrl.eState == e_Measuring ||
             g_tDefrostCtrl.eState == e_Below_Limit)
         {  
-            if (r32InEff < g_tCtrlVars.r32DefrostStartLevel)
+            real32 r32CurrentExhaustTemp = r32_digit_exhaust_temp();
+        
+            if (g_tCtrlVars.r32DewPoint > 2.0f && r32CurrentExhaustTemp < 0.0f)
+            {
+                g_tDefrostCtrl.tCheckTime = tCurrentTime;
+                g_tDefrostCtrl.eState = e_Defrost_Heating;                
+            }
+            else if (r32InEff < g_tCtrlVars.r32DefrostStartLevel && 
+                     g_tCtrlVars.r32InEfficiency < r32InEff)
             {
                 if (g_tDefrostCtrl.eState == e_Measuring)
                 {
@@ -642,17 +676,43 @@ static void defrost_control()
                            (g_tCtrlVars.u32DefrostStartDuration * 60))
                 {
                     g_tDefrostCtrl.tCheckTime = tCurrentTime;
-                    g_tDefrostCtrl.eState = e_Defrost_Ongoing;
+                    g_tDefrostCtrl.eState = e_Defrost_Heating;
                 }
             }
         }
-        else if (g_tDefrostCtrl.eState == e_Defrost_Ongoing)
+        else if (g_tDefrostCtrl.eState == e_Defrost_Heating)
         {
-            if (r32_DS18B20_incoming_temp() > g_tCtrlVars.r32DefrostTargetTemp ||
+            if (g_tCtrlVars.r32InEfficiency > g_tCtrlVars.r32DefrostTargetInEff ||
                 tCurrentTime - g_tDefrostCtrl.tCheckTime > (g_tCtrlVars.u32DefrostMaxDuration * 60))
             {
+                if (g_tCtrlVars.u8FirePlaceMode == FIREPLACE_OFF)
+                {
+                    digit_set_input_fan_stop(15.0f);
+                    g_tDefrostCtrl.eState = e_Defrost_InputFanStop;
+                }
+                else
+                {          
+                    g_tDefrostCtrl.tCheckTime = tCurrentTime;
+                    g_tDefrostCtrl.eState = e_Defrost_Stopped;
+                }
+            }
+        }
+        else if (g_tDefrostCtrl.eState == e_Defrost_InputFanStop)
+        {
+            if (g_tCtrlVars.u8FirePlaceMode == FIREPLACE_ON)
+            {
+                digit_set_input_fan_stop(-6.0f);
                 g_tDefrostCtrl.tCheckTime = tCurrentTime;
-                g_tDefrostCtrl.eState = e_Defrost_Stopped;
+                g_tDefrostCtrl.eState = e_Defrost_Stopped;                
+            }
+            else
+            {
+                if (g_tCtrlVars.r32InEfficiency > g_tCtrlVars.r32DefrostTargetInEff)
+                {
+                    digit_set_input_fan_stop(-6.0f);
+                    g_tDefrostCtrl.tCheckTime = tCurrentTime;
+                    g_tDefrostCtrl.eState = e_Defrost_Stopped;
+                }
             }
         }
         else if (g_tDefrostCtrl.eState == e_Defrost_Stopped)
@@ -663,7 +723,7 @@ static void defrost_control()
             }
         }
         
-        if (g_tDefrostCtrl.eState == e_Defrost_Ongoing)
+        if (g_tDefrostCtrl.eState == e_Defrost_Heating)
         {
             defrost_resistor_start();
         }

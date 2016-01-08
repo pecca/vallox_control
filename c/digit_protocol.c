@@ -384,6 +384,14 @@ void digit_set_incoming_target_temp(real32 temp)
     digit_set_change_req(var, value);
 }
 
+// Set incoming target temperature
+void digit_set_input_fan_stop(real32 temp)
+{
+    uint8 value = u16_celsius_to_NTC(temp);
+    T_digit_var *var = &g_digit_vars[INPUT_FAN_STOP_TEMP_INDEX];
+    digit_set_change_req(var, value);
+}
+
 // Return post heating ON counter
 real32 r32_digit_post_heating_on_cnt(void)
 {

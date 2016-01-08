@@ -28,5 +28,6 @@ real32 r32_digit_post_heating_on_cnt(void);
 real32 r32_digit_post_heating_off_cnt(void);
 
 void digit_set_incoming_target_temp(real32 r32Temp);
+void digit_set_input_fan_stop(real32 r32Temp);
 
 #endif

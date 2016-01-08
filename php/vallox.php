@@ -178,6 +178,12 @@ function set_ctrl_var($fp, $var_id, $value)
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
+    else if (isset($_POST['edit_fireplace_mode'])) 
+    {    
+        set_ctrl_var($fp, "fireplace_mode", $_POST['edit_fireplace_mode_set']);
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit();
+    }    
     else if (isset($_POST['edit_min_exhaust_temp'])) 
     {    
         set_ctrl_var($fp, "min_exhaust_temp", $_POST['edit_min_exhaust_temp_set']);
@@ -202,9 +208,9 @@ function set_ctrl_var($fp, $var_id, $value)
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
-    else if (isset($_POST['edit_defrost_target_temp'])) 
+    else if (isset($_POST['edit_defrost_target_in_eff'])) 
     {    
-        set_ctrl_var($fp, "defrost_target_temp", $_POST['edit_defrost_target_temp_set']);
+        set_ctrl_var($fp, "defrost_target_in_eff", $_POST['edit_defrost_target_in_eff_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
@@ -280,13 +286,14 @@ function set_ctrl_var($fp, $var_id, $value)
     $pre_heating_mode = get_ctrl_var($fp, $control_vars, "pre_heating_mode");
     $pre_heating_power = get_ctrl_var($fp, $control_vars, "pre_heating_power");
     $defrost_mode = get_ctrl_var($fp, $control_vars, "defrost_mode");
+    $fireplace_mode = get_ctrl_var($fp, $control_vars, "fireplace_mode");    
     $min_exhaust_temp = get_ctrl_var($fp, $control_vars, "min_exhaust_temp");
     
 
     $defrost_max_duration = get_ctrl_var($fp, $control_vars, "defrost_max_duration");
     $defrost_start_duration = get_ctrl_var($fp, $control_vars, "defrost_start_duration");
     $defrost_start_level = get_ctrl_var($fp, $control_vars, "defrost_start_level");
-    $defrost_target_temp = get_ctrl_var($fp, $control_vars, "defrost_target_temp");
+    $defrost_target_in_eff = get_ctrl_var($fp, $control_vars, "defrost_target_in_eff");
     
     
     $t = floatval($inside_temp);
@@ -481,7 +488,7 @@ function set_ctrl_var($fp, $var_id, $value)
 
 
     <table border="1">
-    <caption>LTO efficiency (after radioator)</caption>
+    <caption>LTO efficiency (after radiator)</caption>
          <tr>
          <td>Incoming air</td>
           <td><?php echo  $incoming_air_efficiency . " %";  ?></td>
@@ -497,7 +504,7 @@ function set_ctrl_var($fp, $var_id, $value)
     </table>
 
     <table border="1">
-    <caption>LTO efficiency filtered (after radioator)</caption>
+    <caption>LTO efficiency filtered (after radiator)</caption>
          <tr>
          <td>Incoming air</td>
           <td><?php echo  $incoming_air_efficiency_filtered . " %";  ?></td>
@@ -656,6 +663,17 @@ function set_ctrl_var($fp, $var_id, $value)
         </td>
         </tr>
         <tr>
+        <td>Fireplace mode</td>
+        <td> <?php echo $fireplace_mode; ?> </td>
+        <td>
+            <form method="post">
+                <input type="radio" name="edit_fireplace_mode_set" value="0" /> Off
+                <input type="radio" name="edit_fireplace_mode_set" value="1" /> On
+                <input type='submit' name='edit_fireplace_mode' value="Set" />
+            </form>
+        </td>
+        </tr>        
+        <tr>
         <td>Defrost time</td>
         <td> <?php echo $defrost_on_time . " s"; ?> </td>
         </tr> 
@@ -680,7 +698,7 @@ function set_ctrl_var($fp, $var_id, $value)
         </td>
         </tr>
         <tr>
-        <td>Max duration of defrost</td>
+        <td>Max duration of defrost heating</td>
         <td> <?php echo $defrost_max_duration . " min"; ?> </td>
         <td>
             <form method="post">
@@ -690,12 +708,12 @@ function set_ctrl_var($fp, $var_id, $value)
         </td>
         </tr>
         <tr>
-        <td>Target incoming temp</td>
-        <td> <?php echo $defrost_target_temp . " *C"; ?> </td>
+        <td>Target incoming efficiency</td>
+        <td> <?php echo $defrost_target_in_eff . " %"; ?> </td>
         <td>
             <form method="post">
-                <input type="text" name="edit_defrost_target_temp_set" size="2" />
-                <input type='submit' name='edit_defrost_target_temp' value="Set" />
+                <input type="text" name="edit_defrost_target_in_eff_set" size="2" />
+                <input type='submit' name='edit_defrost_target_in_eff' value="Set" />
             </form>
         </td>
         </tr>        
