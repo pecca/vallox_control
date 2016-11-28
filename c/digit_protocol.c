@@ -130,8 +130,12 @@
 #define DIGIT_MSG_DATA      4
 #define DIGIT_MSG_CRC       5
  
+
+ 
 // Bitfield coding
-#define GET_BIT(value, bit) (bool)(value & (1 << bit)) 
+#define GET_BIT(value, bit) (bool)(value & (1 << bit))
+#define SET_BIT(value, bit) (value |= (1 << bit))
+#define CLEAR_BIT(value, bit) (value &= (~(1 << bit)))
 #define BIT0   0
 #define BIT1   1
 #define BIT2   2
@@ -166,6 +170,7 @@ typedef struct
     char sNameStr[NAME_MAX_SIZE];   // name
     uint8 u8Value;                  // Current value
     uint8 u8ExpectedValue;          // Expected value
+    uint8 u8ExpectedMask;           // Mask used in comparison
     time_t tTimestamp;              // Timestamp when value updated
     time_t tInternal;               // Value update interval
     bool bGetOngoing;               // Status of get request
@@ -224,6 +229,7 @@ static T_digit_var *digit_get_var_by_id(uint8 u8Id);
 
 // JSON decode functions 
 static uint8 u8_decode_FanSpeed(char *sStr);
+static uint8 u8_decode_int_FanSpeed(uint8 u8FanSpeed);
 static uint8 u8_decode_Temperature(char *sStr);
 static uint8 u8_decode_CellDeFroHyst(char *sStr);
 static uint8 u8_decode_FanPower(char *sStr);
@@ -392,6 +398,33 @@ void digit_set_input_fan_stop(real32 temp)
     digit_set_change_req(var, value);
 }
 
+void digit_set_input_fan_off(bool off)
+{
+    uint8 value = 0;
+    uint8 mask = 0;
+    SET_BIT(mask, BIT3);
+    
+    if (off)
+    {
+        SET_BIT(value, BIT3);
+    }
+    else 
+    {
+        CLEAR_BIT(value, BIT3);
+    }
+    SET_BIT(value, BIT4);
+    
+    T_digit_var *var = &g_digit_vars[IO_GATE_3_INDEX];
+    var->u8ExpectedMask = mask;
+    digit_set_change_req(var, value);
+}
+
+bool b_digit_input_fan_off(void)
+{
+    T_digit_var *var = &g_digit_vars[IO_GATE_3_INDEX];
+    return (bool) GET_BIT(var->u8Value, BIT3);
+}
+
 // Return post heating ON counter
 real32 r32_digit_post_heating_on_cnt(void)
 {
@@ -414,6 +447,20 @@ uint8 u8_digit_cur_fan_speed(void)
     T_digit_var *var = &g_digit_vars[CUR_FAN_SPEED_INDEX];
     int fan_speed = u8_encode_fan_speed(var->u8Value);
     return fan_speed;
+}
+
+void digit_set_min_fan_speed(uint8 u8MinSpeed)
+{    
+    uint8 value = u8_decode_int_FanSpeed(u8MinSpeed);
+    T_digit_var *var = &g_digit_vars[MIN_FAN_SPEED_INDEX];
+    digit_set_change_req(var, value);
+}
+
+uint8 u8_digit_min_fan_speed(void)
+{
+     T_digit_var *var = &g_digit_vars[MIN_FAN_SPEED_INDEX];
+    int fan_speed = u8_encode_fan_speed(var->u8Value);
+    return fan_speed;   
 }
 
 /******************************************************************************
@@ -441,8 +488,8 @@ static void digit_init(void)
     digit_init_var(DIGIT_PARAM(HRC_BYPASS_TEMP), 120, &u8_decode_Temperature, &encode_Temperature);
     digit_init_var(DIGIT_PARAM(INPUT_FAN_STOP_TEMP), 120, &u8_decode_Temperature, &encode_Temperature);
     digit_init_var(DIGIT_PARAM(CELL_DEFROSTING_HYSTERESIS), 120, &u8_decode_CellDeFroHyst, &encode_CellDeFroHyst);
-    digit_init_var(DIGIT_PARAM(DC_FAN_INPUT), 120, &u8_decode_FanPower, &encode_FanPower);
-    digit_init_var(DIGIT_PARAM(DC_FAN_OUTPUT), 120, &u8_decode_FanPower, &encode_FanPower);
+    digit_init_var(DIGIT_PARAM(DC_FAN_INPUT), 20, &u8_decode_FanPower, &encode_FanPower);
+    digit_init_var(DIGIT_PARAM(DC_FAN_OUTPUT), 20, &u8_decode_FanPower, &encode_FanPower);
     digit_init_var(DIGIT_PARAM(FLAGS_2), 20, NULL, &encode_BitMap);
     digit_init_var(DIGIT_PARAM(FLAGS_4), 20, NULL, &encode_BitMap);
     digit_init_var(DIGIT_PARAM(FLAGS_5), 20, NULL, &encode_BitMap);
@@ -453,7 +500,7 @@ static void digit_init(void)
     digit_init_var(DIGIT_PARAM(PRE_HEATING_TEMP), 200, &u8_decode_Temperature, &encode_Temperature);
     digit_init_var(DIGIT_PARAM(IO_GATE_1), 200, NULL, &encode_IO_gate_1);
     digit_init_var(DIGIT_PARAM(IO_GATE_2), 200, NULL, &encode_IO_gate_2);
-    digit_init_var(DIGIT_PARAM(IO_GATE_3), 200, NULL, &encode_IO_gate_3);
+    digit_init_var(DIGIT_PARAM(IO_GATE_3), 20, NULL, &encode_IO_gate_3);
 }
 
 static void digit_init_var(uint8 u8Index, uint8 u8Id, char *sName, time_t tInternal, 
@@ -466,6 +513,7 @@ static void digit_init_var(uint8 u8Index, uint8 u8Id, char *sName, time_t tInter
     digit_var->tInternal = tInternal;
     digit_var->decodeFunPtr = decodeFunPtr;
     digit_var->encodeFunPtr = encodeFunPtr;
+    digit_var->u8ExpectedMask = 0xFF;
 } 
 
 static T_digit_var *digit_get_var_by_id(uint8 u8Id)
@@ -499,7 +547,7 @@ static void digit_process_msg(uint8 u8Id, uint8 u8Value)
     {
         if (ptVar->bSetOngoing)
         {
-            if (u8Value == ptVar->u8ExpectedValue)
+            if ((u8Value & ptVar->u8ExpectedMask) == (ptVar->u8ExpectedValue & ptVar->u8ExpectedMask))
             {
                 ptVar->bSetOngoing = false;
                 ptVar->u32SetReqCnt = 0;
@@ -570,7 +618,7 @@ static void digit_send_set_req(uint8 u8Id, uint8 u8Value)
 
 static void digit_set_change_req(T_digit_var *ptVar, uint8 u8Value)
 {
-    if (ptVar->u8Value != u8Value)
+    if ((ptVar->u8Value & ptVar->u8ExpectedMask) != (u8Value & ptVar->u8ExpectedMask))
     {
         ptVar->bSetOngoing = true;
         ptVar->u8ExpectedValue = u8Value;
@@ -587,7 +635,7 @@ static void digit_update_vars()
         T_digit_var *ptVar = &g_digit_vars[i];
         if (ptVar->bSetOngoing == true)
         {  
-            if (ptVar->u8Value != ptVar->u8ExpectedValue)
+            if ((ptVar->u8Value & ptVar->u8ExpectedMask)  != (ptVar->u8ExpectedValue & ptVar->u8ExpectedMask))
             {
                 digit_send_set_req(ptVar->u8Id, ptVar->u8ExpectedValue);
                 ptVar->bGetOngoing = true;
@@ -672,16 +720,21 @@ static void encode_Temperature(uint8 value, char *str)
     sprintf(str, "%.1f", r32_NTC_to_celsius(value));
 }
 
-static uint8 u8_decode_FanSpeed(char *str)
+static uint8 u8_decode_int_FanSpeed(uint8 u8FanSpeed)
 {
     uint8 ret = 0;
-    int fan_speed;
-    sscanf(str, "%d", &fan_speed);
-    for (int i = 0; i < fan_speed; i++)
+    for (int i = 0; i < u8FanSpeed; i++)
     {
        ret |= (0x1 << i); 
     }
     return ret;
+}
+
+static uint8 u8_decode_FanSpeed(char *str)
+{
+    int fan_speed;
+    sscanf(str, "%d", &fan_speed);
+    return u8_decode_int_FanSpeed(fan_speed);
 }
 
 static void encode_FanSpeed(uint8 value, char *str)

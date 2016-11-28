@@ -86,15 +86,23 @@ function get_ctrl_var($fp, $control_vars, $var_id)
     return $value;
 }
 
+function get_ctrl_var_ts($fp, $control_vars, $var_id, &$timestamp)
+{
+    $value = $control_vars[$var_id]['value'];
+    $timestamp = intval($control_vars[$var_id]['ts']);
+    $timestamp = date('r', $timestamp);    
+    return $value;
+}
+
 function set_digit_var($fp, $var_id, $value)
 {
-    $str = '{"set": {"digit_var":{ "'. $var_id . '", ' . $value . '}}}';
+    $str = '{"set": {"digit_var":{ "'. $var_id . '": ' . $value . '}}}';
     fwrite($fp, $str);
 }
 
 function set_ctrl_var($fp, $var_id, $value)
 {
-    $str = '{"set": {"control_var":{ "'. $var_id . '", ' . $value . '}}}';
+    $str = '{"set": {"control_var":{ "'. $var_id . '": ' . $value . '}}}';
     fwrite($fp, $str);
 }
 
@@ -154,51 +162,21 @@ function set_ctrl_var($fp, $var_id, $value)
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
-    else if (isset($_POST['edit_pre_heating_temp'])) 
+    else if (isset($_POST['edit_pressure_offset'])) 
     {        
-        set_digit_var($fp, "pre_heating_temp", $_POST['edit_pre_heating_temp_set']);
+        set_ctrl_var($fp, "pressure_offset", $_POST['edit_pressure_offset_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
-    }
-    else if (isset($_POST['edit_pre_heating_power'])) 
-    {        
-        set_ctrl_var($fp, "pre_heating_power", $_POST['edit_pre_heating_power_set']);
-        header("Location: " . $_SERVER['REQUEST_URI']);
-        exit();
-    }
-    else if (isset($_POST['edit_pre_heating_mode'])) 
-    {        
-        set_ctrl_var($fp, "pre_heating_mode", $_POST['edit_pre_heating_mode_set']);
-        header("Location: " . $_SERVER['REQUEST_URI']);
-        exit();
-    }
-    else if (isset($_POST['edit_defrost_mode'])) 
-    {    
-        set_ctrl_var($fp, "defrost_mode", $_POST['edit_defrost_mode_set']);
-        header("Location: " . $_SERVER['REQUEST_URI']);
-        exit();
-    }
-    else if (isset($_POST['edit_fireplace_mode'])) 
-    {    
-        set_ctrl_var($fp, "fireplace_mode", $_POST['edit_fireplace_mode_set']);
-        header("Location: " . $_SERVER['REQUEST_URI']);
-        exit();
-    }    
-    else if (isset($_POST['edit_min_exhaust_temp'])) 
-    {    
-        set_ctrl_var($fp, "min_exhaust_temp", $_POST['edit_min_exhaust_temp_set']);
-        header("Location: " . $_SERVER['REQUEST_URI']);
-        exit();
-    }
+    }           
     else if (isset($_POST['edit_defrost_max_duration'])) 
     {        
         set_ctrl_var($fp, "defrost_max_duration", $_POST['edit_defrost_max_duration_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
-    else if (isset($_POST['edit_defrost_start_duration'])) 
-    {        
-        set_ctrl_var($fp, "defrost_start_duration", $_POST['edit_defrost_start_duration_set']);
+    else if (isset($_POST['edit_defrost_mode']))
+    {
+        set_ctrl_var($fp, "defrost_mode", $_POST['edit_defrost_mode_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
@@ -214,9 +192,12 @@ function set_ctrl_var($fp, $var_id, $value)
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
-
-
-
+    else if (isset($_POST['edit_defrost_target_temp'])) 
+    {    
+        set_ctrl_var($fp, "defrost_target_temp", $_POST['edit_defrost_target_temp_set']);
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit();
+    }
 
     if (!$fp) 
     {
@@ -283,17 +264,15 @@ function set_ctrl_var($fp, $var_id, $value)
     $defrost_on_time_total = get_ctrl_var($fp, $control_vars, "defrost_time");
     $defrost_on_time = get_ctrl_var($fp, $control_vars, "defrost_on_time");
     
-    $pre_heating_mode = get_ctrl_var($fp, $control_vars, "pre_heating_mode");
-    $pre_heating_power = get_ctrl_var($fp, $control_vars, "pre_heating_power");
+    
+    $pressure_offset = get_ctrl_var($fp, $control_vars, "pressure_offset");
     $defrost_mode = get_ctrl_var($fp, $control_vars, "defrost_mode");
-    $fireplace_mode = get_ctrl_var($fp, $control_vars, "fireplace_mode");    
-    $min_exhaust_temp = get_ctrl_var($fp, $control_vars, "min_exhaust_temp");
     
 
     $defrost_max_duration = get_ctrl_var($fp, $control_vars, "defrost_max_duration");
-    $defrost_start_duration = get_ctrl_var($fp, $control_vars, "defrost_start_duration");
     $defrost_start_level = get_ctrl_var($fp, $control_vars, "defrost_start_level");
     $defrost_target_in_eff = get_ctrl_var($fp, $control_vars, "defrost_target_in_eff");
+    $defrost_target_temp = get_ctrl_var($fp, $control_vars, "defrost_target_temp");
     
     
     $t = floatval($inside_temp);
@@ -302,6 +281,12 @@ function set_ctrl_var($fp, $var_id, $value)
     $b = floatval(237.7);
     $z =  ((($a * $t) / ($b + $t)) + log($rh));
     $dew_point = get_ctrl_var($fp, $control_vars, "dew_point");
+    $pressure_outdoor = get_ctrl_var_ts($fp, $control_vars, "pressure_outdoor", $pressure_outdoor_ts);
+    $pressure_indoor = get_ctrl_var_ts($fp, $control_vars, "pressure_indoor", $pressure_indoor_ts);
+    $pressure_diff = get_ctrl_var_ts($fp, $control_vars, "pressure_diff", $pressure_diff_ts);    
+    $pressure_diff_filtered = get_ctrl_var_ts($fp, $control_vars, "pressure_diff_filtered", $pressure_diff_filtered_ts);  
+    
+    
     $air_flow = 15 + 10 * $cur_fan_speed;
     $radiator_watt = round($air_flow * 1.225 * ($ds18b20_sensor1 - $outside_temp),1); 
     $incoming_air_efficiency = get_ctrl_var($fp, $control_vars, "in_efficiency");
@@ -544,6 +529,41 @@ function set_ctrl_var($fp, $var_id, $value)
     </table>
 
     <table border="1">
+    <caption>Pressures</caption>
+         <tr>
+         <td>Outdoor</td>
+          <td><?php echo  $pressure_outdoor . " Pa";  ?></td>
+          <td> <?php echo $pressure_outdoor_ts; ?> </td>
+         </tr>
+         <tr>
+         <td>Indoor</td>
+          <td><?php echo  $pressure_indoor . " Pa";  ?></td>
+          <td> <?php echo $pressure_indoor_ts; ?> </td>          
+         </tr>
+         <tr>
+         <td>Difference</td>
+          <td><?php echo  $pressure_diff . " Pa";  ?></td>
+          <td> <?php echo $pressure_diff_ts; ?> </td>
+        </tr>
+         <tr>
+         <td>Difference filtered</td>
+          <td><?php echo  $pressure_diff_filtered . " Pa";  ?></td>
+          <td> <?php echo $pressure_diff_filtered_ts; ?> </td>
+        </tr>        
+        <tr>
+        <td>Pressure offset</td>
+        <td> <?php echo $pressure_offset . " Pa"; ?> </td>
+        <td>
+            <form method="post">
+                <input type="text" name="edit_pressure_offset_set" size="2" />
+                <input type='submit' name='edit_pressure_offset' value="Set" />
+            </form>
+        </td>
+        </tr>
+         
+    </table>    
+    
+    <table border="1">
     <caption>Radiator power</caption>
          <tr>
           <td><?php echo $radiator_watt . " W";?></td>
@@ -566,7 +586,7 @@ function set_ctrl_var($fp, $var_id, $value)
     </table>
 
    <table border="1">
-    <caption>Pre heating 1500 w</caption>
+    <caption>Pre heating 1000 w</caption>
          <tr>
           <th>Time total</th>
           <th>kWh total</th>
@@ -574,8 +594,8 @@ function set_ctrl_var($fp, $var_id, $value)
           </tr>
           <tr>
           <td><?php echo $pre_heating_on_time_total . " sec";?></td>
-          <td><?php echo round((($pre_heating_on_time_total / 3600) * 1.5), 2) . " kWh";?></td>
-          <td><?php echo round(((($pre_heating_on_time_total / 3600) * 1.5)  * 0.12), 2) . " eur";?></td>
+          <td><?php echo round((($pre_heating_on_time_total / 3600)), 2) . " kWh";?></td>
+          <td><?php echo round(((($pre_heating_on_time_total / 3600))  * 0.12), 2) . " eur";?></td>
          </tr>
     </table>
 
@@ -593,61 +613,7 @@ function set_ctrl_var($fp, $var_id, $value)
           <td><?php echo round(((($defrost_on_time_total / 3600) * 1.5)  * 0.12), 2) . " eur";?></td>
          </tr>
     </table>
-
-   <table border="1">
-    <caption>Pre heating control</caption>
-         <tr>
-         <td>Pre heating mode</td>
-        <td> <?php echo $pre_heating_mode;  ?> </td>
-        <td>
-         <form method="post">
-            <input type="radio" name="edit_pre_heating_mode_set" value="0" /> Off
-            <input type="radio" name="edit_pre_heating_mode_set" value="1" /> On
-            <input type="radio" name="edit_pre_heating_mode_set" value="2" /> Auto
-            <input type='submit' name='edit_pre_heating_mode' value="Set" />
-         </form>
-         </td>
-          </tr>
-          <tr>
-         <td>Pre heating power</td>
-         <td> <?php echo $pre_heating_power . " Watt"; ?> </td>
-        <td>
-         <form method="post">
-            <select name="edit_pre_heating_power_set">
-            <option value="0">0</option>
-            <option value="100">100</option>
-            <option value="200">200</option>
-            <option value="300">300</option>
-            <option value="400">400</option>
-            <option value="500">500</option>
-            <option value="600">600</option>
-            <option value="700">700</option>
-            <option value="800">800</option>
-            <option value="900">900</option>
-            <option value="1000">1000</option>
-            <option value="1100">1100</option>
-            <option value="1200">1200</option>
-            <option value="1300">1300</option>
-            <option value="1400">1400</option>
-            <option value="1500">1500</option>
-            </select>
-            <input type='submit' name='edit_pre_heating_power' value="Set" />
-         </form>
-         </td>
-         </tr>
-                 
-         <tr>
-         <td>Min exhaust temp</td>
-        <td> <?php echo $min_exhaust_temp . " *C"; ?> </td>
-        <td>
-         <form method="post">
-            <input type="text" name="edit_min_exhaust_temp_set" size="2" />
-            <input type='submit' name='edit_min_exhaust_temp' value="Set" />
-         </form>
-         </td>
-          </tr>
-    </table -->
-
+    
    <table border="1">
     <caption>Defrost control</caption>
         <tr>
@@ -661,18 +627,7 @@ function set_ctrl_var($fp, $var_id, $value)
                 <input type='submit' name='edit_defrost_mode' value="Set" />
             </form>
         </td>
-        </tr>
-        <tr>
-        <td>Fireplace mode</td>
-        <td> <?php echo $fireplace_mode; ?> </td>
-        <td>
-            <form method="post">
-                <input type="radio" name="edit_fireplace_mode_set" value="0" /> Off
-                <input type="radio" name="edit_fireplace_mode_set" value="1" /> On
-                <input type='submit' name='edit_fireplace_mode' value="Set" />
-            </form>
-        </td>
-        </tr>        
+        </tr>           
         <tr>
         <td>Defrost time</td>
         <td> <?php echo $defrost_on_time . " s"; ?> </td>
@@ -688,17 +643,7 @@ function set_ctrl_var($fp, $var_id, $value)
         </td>
         </tr>
         <tr>
-        <td>Start duration (LTO efficiency incoming air is below the start level)</td>
-        <td> <?php echo $defrost_start_duration . " min"; ?> </td>
-        <td>
-            <form method="post">
-                <input type="text" name="edit_defrost_start_duration_set" size="2" />
-                <input type='submit' name='edit_defrost_start_duration' value="Set" />
-            </form>
-        </td>
-        </tr>
-        <tr>
-        <td>Max duration of defrost heating</td>
+        <td>Max duration of defrost</td>
         <td> <?php echo $defrost_max_duration . " min"; ?> </td>
         <td>
             <form method="post">
@@ -706,7 +651,7 @@ function set_ctrl_var($fp, $var_id, $value)
                 <input type='submit' name='edit_defrost_max_duration' value="Set" />
             </form>
         </td>
-        </tr>
+        </tr>        
         <tr>
         <td>Target incoming efficiency</td>
         <td> <?php echo $defrost_target_in_eff . " %"; ?> </td>
@@ -716,7 +661,16 @@ function set_ctrl_var($fp, $var_id, $value)
                 <input type='submit' name='edit_defrost_target_in_eff' value="Set" />
             </form>
         </td>
-        </tr>        
+        </tr>
+        <td>Target incoming temperature</td>
+        <td> <?php echo $defrost_target_temp . " *C"; ?> </td>
+        <td>
+            <form method="post">
+                <input type="text" name="edit_defrost_target_temp_set" size="2" />
+                <input type='submit' name='edit_defrost_target_temp' value="Set" />
+            </form>
+        </td>
+        </tr>
     </table -->    
     
     <table border="1">

@@ -10,6 +10,7 @@
 
 #include "common.h"
 #include "relay_control.h"
+#include "pre_heating_resistor.h"
 #include "ctrl_logic.h"
  
 /******************************************************************************
@@ -17,54 +18,23 @@
  ******************************************************************************/ 
  
 #define BACKUP_FILE_NAME                        "pre_heating_value.txt"
-#define BACKUP_ON_TIME_COUNTER_INTERVAL_IN_SEC  (60*60) // once per hour  
+#define BACKUP_PRE_HEATING_TIME_INTERVAL_IN_SEC  (60*60) // once per hour  
 #define PRE_HEATING_RESISTOR_CHECK_INTERVAL     CTRL_LOGIC_TIMELEVEL
 #define PRE_HEATING_RELAY_PIN                   17
- 
-/******************************************************************************
- *  Data type declarations
- ******************************************************************************/
- 
-typedef struct
-{
-    uint16 u16OnTime;
-    uint16 u16OffTime;
-} T_pre_heating_power;
- 
+  
 /******************************************************************************
  *  Local variables
  ******************************************************************************/
-
-static uint32 g_u32StoppedTime = 0;
-static uint32 g_u32OnTimeTotal = 0;
+ 
+static uint32 g_u32StartTime = 0;
 static uint32 g_u32CheckCallCnt = 0;
-static uint16 g_u16PreHeatingActivePowerIndex = 0;
-static bool g_bInitDone = false;
-
-T_pre_heating_power g_atpre_heating_power[] = 
-{ 
-  {0,  5},  // 0 W
-  {5, 70},  // 100 W
-  {6, 39},  // 200 W
-  {9, 36},  // 300 W
-  {12,33},  // 400 W
-  {15,30},  // 500 W
-  {12,18},  // 600 W
-  {14,16},  // 700 W
-  {16,14},  // 800 W
-  {18,12},  // 900 W
-  {30,15},  // 1000 W
-  {33,12},  // 1100 W
-  {36, 9},  // 1200 W
-  {39, 6},  // 1300 W
-  {70, 5},  // 1400 W
-  {5,  0}   // 1500 W
-};
+static uint32 g_u32StopTime = 0;
+static uint32 g_u32OnTimeTotal = 0;
 
 /******************************************************************************
  *  Local function declarations
  ******************************************************************************/
-
+ 
 static void read_on_time_from_file();
 static void save_on_time_to_file();
 
@@ -76,96 +46,64 @@ void pre_heating_resistor_init(void)
 {
     relay_control_init(PRE_HEATING_RELAY_PIN);
     read_on_time_from_file();
-    g_bInitDone = true;
 }
 
-void pre_heating_set_power(uint16 u16Power)
+void pre_heating_resistor_start(void)
 {
-    uint16 u16PowerIndex;
-
-    if (u16Power > 1500)
+    if (!g_u32StartTime)
     {
-        u16Power = 1500;
+        relay_control_set_on(PRE_HEATING_RELAY_PIN);
+        g_u32StartTime = time(NULL);
     }
-    u16PowerIndex = u16Power / 100;
-
-    if (g_u16PreHeatingActivePowerIndex > 0 &&
-        u16PowerIndex == 0)
-    {
-        g_u32StoppedTime = time(NULL);
-    }
-    g_u16PreHeatingActivePowerIndex = u16PowerIndex;
 }
 
-void *pre_heating_thread(void *ptr)
+void pre_heating_resistor_stop(void)
 {
-    bool bResistorOn = false;
-
-    while(true)
+    if (g_u32StartTime)
     {
-        if (g_bInitDone == false) 
-        {
-            sleep(1);
-            continue; 
-        }
-        T_pre_heating_power *power = &g_atpre_heating_power[g_u16PreHeatingActivePowerIndex];
-        if (power->u16OnTime > 0)
-        {
-            if (bResistorOn == false)
-            {
-                relay_control_set_on(PRE_HEATING_RELAY_PIN);
-                bResistorOn = true;
-            }
-            sleep(power->u16OnTime);
-            g_u32OnTimeTotal += power->u16OnTime;
-        }
-        if (power->u16OffTime > 0)
-        {
-            if (bResistorOn == true)
-            {
-                relay_control_set_off(PRE_HEATING_RELAY_PIN);
-                bResistorOn = false;
-            }
-            sleep(power->u16OffTime);
-        }
+        relay_control_set_off(PRE_HEATING_RELAY_PIN);
+        g_u32OnTimeTotal += u32_pre_heating_resistor_get_on_time();
+        g_u32StartTime = 0;
     }
-    return NULL;
 }
 
-void pre_heating_resistor_counter_update()
+void pre_heating_resistor_counter_update(void)
 {
     g_u32CheckCallCnt++;
     if ( (g_u32CheckCallCnt * PRE_HEATING_RESISTOR_CHECK_INTERVAL) % 
-         BACKUP_ON_TIME_COUNTER_INTERVAL_IN_SEC == 0)
+         BACKUP_PRE_HEATING_TIME_INTERVAL_IN_SEC == 0)
     {
         save_on_time_to_file();
     }
 }
 
-void pre_heating_resistor_get_status(bool *bPreHeatingOngoing,
-                                     uint32 *u32StoppedTimeElapsed)
+uint32 u32_pre_heating_resistor_get_on_time()
 {
-    if (g_u16PreHeatingActivePowerIndex > 0)
+    if (g_u32StartTime)
     {
-        *bPreHeatingOngoing = true;
-        *u32StoppedTimeElapsed = 0;
+        return time(NULL) - g_u32StartTime;
     }
     else
     {
-        *bPreHeatingOngoing = false;
-        *u32StoppedTimeElapsed = time(NULL) - g_u32StoppedTime;
+        return 0;
     }
 }
 
+bool pre_heating_resistor_get_status()
+{
+    if (g_u32StartTime)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
 
 uint32 u32_pre_heating_resistor_get_on_time_total()
 {
     return g_u32OnTimeTotal;
-}
-
-uint16 u16_pre_heating_get_power()
-{
-    return (g_u16PreHeatingActivePowerIndex * 100);
 }
 
 /******************************************************************************

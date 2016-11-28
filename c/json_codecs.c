@@ -125,12 +125,11 @@ uint32 u32_json_decode_message(uint32 u32MsgLen, char *sMesg)
             digit_set_var_by_name(sName, sValue);
         }
         else if (!strcmp(tokenStr, CONTROL_VAR))
-        {
+        {            
             char sName[DECODE_STR_SIZE], sValue[DECODE_STR_SIZE];
             
             get_json_token_str(5, sMesg, tokens, sName);
             get_json_token_str(6, sMesg, tokens, sValue);
-
             ctrl_set_var_by_name(sName, sValue);
         }
     }

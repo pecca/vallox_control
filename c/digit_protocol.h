@@ -26,8 +26,12 @@ uint8 u8_digit_cur_fan_speed(void);
 real32 r32_digit_incoming_target_temp();
 real32 r32_digit_post_heating_on_cnt(void);
 real32 r32_digit_post_heating_off_cnt(void);
+bool b_digit_input_fan_off(void);
+uint8 u8_digit_min_fan_speed();
 
 void digit_set_incoming_target_temp(real32 r32Temp);
 void digit_set_input_fan_stop(real32 r32Temp);
+void digit_set_input_fan_off(bool off);
+void digit_set_min_fan_speed(uint8 u8MinSpeed);
 
 #endif
