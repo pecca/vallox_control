@@ -45,7 +45,8 @@ typedef enum
     e_Measuring,
     e_Defrost_Heating,
     e_Defrost_PreHeating,
-    e_Defrost_Stopped
+    e_Defrost_Stopped,
+    e_Defrost_InputFanStop
 } E_DefrostState;
 
 
@@ -570,35 +571,47 @@ static void defrost_control()
     else
     {
         real32 r32InEffFiltered = g_tCtrlVars.tInEff.r32Value;
-	real32 r32InEff =  g_tCtrlVars.r32InEfficiency;
-     	time_t tCurrentTime = time(NULL);
+        real32 r32InEff =  g_tCtrlVars.r32InEfficiency;
+        time_t tCurrentTime = time(NULL);
+        real32 r32CurrentIncomingTemp = r32_digit_incoming_temp();
+        real32 r32ExhaustTemp = r32_DS18B20_exhaust_temp();
+        real32 r32CurrentExhaustTemp = r32_digit_exhaust_temp();
     
         if (g_tDefrostCtrl.eState == e_Measuring)
-        {  
-            real32 r32CurrentExhaustTemp = r32_digit_exhaust_temp();
+        {     
             if (r32InEffFiltered < g_tCtrlVars.r32DefrostStartLevel &&
-		r32InEff <  r32InEffFiltered)
+                r32InEff <  r32InEffFiltered)
             {
                 g_tDefrostCtrl.tCheckTime = tCurrentTime;
                 g_tDefrostCtrl.eState = e_Defrost_Heating;
             }
         }
         else if (g_tDefrostCtrl.eState == e_Defrost_Heating ||
-		 g_tDefrostCtrl.eState == e_Defrost_PreHeating)
+                g_tDefrostCtrl.eState == e_Defrost_PreHeating)
         {
-            real32 r32CurrentIncomingTemp = r32_digit_incoming_temp();
-	    real32 r32ExhaustTemp = r32_DS18B20_exhaust_temp();
-
-	    if (r32ExhaustTemp > 22)
+            if (r32ExhaustTemp > 22)
             {
-		g_tDefrostCtrl.eState = e_Defrost_PreHeating;
-	    }
-
+                g_tDefrostCtrl.eState = e_Defrost_PreHeating;
+            }
 
             if (r32InEff > g_tCtrlVars.r32DefrostTargetInEff ||
-                r32CurrentIncomingTemp > g_tCtrlVars.r32DefrostTargetTemp ||
-                tCurrentTime - g_tDefrostCtrl.tCheckTime > (g_tCtrlVars.u32DefrostMaxDuration * 60))
+                r32CurrentIncomingTemp > g_tCtrlVars.r32DefrostTargetTemp)
             {
+                g_tDefrostCtrl.tCheckTime = tCurrentTime;
+                g_tDefrostCtrl.eState = e_Defrost_Stopped;
+            }
+            else if (tCurrentTime - g_tDefrostCtrl.tCheckTime > (g_tCtrlVars.u32DefrostMaxDuration * 60))
+            {
+                digit_set_input_fan_stop(14.0f);
+                g_tDefrostCtrl.eState = e_Defrost_InputFanStop;
+            }
+        }
+        else if (g_tDefrostCtrl.eState == e_Defrost_InputFanStop)
+        {
+            if (r32InEff > g_tCtrlVars.r32DefrostTargetInEff ||
+                r32CurrentIncomingTemp > g_tCtrlVars.r32DefrostTargetTemp)
+            {
+                digit_set_input_fan_stop(-6.0f);
                 g_tDefrostCtrl.tCheckTime = tCurrentTime;
                 g_tDefrostCtrl.eState = e_Defrost_Stopped;
             }
@@ -616,9 +629,9 @@ static void defrost_control()
             defrost_resistor_start();
             pre_heating_resistor_start();
         }
-	else if (g_tDefrostCtrl.eState == e_Defrost_PreHeating)
+        else if (g_tDefrostCtrl.eState == e_Defrost_PreHeating)
         {
-	    defrost_resistor_stop();
+            defrost_resistor_stop();
             pre_heating_resistor_start();
         }
         else
