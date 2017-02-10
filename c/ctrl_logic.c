@@ -44,8 +44,10 @@ typedef enum
 {
     e_Measuring,
     e_Defrost_Heating,
+    e_Defrost_PreHeating,
     e_Defrost_Stopped
 } E_DefrostState;
+
 
 typedef struct
 {
@@ -567,23 +569,33 @@ static void defrost_control()
     }
     else
     {
-        real32 r32InEff = g_tCtrlVars.tInEff.r32Value;
-        time_t tCurrentTime = time(NULL);
+        real32 r32InEffFiltered = g_tCtrlVars.tInEff.r32Value;
+	real32 r32InEff =  g_tCtrlVars.r32InEfficiency;
+     	time_t tCurrentTime = time(NULL);
     
         if (g_tDefrostCtrl.eState == e_Measuring)
         {  
             real32 r32CurrentExhaustTemp = r32_digit_exhaust_temp();
-            if (r32InEff < g_tCtrlVars.r32DefrostStartLevel)
+            if (r32InEffFiltered < g_tCtrlVars.r32DefrostStartLevel &&
+		r32InEff <  r32InEffFiltered)
             {
                 g_tDefrostCtrl.tCheckTime = tCurrentTime;
                 g_tDefrostCtrl.eState = e_Defrost_Heating;
             }
         }
-        else if (g_tDefrostCtrl.eState == e_Defrost_Heating)
+        else if (g_tDefrostCtrl.eState == e_Defrost_Heating ||
+		 g_tDefrostCtrl.eState == e_Defrost_PreHeating)
         {
             real32 r32CurrentIncomingTemp = r32_digit_incoming_temp();
-            
-            if (g_tCtrlVars.r32InEfficiency > g_tCtrlVars.r32DefrostTargetInEff ||
+	    real32 r32ExhaustTemp = r32_DS18B20_exhaust_temp();
+
+	    if (r32ExhaustTemp > 22)
+            {
+		g_tDefrostCtrl.eState = e_Defrost_PreHeating;
+	    }
+
+
+            if (r32InEff > g_tCtrlVars.r32DefrostTargetInEff ||
                 r32CurrentIncomingTemp > g_tCtrlVars.r32DefrostTargetTemp ||
                 tCurrentTime - g_tDefrostCtrl.tCheckTime > (g_tCtrlVars.u32DefrostMaxDuration * 60))
             {
@@ -602,6 +614,11 @@ static void defrost_control()
         if (g_tDefrostCtrl.eState == e_Defrost_Heating)
         {
             defrost_resistor_start();
+            pre_heating_resistor_start();
+        }
+	else if (g_tDefrostCtrl.eState == e_Defrost_PreHeating)
+        {
+	    defrost_resistor_stop();
             pre_heating_resistor_start();
         }
         else
