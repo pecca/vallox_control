@@ -8,6 +8,21 @@
 import smbus
 import time
 
+ctrl_meas_req 	= 0xF4
+config_reg 		= 0xF5
+
+press_oversampling_map = {
+	'skipped' 			= '000',
+	'oversampling_x1'	= '001',
+	'oversampling_x1'	= '001',
+	'oversampling_x1'	= '001',
+	'oversampling_x1'	= '001',			
+}
+
+def create_ctrl_meas_req(press_oversampling, temp_oversampling, power_mode):
+	
+
+
 # Get I2C bus
 bus = smbus.SMBus(1)
 
