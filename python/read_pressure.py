@@ -7,8 +7,7 @@ import numpy as np
 from pprint import pprint
 from BMP280 import *
 
-def runningMeanFast(x, N):
-    return np.convolve(x, np.ones((N,))/N)[(N-1):]
+
 
 class AvgFilter:
     def __init__(self, size):
@@ -33,31 +32,32 @@ class AvgFilter:
             return 0
         else:
             return round(self.sum / (len(self.valueList) * 1.0), 1) + 1000000
-    
-    
-time.sleep(1.0)
+        
+filterTimeInSec = 2.0
+measRateInHz = 25
+sendIntervalInSec = 2.0
 
-avgFilter = AvgFilter(2000) 
+measIntervalInSec = 1.0/measRateInHz;
 
- 
-UDP_IP = "127.0.0.1"
+avgFilter = AvgFilter(int(filterTimeInSec / measIntervalInSec)) 
+
+UDP_IP = "vallox.ddns.net"
 UDP_PORT = 8056
 
 bmp280 = BMP280()
 
 sock = socket.socket(socket.AF_INET, # Internet
                      socket.SOCK_DGRAM) # UDP
+
+sendTimer = 0.0
                      
 while(True):
-    pressure,temperature = ReadPressAndTemp.readBME280All()
+    pressure,temperature = bmp280.ReadPressAndTemp()
     avgFilter.Update(pressure)
-    if avgFilter.GetCount() % 50 == 0:
-        #print('Temp = {0:0.2f} *C'.format(sensor.read_temperature()))
-        #print('Pressure = {0:0.2f} Pa'.format(sensor.read_pressure()))
-        #print('Altitude = {0:0.2f} m'.format(sensor.read_altitude()))
-        #print('Sealevel Pressure = {0:0.2f} Pa'.format(sensor.read_sealevel_pressure()))
+    if sendTimer > sendIntervalInSec:
         msg =  {'set' : { 'control_var' : { 'pressureOut': avgFilter.GetValue()}}}
-        #print round(pressure, 1),  avgFilter.GetValue()
-        #print avgFilter.valueList, avgFilter.sum 
+        print round(pressure, 1),  avgFilter.GetValue()
         sock.sendto(json.dumps(msg), (UDP_IP, UDP_PORT))
-    time.sleep(0.04) # 0.04
+        sendTimer = 0.0
+    time.sleep(measIntervalInSec)
+    sendTimer += measIntervalInSec;
