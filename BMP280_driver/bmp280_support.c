@@ -52,6 +52,7 @@
 /*---------------------------------------------------------------------------*/
 /* Includes*/
 /*---------------------------------------------------------------------------*/
+#include <stdio.h>
 #include "bmp280.h"
 
 #define BMP280_API
@@ -110,6 +111,15 @@ void BMP280_delay_msek(u32 msek);
  *	\return: communication result
  */
 s32 bmp280_data_readout_template(void);
+
+
+
+int main() {
+  s32 ret = bmp280_data_readout_template();
+   printf("s32 = %d\n", ret);
+}
+
+
 /*----------------------------------------------------------------------------*
  *  struct bmp280_t parameters can be accessed by using bmp280
  *	bmp280_t having the following parameters
@@ -167,6 +177,7 @@ s32 bmp280_data_readout_template(void)
  *	Chip id
 *-------------------------------------------------------------------------*/
 	com_rslt = bmp280_init(&bmp280);
+	printf("test1: %d\n", com_rslt);
 
 	/*	For initialization it is required to set the mode of
 	 *	the sensor as "NORMAL"
