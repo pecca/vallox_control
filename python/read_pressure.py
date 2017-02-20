@@ -33,9 +33,9 @@ class AvgFilter:
         else:
             return round(self.sum / (len(self.valueList) * 1.0), 1) + 1000000
         
-filterTimeInSec = 2.0
+filterTimeInSec = 5.0
 measRateInHz = 25
-sendIntervalInSec = 2.0
+sendIntervalInSec = 3.0
 
 measIntervalInSec = 1.0/measRateInHz;
 
@@ -55,8 +55,8 @@ while(True):
     pressure,temperature = bmp280.ReadPressAndTemp()
     avgFilter.Update(pressure)
     if sendTimer > sendIntervalInSec:
-        msg =  {'set' : { 'control_var' : { 'pressureOut': avgFilter.GetValue()}}}
-        print round(pressure, 1),  avgFilter.GetValue()
+        msg =  {'set' : { 'control_var' : { 'pressureIn': avgFilter.GetValue()}}}
+        #print round(pressure, 1),  avgFilter.GetValue()
         sock.sendto(json.dumps(msg), (UDP_IP, UDP_PORT))
         sendTimer = 0.0
     time.sleep(measIntervalInSec)
