@@ -375,9 +375,22 @@ s8  BMP280_I2C_bus_read(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt)
 	u8 array[I2C_BUFFER_LEN] = {BMP280_INIT_VALUE};
 	u8 stringpos = BMP280_INIT_VALUE;
 	array[BMP280_INIT_VALUE] = reg_addr;
+    
+    if (read(file_i2c, array, cnt) != cnt)		//read() returns the number of bytes actually read, if it doesn't match then an error occurred (e.g. no response from the device)
+	{
+		//ERROR HANDLING: i2c transaction failed
+		printf("Failed to read from the i2c bus.\n");
+	}
+	else
+	{
+		printf("Data read: %s\n", array);
+	}
+    
 	/* Please take the below function as your reference
 	 * to read the data using I2C communication
 	 * add your I2C rad function here.
+     
+     
 	 * "IERROR = I2C_WRITE_READ_STRING(DEV_ADDR, ARRAY, ARRAY, 1, CNT)"
 	 * iError is an return value of SPI write function
 	 * Please select your valid return value
