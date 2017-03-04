@@ -53,7 +53,14 @@
 /* Includes*/
 /*---------------------------------------------------------------------------*/
 #include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>				//Needed for I2C port
+#include <sys/ioctl.h>			//Needed for I2C port
+#include <linux/i2c-dev.h>		//Needed for I2C port
+
 #include "bmp280.h"
+
+int file_i2c;
 
 #define BMP280_API
 /*Enable the macro BMP280_API to use this support file */
@@ -114,10 +121,7 @@ s32 bmp280_data_readout_template(void);
 
 
 
-int main() {
-  s32 ret = bmp280_data_readout_template();
-   printf("s32 = %d\n", ret);
-}
+
 
 
 /*----------------------------------------------------------------------------*
@@ -402,11 +406,26 @@ s8  BMP280_SPI_bus_read(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt)
 	The MSB of register address denotes the type of SPI data transfer, whether
 	read/write (read as 1/write as 0)*/
 	array[BMP280_INIT_VALUE] = reg_addr|SPI_READ;
+    
+    if (read(file_i2c, array, cnt) != cnt)		//read() returns the number of bytes actually read, if it doesn't match then an error occurred (e.g. no response from the device)
+	{
+		//ERROR HANDLING: i2c transaction failed
+		printf("Failed to read from the i2c bus.\n");
+	}
+	else
+	{
+		printf("Data read: %s\n", array);
+	}
+    
+    
 	/*read routine is initiated by masking register address with 0x80*/
 	/*
 	* Please take the below function as your reference to
 	* read the data using SPI communication
 	* " IERROR = SPI_READ_WRITE_STRING(ARRAY, ARRAY, CNT+1)"
+    
+    
+    
 	* add your SPI read function here
 	* iError is an return value of SPI read function
 	* Please select your valid return value
@@ -447,6 +466,12 @@ s8  BMP280_SPI_bus_write(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt)
 		array[index] = (reg_addr++) & SPI_WRITE;
 		array[index + BMP280_DATA_INDEX] = *(reg_data + stringpos);
 	}
+    
+    if (write(file_i2c, array, cnt) != cnt) {
+        printf("Failed to write to the i2c bus.\n");
+        return -1;
+    }
+    
 	/* Please take the below function as your reference
 	 * to write the data using SPI communication
 	 * add your SPI write function here.
@@ -464,5 +489,30 @@ s8  BMP280_SPI_bus_write(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt)
 void  BMP280_delay_msek(u32 msek)
 {
 	/*Here you can write your own delay routine*/
+    usleep(msek * 1000);
 }
+
+int main() {
+    
+    	//----- OPEN THE I2C BUS -----
+	char *filename = (char*)"/dev/i2c-1";
+	if ((file_i2c = open(filename, O_RDWR)) < 0)
+	{
+		//ERROR HANDLING: you can check errno to see what went wrong
+		printf("Failed to open the i2c bus");
+		return;
+	}
+	
+	int addr = 0x5a;          //<<<<<The I2C address of the slave
+	if (ioctl(file_i2c, I2C_SLAVE, addr) < 0)
+	{
+		printf("Failed to acquire bus access and/or talk to slave.\n");
+		//ERROR HANDLING; you can check errno to see what went wrong
+		return;
+	}
+    
+    s32 ret = bmp280_data_readout_template();
+    printf("s32 = %d\n", ret);
+}
+
 #endif
