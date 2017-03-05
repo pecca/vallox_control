@@ -75,14 +75,14 @@ while(True):
 
     pressure,temperature = bmp280.ReadPressAndTemp()
     #print pressure
-    if (abs(pressure - avgFilter.GetValue()) < 3.0 or avgFilter.count < 10):
+    if (abs(pressure - avgFilter.GetValue()) < 5.0 or avgFilter.count < 100):
        avgFilter.Update(pressure)
     else:
 		print "value skipped " + str(pressure)
     #print pressure, avgFilter.GetValue()
     if sendTimer > sendIntervalInSec:
         msg =  {'set' : { 'control_var' : { 'pressureIn': avgFilter.GetValue()}}}
-        print pressure,  avgFilter.GetValue()
+        #print pressure,  avgFilter.GetValue()
         sock.sendto(json.dumps(msg), (UDP_IP, UDP_PORT))
         sendTimer = 0.0
     time.sleep(measIntervalInSec)
