@@ -64,6 +64,8 @@ class BMP280:
         # Read data back from 0x88(136), 24 bytes
         b1 = self.bus.read_i2c_block_data(0x76, 0x88, 24)
 
+        #print b1
+
         # Convert the data
         # Temp coefficents
         self.dig_T1 = b1[1] * 256 + b1[0]
@@ -107,6 +109,7 @@ class BMP280:
                   power_mode_map[powerMode])
         ctrlMeasReg = int(binStr, 2)
         self.bus.write_byte_data(0x76, 0xF4, ctrlMeasReg)
+        #print ctrlMeasReg
         
     def WriteConfigReq(self, standbyTime, filter, enables3WireSpi = False):
         padding = '0'     
@@ -121,6 +124,7 @@ class BMP280:
                   enables_3_wire_spi)
         configReq = int(binStr, 2)
         self.bus.write_byte_data(0x76, 0xF5, configReq)
+        #print configReq
 
     def ReadPressAndTemp(self):
      
@@ -129,6 +133,8 @@ class BMP280:
         # Pressure MSB, Pressure LSB, Pressure xLSB, Temperature MSB, Temperature LSB
         # Temperature xLSB, Humidity MSB, Humidity LSB
         data = self.bus.read_i2c_block_data(0x76, 0xF7, 8)
+		
+        #print '0xF7', data
 
         # Convert pressure and temperature data to 19-bits
         adc_p = ((data[0] * 65536) + (data[1] * 256) + (data[2] & 0xF0)) / 16

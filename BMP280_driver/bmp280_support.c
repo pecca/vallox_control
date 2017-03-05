@@ -121,6 +121,7 @@ s32 bmp280_data_readout_template(void);
 
 
 
+int init_called = 0;
 
 
 
@@ -180,8 +181,11 @@ s32 bmp280_data_readout_template(void)
  *	Bus read
  *	Chip id
 *-------------------------------------------------------------------------*/
-	com_rslt = bmp280_init(&bmp280);
-	printf("test1: %d\n", com_rslt);
+	if (init_called == 0)
+	{
+		com_rslt = bmp280_init(&bmp280);
+		init_called = 1;
+	}
 
 	/*	For initialization it is required to set the mode of
 	 *	the sensor as "NORMAL"
@@ -202,7 +206,7 @@ s32 bmp280_data_readout_template(void)
 	 *	ultra high resolution		x16			x2
 	 */
 	/* The oversampling settings are set by using the following API*/
-	com_rslt += bmp280_set_work_mode(BMP280_ULTRA_LOW_POWER_MODE);
+	com_rslt += bmp280_set_work_mode(BMP280_ULTRA_HIGH_RESOLUTION_MODE);
 /*------------------------------------------------------------------------*
 ************************* START GET and SET FUNCTIONS DATA ****************
 *---------------------------------------------------------------------------*/
@@ -214,7 +218,9 @@ s32 bmp280_data_readout_template(void)
 	 *	Standby time can be set using BMP280_STANDBYTIME_125_MS.
 	 *	Usage Hint : BMP280_set_standbydur(BMP280_STANDBYTIME_125_MS)*/
 
-	com_rslt += bmp280_set_standby_durn(BMP280_STANDBY_TIME_1_MS);
+	com_rslt += bmp280_set_standby_durn(BMP280_STANDBY_TIME_1000_MS);
+
+	com_rslt += bmp280_set_filter(BMP280_FILTER_COEFF_16);
 
 	/* This API used to read back the written value of standby time*/
 	com_rslt += bmp280_get_standby_durn(&v_standby_time_u8);
@@ -224,22 +230,31 @@ s32 bmp280_data_readout_template(void)
 
 /************************* END INITIALIZATION *************************/
 
+
 /*------------------------------------------------------------------*
 ****** INDIVIDUAL APIs TO READ UNCOMPENSATED PRESSURE AND TEMPERATURE*******
 *---------------------------------------------------------------------*/
 	/* API is used to read the uncompensated temperature*/
 	com_rslt += bmp280_read_uncomp_temperature(&v_data_uncomp_tem_s32);
 
+	//printf("uncomp temp = %d\n", v_data_uncomp_tem_s32);
+
 	/* API is used to read the uncompensated pressure*/
 	com_rslt += bmp280_read_uncomp_pressure(&v_data_uncomp_pres_s32);
+
+//	printf("uncomp pres = %d\n", v_data_uncomp_pres_s32);
 
 	/* API is used to read the true temperature*/
 	/* Input value as uncompensated temperature*/
 	v_actual_temp_s32 = bmp280_compensate_temperature_int32(v_data_uncomp_tem_s32);
 
+//	printf("actual temp = %d\n", v_actual_temp_s32);
+
 	/* API is used to read the true pressure*/
 	/* Input value as uncompensated pressure*/
 	v_actual_press_u32 = bmp280_compensate_pressure_int32(v_data_uncomp_pres_s32);
+
+//	printf("actual pres = %d\n", v_actual_press_u32);
 
 /*------------------------------------------------------------------*
 ******* STAND-ALONE APIs TO READ COMBINED TRUE PRESSURE AND TEMPERATURE********
@@ -249,10 +264,15 @@ s32 bmp280_data_readout_template(void)
 	/* API is used to read the uncompensated temperature and pressure*/
 	com_rslt += bmp280_read_uncomp_pressure_temperature(&v_data_uncomp_pres_combined_s32,
 	&v_data_uncomp_tem_combined_s32);
+	
+	//printf("uncom pres = %d, temp = %d\n", v_data_uncomp_pres_combined_s32, v_data_uncomp_tem_combined_s32);
 
 	/* API is used to read the true temperature and pressure*/
 	com_rslt += bmp280_read_pressure_temperature(&v_actual_press_combined_u32,
 	&v_actual_temp_combined_s32);
+
+	printf("pressure %f\n", bmp280_compensate_pressure_double(v_data_uncomp_pres_combined_s32));
+	//printf("true pres = %d, temp = %d\n", v_actual_press_combined_u32, v_actual_temp_combined_s32);
 
 
 
@@ -265,7 +285,7 @@ s32 bmp280_data_readout_template(void)
 	 *	All registers are accessible
 	 *	by using the below API able to set the power mode as SLEEP*/
 	 /* Set the power mode as SLEEP*/
-	com_rslt += bmp280_set_power_mode(BMP280_SLEEP_MODE);
+	//com_rslt += bmp280_set_power_mode(BMP280_SLEEP_MODE);
 
    return com_rslt;
 /************************* END DE-INITIALIZATION **********************/
@@ -313,7 +333,7 @@ s8 SPI_routine(void) {
 
 /************** I2C/SPI buffer length ******/
 
-#define	I2C_BUFFER_LEN 8
+#define	I2C_BUFFER_LEN 255 // 8
 #define SPI_BUFFER_LEN 5
 #define BUFFER_LENGTH	0xFF
 #define	SPI_READ	0x80
@@ -344,6 +364,11 @@ s8  BMP280_I2C_bus_write(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt)
 	for (stringpos = BMP280_INIT_VALUE; stringpos < cnt; stringpos++) {
 		array[stringpos + BMP280_DATA_INDEX] = *(reg_data + stringpos);
 	}
+	
+	int write_len = i2c_smbus_write_byte_data(file_i2c, reg_addr, array[1]);
+	
+	//printf("i2c write, size = %d, reg_addr = %02X, data = %d\n", cnt, reg_addr, array[1]);
+	
 	/*
 	* Please take the below function as your reference for
 	* write the data using I2C communication
@@ -376,15 +401,29 @@ s8  BMP280_I2C_bus_read(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt)
 	u8 stringpos = BMP280_INIT_VALUE;
 	array[BMP280_INIT_VALUE] = reg_addr;
     
-    if (read(file_i2c, array, cnt) != cnt)		//read() returns the number of bytes actually read, if it doesn't match then an error occurred (e.g. no response from the device)
+    
+    int read_cnt = i2c_smbus_read_i2c_block_data(file_i2c, reg_addr, cnt, array);
+    //printf("read_cnt = %d\n", read_cnt);
+    if (read_cnt != cnt)		//read() returns the number of bytes actually read, if it doesn't match then an error occurred (e.g. no response from the device)
 	{
 		//ERROR HANDLING: i2c transaction failed
 		printf("Failed to read from the i2c bus.\n");
 	}
+
 	else
 	{
-		printf("Data read: %s\n", array);
+		#if 0
+		printf("i2c read, reg_addr = %02X, size = %d, data = ", reg_addr, read_cnt);
+		
+		int i;
+		for (i = 0; i < read_cnt; i++) {
+			printf("%d ", array[i]);
+		}
+		printf("\n");
+		#endif
 	}
+	
+	
     
 	/* Please take the below function as your reference
 	 * to read the data using I2C communication
@@ -397,9 +436,11 @@ s8  BMP280_I2C_bus_read(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt)
 	 * In the driver SUCCESS defined as BMP280_INIT_VALUE
 	 * and FAILURE defined as -1
 	 */
+
 	for (stringpos = BMP280_INIT_VALUE; stringpos < cnt; stringpos++) {
 		*(reg_data + stringpos) = array[stringpos];
 	}
+
 	return (s8)iError;
 }
 
@@ -507,6 +548,7 @@ void  BMP280_delay_msek(u32 msek)
 
 int main() {
     
+    //printf("huuhaa\n");
     	//----- OPEN THE I2C BUS -----
 	char *filename = (char*)"/dev/i2c-1";
 	if ((file_i2c = open(filename, O_RDWR)) < 0)
@@ -516,16 +558,25 @@ int main() {
 		return;
 	}
 	
-	int addr = 0x5a;          //<<<<<The I2C address of the slave
+	int addr = 0x76;          //<<<<<The I2C address of the slave
 	if (ioctl(file_i2c, I2C_SLAVE, addr) < 0)
 	{
 		printf("Failed to acquire bus access and/or talk to slave.\n");
 		//ERROR HANDLING; you can check errno to see what went wrong
 		return;
 	}
+    //printf("lfsjdf\n");
     
-    s32 ret = bmp280_data_readout_template();
-    printf("s32 = %d\n", ret);
+    int cnt = 0;
+    
+    while(1)
+    {
+    
+		cnt++;
+		s32 ret = bmp280_data_readout_template();
+		//printf("cnt = %d\n", cnt);
+		usleep(5 * 1000 * 1000);
+	}
 }
 
 #endif

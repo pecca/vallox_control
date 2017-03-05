@@ -108,8 +108,7 @@ BMP280_RETURN_FUNCTION_TYPE bmp280_init(struct bmp280_t *bmp280)
 	/*assign chip ID to the global structure*/
 	p_bmp280->chip_id = v_data_u8;
     
-    printf("chip_id = %d\n", v_data_u8);
-    
+   
 	/*com_rslt status of chip ID read*/
 	com_rslt = (v_chip_id_read_count == BMP280_INIT_VALUE) ?
 			BMP280_CHIP_ID_READ_FAIL : BMP280_CHIP_ID_READ_SUCCESS;
@@ -118,6 +117,7 @@ BMP280_RETURN_FUNCTION_TYPE bmp280_init(struct bmp280_t *bmp280)
 		/* readout bmp280 calibration parameter structure */
 		com_rslt += bmp280_get_calib_param();
 	}
+
 	return com_rslt;
 }
 /*!

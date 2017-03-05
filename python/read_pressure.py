@@ -21,12 +21,13 @@ class AvgFilter:
         value -= 1000000
         if self.count < self.size:
             self.valueList.append(value)
-            self.sum += value  
+            self.sum += value
+            self.count += 1  
         else:
             self.sum -= self.valueList.pop(0)
             self.sum += value
             self.valueList.append(value)      
-        self.count += 1    
+           
     def GetValue(self):
         if self.count == 0:
             return 0
@@ -34,7 +35,7 @@ class AvgFilter:
             return round(self.sum / (len(self.valueList) * 1.0), 2) + 1000000
         
 filterTimeInSec = 20.0
-measRateInHz = 1.25
+measRateInHz = 25.0
 sendIntervalInSec = 3.0
 
 measIntervalInSec = 1.0/measRateInHz;
@@ -68,16 +69,20 @@ while(True):
     bmp280 = BMP280('oversampling_x16',
                 'oversampling_x2',
                 'normal',
-                '4000ms',
+                '62_5ms',
                 'coeff_16')
 
 
     pressure,temperature = bmp280.ReadPressAndTemp()
-    avgFilter.Update(pressure)
+    #print pressure
+    if (abs(pressure - avgFilter.GetValue()) < 3.0 or avgFilter.count < 10):
+       avgFilter.Update(pressure)
+    else:
+		print "value skipped " + str(pressure)
     #print pressure, avgFilter.GetValue()
     if sendTimer > sendIntervalInSec:
         msg =  {'set' : { 'control_var' : { 'pressureIn': avgFilter.GetValue()}}}
-        #print pressure,  avgFilter.GetValue()
+        print pressure,  avgFilter.GetValue()
         sock.sendto(json.dumps(msg), (UDP_IP, UDP_PORT))
         sendTimer = 0.0
     time.sleep(measIntervalInSec)
