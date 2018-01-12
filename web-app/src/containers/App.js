@@ -7,6 +7,7 @@ import Leds from './../components/Leds';
 import ReadVars from './../components/ReadVars';
 import WriteVars from './../components/WriteVars';
 import { getDigitVars } from './../ducks/digit_vars';
+import { getControlVars } from './../ducks/control_vars';
 
 const LINK_TO_GRAFANA = 'http://178.217.128.239/#/dashboard/db/grafana';
 
@@ -14,7 +15,11 @@ class App extends Component {
 
   componentDidMount() {
     const { dispatch } = this.props;
+
+    //dispatch(getDigitVars());
+
     setInterval(() => dispatch(getDigitVars()), 3000);
+    setInterval(() => dispatch(getControlVars()), 3000);
   }
 
   render() {

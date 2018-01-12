@@ -6,33 +6,33 @@ import { readVars, writeVar } from './../services/vallox_ctrl_api';
 
 const defaultState = null;
 
-export function getDigitVars() {
+export function getControlVars() {
   return (dispatch, getState) => {
-    readVars('digit_vars').then(function(msg) {
-      dispatch(digitVarsUpdate(msg.digit_vars));
+    readVars('control_vars').then(function(msg) {
+      dispatch(controlVarsUpdate(msg.digit_vars));
     });
   }
 }
 
-export function setDigitVar(handle, value) {
+export function setControlVar(handle, value) {
   return (dispatch, getState) => {
-    writeVar("digit_var", handle, value);
-    dispatch(digitVarWriteReq(handle, value));
+    writeVar("control_var", handle, value);
+    dispatch(controlVarWriteReq(handle, value));
   }
 }
 
-export function digitVarsUpdate(digitVars) {
+export function controlVarsUpdate(controlVars) {
   return {
-    type: 'DIGIT_VARS_UPDATE',
+    type: 'CONTROL_VARS_UPDATE',
     payload: {
-      digitVars,
+        controlVars,
     }
   }
 }
 
-export function digitVarWriteReq(handle, value) {
+export function controlVarWriteReq(handle, value) {
   return {
-    type: 'DIGIT_VAR_WRITE_REQ',
+    type: 'CONTROL_VAR_WRITE_REQ',
     payload: {
       handle,
       value,
@@ -44,16 +44,16 @@ export default function (state = defaultState, action) {
   const { type, payload } = action;
     switch (type) {
 
-      case 'DIGIT_VARS_UPDATE':
+      case 'CONTROL_VARS_UPDATE':
         if (state === null) {
-          state = fromJS(payload.digitVars);
-          _.forEach(payload.digitVars, (value, key) => {
+          state = fromJS(payload.controlVars);
+          _.forEach(payload.controlVars, (value, key) => {
             state = state.setIn([key, 'updateCnt'], 1);
             state = state.setIn([key, 'writeReq'], false);
           });
         }
         else {
-          _.forEach(payload.digitVars, (value, key) => {
+          _.forEach(payload.controlVars, (value, key) => {
             if (value.ts > state.getIn([key, 'ts'])) {
               const updateCnt = state.getIn([key, 'updateCnt']);
               state = state.setIn([key, 'updateCnt'], updateCnt + 1);
@@ -64,7 +64,7 @@ export default function (state = defaultState, action) {
           });
         }
         return state;
-      case 'DIGIT_VAR_WRITE_REQ':
+      case 'CONTROL_VAR_WRITE_REQ':
         const { handle } = payload
         state = state.setIn([handle, 'writeReq'], true);
         return state;

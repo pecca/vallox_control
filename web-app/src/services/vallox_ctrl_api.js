@@ -1,21 +1,20 @@
 const IP = window.location.hostname;
 const PORT = 3005;
 const URL = 'ws://' + IP + ':' + PORT;
-const TIMEOUT = 2000;
+const TIMEOUT = 4000;
 
 //const ws = new WebSocket(URL);
 
-export function readDigitVars() {
+export function readVars(type) {
   return new Promise(function (resolve, reject) {
     const ws = new WebSocket(URL);
     let timeout = setTimeout(function() {
-      console.log('GetListOfContentFilesResp timeout');
       reject('timeout');
     }, TIMEOUT);
 
     ws.onopen = () => {
       const msg =  {
-          get: 'digit_vars'
+          get: type
       };
       ws.send(JSON.stringify(msg));
       ws.onmessage = (e) => {  // a message was received
@@ -27,15 +26,13 @@ export function readDigitVars() {
   });
 }
 
-export function writeDigitVar(name, value) {
+export function writeVar(type, name, value) {
   let ws = new WebSocket(URL);
   ws.onopen = () => {
     const msg =  {
-      set: {
-        digit_var: {}
-      }
+        set: {}
     };
-    msg.set.digit_var[name] = value;
+    msg.set[type][name] = value;
     ws.send(JSON.stringify(msg));
   }
 }
