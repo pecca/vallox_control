@@ -14,6 +14,7 @@
 #include "digit_protocol.h"
 #include "ctrl_logic.h"
 #include "DS18B20.h"
+#include "json_basic_codecs.h"
 
 /******************************************************************************
  *  Constants and macros
@@ -94,7 +95,9 @@ uint32 u32_json_decode_message(uint32 u32MsgLen, char *sMesg)
     
     jsmn_init(&parser);
     jsmn_parse(&parser, sMesg, strlen(sMesg), tokens, MAX_NUM_JSON_TOKENS);
-    
+ 
+    string ssMesg = string(sMesg);
+ 
     get_json_token_str(1, sMesg, tokens, tokenStr);
     if (!strcmp(tokenStr, GET))
     {

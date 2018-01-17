@@ -29,6 +29,7 @@
 #include <errno.h>
 #include <termios.h>
 #include <stdbool.h>
+#include <limits.h>
 
 /******************************************************************************
  *  Macros
@@ -38,6 +39,9 @@
 #define max(a,b) (((a) > (b)) ? (a) : (b))
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #endif
+
+#define MIN(a,b) min(a,b)
+#define MAX(a,b) max(a,b)
 
 /******************************************************************************
  *  Data type declarations
@@ -50,5 +54,6 @@ typedef unsigned short uint16;
 typedef float          real32;
 typedef double         real64;
 typedef int            int32;
+typedef long int       int64;
 
 #endif

@@ -1,27 +1,38 @@
 CC=gcc
 CFLAGS= -std=gnu99 -I.
 DEPS = 
-OBJ = \
-    main.o \
-    digit_protocol.o \
-    temperature_conversion.o \
-    rs485.o \
-    udp-server.o \
-    DS18B20.o \
-    RPI.o \
-    ctrl_logic.o \
-    relay_control.o \
-    defrost_resistor.o \
-    pre_heating_resistor.o \
-    post_heating_counter.o \
-    jsmn.o \
-    json_codecs.o
 
-%.o: %.c $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS)
+CXX = g++
+CXXFLAGS = -Wall -D__STDC_LIMIT_MACROS -I.
 
-   %.o: %.cpp $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS
+C_SRC = \
+    main.c \
+    digit_protocol.c \
+    temperature_conversion.c \
+    rs485.c \
+    udp-server.c \
+    DS18B20.c \
+    RPI.c \
+    ctrl_logic.c \
+    relay_control.c \
+    defrost_resistor.c \
+    pre_heating_resistor.c \
+    post_heating_counter.c \
+    jsmn.c
+
+CPP_SRC = json_basic_codecs.cpp json_codecs.cpp
     
-vallox_ctrl: $(OBJ)
+C_SRC_OBJS = ${C_SRC:.c=.o}
+    
+CPP_SRC_OBJS = ${CPP_SRC:.cpp=.o}    
+
+.SUFFIXES:
+.SUFFIXES: .o .cpp
+.cpp.o:
+	$(CXX) $(CXXFLAGS) -c $< -o $*.o
+.SUFFIXES: .o .c
+.c.o:
+	$(CC) $(CFLAGS) -c $< -o $*.o
+    
+vallox_ctrl: $(C_SRC_OBJS) $(CPP_SRC_OBJS)
 	$(CC) -o $@ $^ $(CFLAGS) -lm -lpthread -lbcm2835
