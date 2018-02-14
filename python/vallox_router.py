@@ -9,9 +9,9 @@ import requests
 VALLOX_CONTROL_UDP_PORT = 8056
 VALLOX_ROUTER_TCP_PORT = 8093
 
-DATABASE = 'test1'
+DATABASE = 'vallox'
 
-INFLUXDB_SERVER_IP = '178.217.128.239'
+INFLUXDB_SERVER_IP = '52.226.78.29'
 
 udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

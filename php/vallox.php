@@ -1,4 +1,4 @@
-<html>
+$g_id<html>
 <head>
 <title> Vallox control </title>
 </head>
@@ -7,6 +7,7 @@
 
 $page = $_SERVER['PHP_SELF'];
 $sec = "30";
+$g_id = 0;
 
 header("Refresh: $sec; url=$page");
 
@@ -28,7 +29,7 @@ function pp($arr)
 
 function get_digit_vars($fp)
 {
-    $id = '{"get":digit_vars}';
+    $id = '{"id": $g_id++, "get":digit_vars}';
     fwrite($fp, $id);
     $str = fread($fp, 3000);
     $ob = json_decode($str, true);
@@ -45,7 +46,7 @@ function get_digit_var_test($fp, $digit_vars,  $var_id, &$timestamp)
 
 function get_ds18b20_vars($fp)
 {
-    $id = '{"get" : ds18b20_vars}';
+    $id = '{"id": $g_id++, "get" : ds18b20_vars}';
     fwrite($fp, $id);
     $str = fread($fp, 1500);
     $ob = json_decode($str, true);
@@ -54,7 +55,7 @@ function get_ds18b20_vars($fp)
 
 function get_control_vars($fp)
 {
-    $id = '{"get":control_vars}';
+    $id = '{"id": $g_id++, "get":control_vars}';
     fwrite($fp, $id);
     $str = fread($fp, 1500);
     $ob = json_decode($str, true);
@@ -96,13 +97,13 @@ function get_ctrl_var_ts($fp, $control_vars, $var_id, &$timestamp)
 
 function set_digit_var($fp, $var_id, $value)
 {
-    $str = '{"set": {"digit_var":{ "'. $var_id . '": ' . $value . '}}}';
+    $str = '{"id": $g_id++, "set": {"digit_var":{ "'. $var_id . '": ' . $value . '}}}';
     fwrite($fp, $str);
 }
 
 function set_ctrl_var($fp, $var_id, $value)
 {
-    $str = '{"set": {"control_var":{ "'. $var_id . '": ' . $value . '}}}';
+    $str = '{"id": $g_id++, "set": {"control_var":{ "'. $var_id . '": ' . $value . '}}}';
     fwrite($fp, $str);
 }
 

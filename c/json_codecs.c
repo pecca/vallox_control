@@ -88,6 +88,7 @@ void json_decode_variable_name(char *str, char *name)
     
 uint32 u32_json_decode_message(uint32 u32MsgLen, char *sMesg)
 {
+    int id;
     jsmn_parser parser;
     jsmntok_t tokens[MAX_NUM_JSON_TOKENS];
     char tokenStr[MAX_TOKEN_STR_SIZE];
@@ -95,10 +96,14 @@ uint32 u32_json_decode_message(uint32 u32MsgLen, char *sMesg)
     jsmn_init(&parser);
     jsmn_parse(&parser, sMesg, strlen(sMesg), tokens, MAX_NUM_JSON_TOKENS);
     
-    get_json_token_str(1, sMesg, tokens, tokenStr);
+
+    get_json_token_str(2, sMesg, tokens, tokenStr);
+    id = atoi(tokenStr);
+
+    get_json_token_str(3, sMesg, tokens, tokenStr);
     if (!strcmp(tokenStr, GET))
     {
-        get_json_token_str(2, sMesg, tokens, tokenStr);
+        get_json_token_str(4, sMesg, tokens, tokenStr);
         if (!strcmp(tokenStr, DIGIT_VARS))
         {
             digit_json_encode_vars(sMesg);
@@ -114,13 +119,13 @@ uint32 u32_json_decode_message(uint32 u32MsgLen, char *sMesg)
     }
     else if (!strcmp(tokenStr, SET))
     {
-        get_json_token_str(3, sMesg, tokens, tokenStr);
+        get_json_token_str(5, sMesg, tokens, tokenStr);
         if (!strcmp(tokenStr, DIGIT_VAR))
         {
             char sName[DECODE_STR_SIZE], sValue[DECODE_STR_SIZE];
             
-            get_json_token_str(5, sMesg, tokens, sName);
-            get_json_token_str(6, sMesg, tokens, sValue);
+            get_json_token_str(7, sMesg, tokens, sName);
+            get_json_token_str(8, sMesg, tokens, sValue);
 
             digit_set_var_by_name(sName, sValue);
         }
@@ -128,8 +133,8 @@ uint32 u32_json_decode_message(uint32 u32MsgLen, char *sMesg)
         {            
             char sName[DECODE_STR_SIZE], sValue[DECODE_STR_SIZE];
             
-            get_json_token_str(5, sMesg, tokens, sName);
-            get_json_token_str(6, sMesg, tokens, sValue);
+            get_json_token_str(7, sMesg, tokens, sName);
+            get_json_token_str(8, sMesg, tokens, sValue);
             ctrl_set_var_by_name(sName, sValue);
         }
     }

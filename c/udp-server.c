@@ -41,11 +41,14 @@ void *udp_server_thread(void *ptr)
     {
         i32MsgLen = recvfrom(i32ConnSocket, sMesg, MSG_MAX_SIZE, 0,
                             (struct sockaddr *)&cliaddr, &clilen);
+	//printf("recv msg %s\n", sMesg);
+
         if (i32MsgLen == 0)
         {
            break;
         }
         u32_json_decode_message(i32MsgLen, sMesg);
+	printf("send msg %s\n", sMesg);
         sendto(i32ConnSocket, sMesg, strlen(sMesg), 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr));      
         memset(sMesg, 0, MSG_MAX_SIZE); 
     }
