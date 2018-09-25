@@ -206,7 +206,7 @@ static void digit_update_vars(void);
 static void digit_process_msg(uint8 u8Id, uint8 value);
 
 // Activate set request
-static void digit_set_change_req(T_digit_var *ptVar, uint8 u8Value);
+static bool digit_set_change_req(T_digit_var *ptVar, uint8 u8Value);
 
 // Send set request
 static void digit_send_set_req(uint8 u8Id, uint8 u8Value);
