@@ -48,7 +48,7 @@ void *udp_server_thread(void *ptr)
            break;
         }
         u32_json_decode_message(i32MsgLen, sMesg);
-	printf("send msg %s\n", sMesg);
+	// printf("send msg %s\n", sMesg);
         sendto(i32ConnSocket, sMesg, strlen(sMesg), 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr));      
         memset(sMesg, 0, MSG_MAX_SIZE); 
     }

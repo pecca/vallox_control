@@ -1,37 +1,37 @@
 /**
  * @file   json_codecs.c
  * @Author Pekka Mäkelä (pekka.makela@iki.fi)
- * @brief  Implementation of JSON codecs. Uses jsmn (minimalistic JSON parser in C) 
+ * @brief  Implementation of JSON codecs. Uses jsmn (minimalistic JSON parser in C)
  */
 
 /******************************************************************************
  *  Includes
- ******************************************************************************/  
- 
+ ******************************************************************************/
+
 #include "common.h"
 #include "json_codecs.h"
-#include "jsmn.h" 
+#include "jsmn.h"
 #include "digit_protocol.h"
 #include "ctrl_logic.h"
 #include "DS18B20.h"
 
 /******************************************************************************
  *  Constants and macros
- ******************************************************************************/ 
- 
+ ******************************************************************************/
+
 #define SET                 "set"
 #define GET                 "get"
- 
+
 #define MAX_NUM_JSON_TOKENS (128)
 #define MAX_TOKEN_STR_SIZE  (100)
 #define INT_STR_MAX_SIZE    (100)
 #define REAL32_STR_MAX_SIZE (100)
 #define DECODE_STR_SIZE     (100)
- 
+
 /******************************************************************************
  *  Local function declarations
- ******************************************************************************/ 
- 
+ ******************************************************************************/
+
 static char *get_json_token_str(int n, char* mesg, jsmntok_t *tokens, char* tokenStr);
 static void json_encode_variable_name(char *str, char *name);
 
@@ -48,7 +48,7 @@ void json_encode_string(char *str, char *name, char *value)
 void json_encode_integer(char *str, char *name, int value)
 {
     char int_str[INT_STR_MAX_SIZE];
-    
+
     json_encode_variable_name(str, name);
     sprintf(int_str, "%d", value);
     strncat(str, int_str, strlen(int_str));
@@ -57,15 +57,15 @@ void json_encode_integer(char *str, char *name, int value)
 void json_encode_real32(char *str, char *name, real32 value)
 {
     char real32_str[REAL32_STR_MAX_SIZE];
-    
+
     json_encode_variable_name(str, name);
     sprintf(real32_str, "%.1f", value);
     strncat(str, real32_str, strlen(real32_str));
 }
-        
+
 void json_encode_object(char *str, char *name, char *value)
 {
-    json_encode_variable_name(str, name);   
+    json_encode_variable_name(str, name);
     strncat(str, "{", 1);
     strncat(str, value, strlen(value));
     strncat(str, "}", 1);
@@ -85,17 +85,17 @@ void json_decode_variable_name(char *str, char *name)
         strcpy(name, "name_not_found");
     }
 }
-    
+
 uint32 u32_json_decode_message(uint32 u32MsgLen, char *sMesg)
 {
     int id;
     jsmn_parser parser;
     jsmntok_t tokens[MAX_NUM_JSON_TOKENS];
     char tokenStr[MAX_TOKEN_STR_SIZE];
-    
+
     jsmn_init(&parser);
     jsmn_parse(&parser, sMesg, strlen(sMesg), tokens, MAX_NUM_JSON_TOKENS);
-    
+
 
     get_json_token_str(2, sMesg, tokens, tokenStr);
     id = atoi(tokenStr);
@@ -123,19 +123,19 @@ uint32 u32_json_decode_message(uint32 u32MsgLen, char *sMesg)
         if (!strcmp(tokenStr, DIGIT_VAR))
         {
             char sName[DECODE_STR_SIZE], sValue[DECODE_STR_SIZE];
-            
+
             get_json_token_str(7, sMesg, tokens, sName);
             get_json_token_str(8, sMesg, tokens, sValue);
 
-            digit_set_var_by_name(sName, sValue);
+            digit_set_var_by_name(sName, sValue, sMesg);
         }
         else if (!strcmp(tokenStr, CONTROL_VAR))
-        {            
+        {
             char sName[DECODE_STR_SIZE], sValue[DECODE_STR_SIZE];
-            
+
             get_json_token_str(7, sMesg, tokens, sName);
             get_json_token_str(8, sMesg, tokens, sValue);
-            ctrl_set_var_by_name(sName, sValue);
+            ctrl_set_var_by_name(sName, sValue, sMesg);
         }
     }
     else
@@ -149,7 +149,7 @@ uint32 u32_json_decode_message(uint32 u32MsgLen, char *sMesg)
  *  Local function implementation
  ******************************************************************************/
 
-// Encode variable name 
+// Encode variable name
 static void json_encode_variable_name(char *sStr, char *sName)
 {
     strncat(sStr, "\"", 1);

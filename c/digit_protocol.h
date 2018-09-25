@@ -9,13 +9,13 @@
 
 /******************************************************************************
  *  Global function declarations
- ******************************************************************************/ 
- 
+ ******************************************************************************/
+
 void *digit_receive_thread(void *ptr);
 void *digit_update_thread(void *ptr);
 bool digit_vars_ok(void);
-void digit_json_encode_vars(int id, char *str);
-void digit_set_var_by_name(char *name, char *value);
+void digit_json_encode_vars(char *str);
+void digit_set_var_by_name(char *name, char *value, char *str);
 
 real32 r32_digit_rh1_sensor();
 real32 r32_digit_outside_temp();
