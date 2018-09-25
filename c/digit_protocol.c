@@ -6,8 +6,8 @@
 
 /******************************************************************************
  *  Includes
- ******************************************************************************/ 
- 
+ ******************************************************************************/
+
 #include "common.h"
 #include "digit_protocol.h"
 #include "rs485.h"
@@ -16,7 +16,7 @@
 
 /******************************************************************************
  *  Constants and macros
- ******************************************************************************/ 
+ ******************************************************************************/
 
 // Device addresses
 #define SYSTEM_ID      0x01
@@ -37,7 +37,7 @@
 #define MAX_FAN_SPEED                   0xA5
 #define MIN_FAN_SPEED                   0xA9
 #define HRC_BYPASS_TEMP                 0xAF
-#define INPUT_FAN_STOP_TEMP             0xA8 
+#define INPUT_FAN_STOP_TEMP             0xA8
 #define CELL_DEFROSTING_HYSTERESIS      0xB2
 #define DC_FAN_INPUT                    0xB0
 #define DC_FAN_OUTPUT                   0xB1
@@ -54,7 +54,7 @@
 #define IO_GATE_3                       0x08
 
  #define NAME_MAX_SIZE                  30
- 
+
 // Variable names
 #define CUR_FAN_SPEED_NAME              "cur_fan_speed"
 #define OUTSIDE_TEMP_NAME               "outside_temp"
@@ -68,7 +68,7 @@
 #define MAX_FAN_SPEED_NAME              "max_fan_speed"
 #define MIN_FAN_SPEED_NAME              "min_fan_speed"
 #define HRC_BYPASS_TEMP_NAME            "hrc_bypass_temp"
-#define INPUT_FAN_STOP_TEMP_NAME        "input_fan_stop_temp" 
+#define INPUT_FAN_STOP_TEMP_NAME        "input_fan_stop_temp"
 #define CELL_DEFROSTING_HYSTERESIS_NAME "cell_defrosting_hysteresis"
 #define DC_FAN_INPUT_NAME               "dc_fan_input"
 #define DC_FAN_OUTPUT_NAME              "dc_fan_output"
@@ -97,7 +97,7 @@
 #define MAX_FAN_SPEED_INDEX               9
 #define MIN_FAN_SPEED_INDEX               10
 #define HRC_BYPASS_TEMP_INDEX             11
-#define INPUT_FAN_STOP_TEMP_INDEX         12 
+#define INPUT_FAN_STOP_TEMP_INDEX         12
 #define CELL_DEFROSTING_HYSTERESIS_INDEX  13
 #define DC_FAN_INPUT_INDEX                14
 #define DC_FAN_OUTPUT_INDEX               15
@@ -113,25 +113,25 @@
 #define IO_GATE_2_INDEX                   25
 #define IO_GATE_3_INDEX                   26
 
-#define NUM_OF_DIGIT_VARS                 27 
+#define NUM_OF_DIGIT_VARS                 27
 
-// Combines variable's index, id and name 
+// Combines variable's index, id and name
 #define DIGIT_PARAM(var) \
-    var##_INDEX , var, var##_NAME  
-  
+    var##_INDEX , var, var##_NAME
+
 // Message size
 #define DIGIT_MSG_LEN       6
 
-// Message fields (indexes to message)  
+// Message fields (indexes to message)
 #define DIGIT_MSG_SYSTEM    0
 #define DIGIT_MSG_SENDER    1
 #define DIGIT_MSG_RECEIVER  2
 #define DIGIT_MSG_VARIABLE  3
 #define DIGIT_MSG_DATA      4
 #define DIGIT_MSG_CRC       5
- 
 
- 
+
+
 // Bitfield coding
 #define GET_BIT(value, bit) (bool)(value & (1 << bit))
 #define SET_BIT(value, bit) (value |= (1 << bit))
@@ -148,13 +148,13 @@
 // Encode help strings maximum sizes
 #define ENCODE_STR1_SIZE 2000
 #define ENCODE_STR2_SIZE 1000
-#define ENCODE_STR3_SIZE 200 
+#define ENCODE_STR3_SIZE 200
 
 #define RS485_READ_ATTEMPTS 20
 #define RS485_FILE          "/dev/ttyUSB0"
 
 // #define DEBUG_DIGIT_RECV // uncomment for debugging
- 
+
 /******************************************************************************
  *  Data type declarations
  ******************************************************************************/
@@ -184,7 +184,7 @@ typedef struct
 /******************************************************************************
  *  Local variables
  ******************************************************************************/
- 
+
 static T_digit_var g_digit_vars[NUM_OF_DIGIT_VARS];
 
 /******************************************************************************
@@ -193,13 +193,13 @@ static T_digit_var g_digit_vars[NUM_OF_DIGIT_VARS];
 
 // Initialize module
 static void digit_init(void);
-static void digit_init_var(uint8 u8Index, uint8 u8Id, char *sName, time_t tInternal, 
-                           u8_decode_t decodeFunPtr, encode_t encodeFunPtr); 
+static void digit_init_var(uint8 u8Index, uint8 u8Id, char *sName, time_t tInternal,
+                           u8_decode_t decodeFunPtr, encode_t encodeFunPtr);
 
 // Read message(s) from RS485 bus and process message(s)
 static void digit_receive_msgs(void);
 
-// Check through variable statuses. Send set or get request if needed. 
+// Check through variable statuses. Send set or get request if needed.
 static void digit_update_vars(void);
 
 // Process received message
@@ -227,7 +227,7 @@ static void digit_send_msg(uint8 msg[DIGIT_MSG_LEN]);
 static T_digit_var *digit_get_var_by_name(char *sName);
 static T_digit_var *digit_get_var_by_id(uint8 u8Id);
 
-// JSON decode functions 
+// JSON decode functions
 static uint8 u8_decode_FanSpeed(char *sStr);
 static uint8 u8_decode_int_FanSpeed(uint8 u8FanSpeed);
 static uint8 u8_decode_Temperature(char *sStr);
@@ -262,9 +262,9 @@ void *digit_receive_thread(void *ptr)
         digit_receive_msgs();
     }
     return NULL;
-} 
+}
 
-// Check variable statuses and send get and set requests. 
+// Check variable statuses and send get and set requests.
 void *digit_update_thread( void *ptr )
 {
     digit_init();
@@ -272,48 +272,48 @@ void *digit_update_thread( void *ptr )
     while (true)
     {
         digit_update_vars();
-        sleep(3); // sec
+        sleep(2); // sec
     }
     return NULL;
-} 
+}
 
 // Generates JSON message containing all variables
 void digit_json_encode_vars(char *str)
 {
     char sSubStr1[ENCODE_STR1_SIZE];
     char sSubStr2[ENCODE_STR2_SIZE];
-    char sSubStr3[ENCODE_STR3_SIZE];    
-    
+    char sSubStr3[ENCODE_STR3_SIZE];
+
     strcpy(sSubStr1, "");
-    strcpy(str, "{");   
+    strcpy(str, "{");
 
     for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
     {
         strcpy(sSubStr2, "");
-    
+
         g_digit_vars[i].encodeFunPtr(g_digit_vars[i].u8Value, sSubStr3);
         json_encode_string(sSubStr2,
                            "value",
                            sSubStr3);
-                           
+
         strncat(sSubStr2, ",", 1);
         json_encode_integer(sSubStr2,
                             "ts",
                             g_digit_vars[i].tTimestamp);
-                            
+
         json_encode_object(sSubStr1,
                            g_digit_vars[i].sNameStr,
                            sSubStr2);
-                           
+
         if (i != (NUM_OF_DIGIT_VARS - 1))
         {
             strncat(sSubStr1, ",", 1);
         }
-    }   
+    }
     json_encode_object(str,
                        DIGIT_VARS,
                        sSubStr1);
-    strncat(str, "}", 1);                   
+    strncat(str, "}", 1);
 }
 
 // Process JSON message for changing value and update set request status.
@@ -321,7 +321,7 @@ void digit_set_var_by_name(char *name, char *str_value)
 {
     T_digit_var *var = digit_get_var_by_name(name);
     uint8 value = var->decodeFunPtr(str_value);
-    
+
     digit_set_change_req(var, value);
 }
 
@@ -332,7 +332,7 @@ bool digit_vars_ok(void)
 
     for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
     {
-        if (curr_time - g_digit_vars[i].tTimestamp > 300) 
+        if (curr_time - g_digit_vars[i].tTimestamp > 300)
         {
             return false;
         }
@@ -343,7 +343,7 @@ bool digit_vars_ok(void)
 // Return air humidity
 real32 r32_digit_rh1_sensor()
 {
-    T_digit_var *var = &g_digit_vars[RH1_SENSOR_INDEX]; 
+    T_digit_var *var = &g_digit_vars[RH1_SENSOR_INDEX];
     return (var->u8Value - 51)/2.04;
 }
 
@@ -351,28 +351,28 @@ real32 r32_digit_rh1_sensor()
 real32 r32_digit_outside_temp()
 {
     T_digit_var *var = &g_digit_vars[OUTSIDE_TEMP_INDEX];
-    return  r32_NTC_to_celsius(var->u8Value); 
+    return  r32_NTC_to_celsius(var->u8Value);
 }
 
 // Return inside temperature
 real32 r32_digit_inside_temp()
 {
     T_digit_var *var = &g_digit_vars[INSIDE_TEMP_INDEX];
-    return  r32_NTC_to_celsius(var->u8Value); 
+    return  r32_NTC_to_celsius(var->u8Value);
 }
 
 // Return exhaust air temperature
 real32 r32_digit_exhaust_temp()
 {
     T_digit_var *var = &g_digit_vars[EXHAUST_TEMP_INDEX];
-    return  r32_NTC_to_celsius(var->u8Value); 
+    return  r32_NTC_to_celsius(var->u8Value);
 }
 
 // Return incoming air temperature
 real32 r32_digit_incoming_temp()
 {
     T_digit_var *var = &g_digit_vars[INCOMING_TEMP_INDEX];
-    return  r32_NTC_to_celsius(var->u8Value); 
+    return  r32_NTC_to_celsius(var->u8Value);
 }
 
 // Return temperature of target incoming air
@@ -409,17 +409,17 @@ void digit_set_input_fan_off(bool off)
     uint8 value = 0;
     uint8 mask = 0;
     SET_BIT(mask, BIT3);
-    
+
     if (off)
     {
         SET_BIT(value, BIT3);
     }
-    else 
+    else
     {
         CLEAR_BIT(value, BIT3);
     }
     SET_BIT(value, BIT4);
-    
+
     T_digit_var *var = &g_digit_vars[IO_GATE_3_INDEX];
     var->u8ExpectedMask = mask;
     digit_set_change_req(var, value);
@@ -456,7 +456,7 @@ uint8 u8_digit_cur_fan_speed(void)
 }
 
 void digit_set_min_fan_speed(uint8 u8MinSpeed)
-{    
+{
     uint8 value = u8_decode_int_FanSpeed(u8MinSpeed);
     T_digit_var *var = &g_digit_vars[MIN_FAN_SPEED_INDEX];
     digit_set_change_req(var, value);
@@ -466,7 +466,7 @@ uint8 u8_digit_min_fan_speed(void)
 {
      T_digit_var *var = &g_digit_vars[MIN_FAN_SPEED_INDEX];
     int fan_speed = u8_encode_fan_speed(var->u8Value);
-    return fan_speed;   
+    return fan_speed;
 }
 
 /******************************************************************************
@@ -476,11 +476,11 @@ uint8 u8_digit_min_fan_speed(void)
 static void digit_init(void)
 {
     memset(&g_digit_vars, 0, sizeof(g_digit_vars));
-    
+
     digit_init_var(DIGIT_PARAM(CUR_FAN_SPEED), // variable info (id, name, index)
-                   120,                        // update interval in seconds 
-                   &u8_decode_FanSpeed,        // JSON decode function 
-                   &encode_FanSpeed);          // JSON encode function 
+                   120,                        // update interval in seconds
+                   &u8_decode_FanSpeed,        // JSON decode function
+                   &encode_FanSpeed);          // JSON encode function
     digit_init_var(DIGIT_PARAM(OUTSIDE_TEMP), 15, NULL, &encode_Temperature);
     digit_init_var(DIGIT_PARAM(EXHAUST_TEMP), 15, NULL, &encode_Temperature);
     digit_init_var(DIGIT_PARAM(INSIDE_TEMP), 15, NULL, &encode_Temperature);
@@ -509,18 +509,18 @@ static void digit_init(void)
     digit_init_var(DIGIT_PARAM(IO_GATE_3), 20, NULL, &encode_IO_gate_3);
 }
 
-static void digit_init_var(uint8 u8Index, uint8 u8Id, char *sName, time_t tInternal, 
+static void digit_init_var(uint8 u8Index, uint8 u8Id, char *sName, time_t tInternal,
                            u8_decode_t decodeFunPtr, encode_t encodeFunPtr)
 {
     T_digit_var *digit_var = &g_digit_vars[u8Index];
-    
+
     digit_var->u8Id = u8Id;
     strcpy(digit_var->sNameStr, sName);
     digit_var->tInternal = tInternal;
     digit_var->decodeFunPtr = decodeFunPtr;
     digit_var->encodeFunPtr = encodeFunPtr;
     digit_var->u8ExpectedMask = 0xFF;
-} 
+}
 
 static T_digit_var *digit_get_var_by_id(uint8 u8Id)
 {
@@ -557,7 +557,7 @@ static void digit_process_msg(uint8 u8Id, uint8 u8Value)
             {
                 ptVar->bSetOngoing = false;
                 ptVar->u32SetReqCnt = 0;
-            }            
+            }
         }
         ptVar->u8Value = u8Value;
         ptVar->tTimestamp = time(NULL);
@@ -577,14 +577,14 @@ static uint16 u16_digit_calc_crc(uint8 au8Msg[DIGIT_MSG_LEN])
         u16Checksum += au8Msg[i];
     }
     u16Checksum %= 256;
-    
+
     return u16Checksum;
 }
 
 static bool digit_is_valid_msg(uint8 au8Msg[DIGIT_MSG_LEN])
 {
     uint16 u16Checksum;
- 
+
     if (au8Msg[DIGIT_MSG_SYSTEM] != SYSTEM_ID ||
         au8Msg[DIGIT_MSG_SENDER] != DEVICE_ADDRESS)
     {
@@ -592,7 +592,7 @@ static bool digit_is_valid_msg(uint8 au8Msg[DIGIT_MSG_LEN])
     }
 
     u16Checksum = u16_digit_calc_crc(au8Msg);
-    
+
     if (u16Checksum == au8Msg[DIGIT_MSG_CRC])
     {
         return true;
@@ -607,7 +607,7 @@ static void digit_send_msg(uint8 au8Msg[DIGIT_MSG_LEN])
 {
     au8Msg[DIGIT_MSG_CRC] = u16_digit_calc_crc(au8Msg);
     rs485_send_msg(DIGIT_MSG_LEN, au8Msg);
-    usleep(100000); // sleep 100 ms
+    usleep(50000); // sleep 50 ms
 }
 
 static void digit_send_get_req(uint8 u8Id)
@@ -628,6 +628,9 @@ static void digit_set_change_req(T_digit_var *ptVar, uint8 u8Value)
     {
         ptVar->bSetOngoing = true;
         ptVar->u8ExpectedValue = u8Value;
+        digit_send_set_req(ptVar->u8Id, u8Value);
+        digit_send_set_req(ptVar->u8Id, u8Value);
+        digit_send_set_req(ptVar->u8Id, u8Value);
     }
 }
 
@@ -640,7 +643,7 @@ static void digit_update_vars()
     {
         T_digit_var *ptVar = &g_digit_vars[i];
         if (ptVar->bSetOngoing == true)
-        {  
+        {
             if ((ptVar->u8Value & ptVar->u8ExpectedMask)  != (ptVar->u8ExpectedValue & ptVar->u8ExpectedMask))
             {
                 digit_send_set_req(ptVar->u8Id, ptVar->u8ExpectedValue);
@@ -653,13 +656,13 @@ static void digit_update_vars()
                 ptVar->u32SetReqCnt = 0;
             }
         }
-    }    
+    }
     // Second process ongoing get requests
     for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
     {
         T_digit_var *ptVar = &g_digit_vars[i];
         if (ptVar->bGetOngoing == true)
-        {            
+        {
            digit_send_get_req(ptVar->u8Id);
            ptVar->u32GetReqCnt++;
         }
@@ -673,13 +676,13 @@ static void digit_update_vars()
             ptVar->bGetOngoing = true;
             ptVar->u32GetReqCnt++;
         }
-    }    
+    }
 }
 
 static void digit_receive_msgs(void)
 {
     uint8 au8RecvMsg[DIGIT_MSG_LEN];
-  
+
     while(true)
     {
         if (rs485_recv_msg(DIGIT_MSG_LEN, au8RecvMsg, RS485_READ_ATTEMPTS))
@@ -689,8 +692,8 @@ static void digit_receive_msgs(void)
 #ifdef DEBUG_DIGIT_RECV
                 for (int i = 0; i < DIGIT_MSG_LEN; i++)
                 {
-                    printf("%02X ", au8RecvMsg[i]); 
-                    
+                    printf("%02X ", au8RecvMsg[i]);
+
                 }
                 printf("\n");
 #endif
@@ -717,7 +720,7 @@ static uint8 u8_encode_fan_speed(uint8 u8Value)
 static uint8 u8_decode_Temperature(char *str)
 {
     real32 temp;
-    sscanf(str, "%f", &temp); 
+    sscanf(str, "%f", &temp);
     return u16_celsius_to_NTC(temp);
 }
 
@@ -731,7 +734,7 @@ static uint8 u8_decode_int_FanSpeed(uint8 u8FanSpeed)
     uint8 ret = 0;
     for (int i = 0; i < u8FanSpeed; i++)
     {
-       ret |= (0x1 << i); 
+       ret |= (0x1 << i);
     }
     return ret;
 }
@@ -761,7 +764,7 @@ static void encode_IO_gate_1(uint8 value, char *str)
     strcpy(str, "{");
     json_encode_integer(str,
                         "fan_speed",
-                        fan_speed);    
+                        fan_speed);
     strncat(str, "}", 1);
 }
 
@@ -771,7 +774,7 @@ static void encode_IO_gate_2(uint8 value, char *str)
     json_encode_integer(str,
                         "post-heating",
                         GET_BIT(value, BIT5));
-    strncat(str, "}", 1);                         
+    strncat(str, "}", 1);
 }
 
 static void encode_IO_gate_3(uint8 value, char *str)
@@ -780,27 +783,27 @@ static void encode_IO_gate_3(uint8 value, char *str)
     json_encode_integer(str,
                         "HRC-position",
                         GET_BIT(value, BIT1));
-    strncat(str, ",", 1);                    
+    strncat(str, ",", 1);
     json_encode_integer(str,
                         "fault-relay",
-                        GET_BIT(value, BIT2));        
-    strncat(str, ",", 1); 
+                        GET_BIT(value, BIT2));
+    strncat(str, ",", 1);
     json_encode_integer(str,
                         "fan-input",
-                        GET_BIT(value, BIT3));       
-    strncat(str, ",", 1); 
+                        GET_BIT(value, BIT3));
+    strncat(str, ",", 1);
     json_encode_integer(str,
                         "pre-heating",
-                        GET_BIT(value, BIT4));       
-    strncat(str, ",", 1); 
+                        GET_BIT(value, BIT4));
+    strncat(str, ",", 1);
     json_encode_integer(str,
                         "fan-output",
                         GET_BIT(value, BIT5));
-    strncat(str, ",", 1);                         
+    strncat(str, ",", 1);
     json_encode_integer(str,
                         "booster-switch",
-                        GET_BIT(value, BIT6));                     
-    strncat(str, "}", 1);                        
+                        GET_BIT(value, BIT6));
+    strncat(str, "}", 1);
 }
 
 static void encode_Leds(uint8 value, char *str)
@@ -809,35 +812,35 @@ static void encode_Leds(uint8 value, char *str)
     json_encode_integer(str,
                         "power-key",
                         GET_BIT(value, BIT0));
-    strncat(str, ",", 1);                    
+    strncat(str, ",", 1);
     json_encode_integer(str,
                         "CO2-key",
-                        GET_BIT(value, BIT1));        
-    strncat(str, ",", 1); 
+                        GET_BIT(value, BIT1));
+    strncat(str, ",", 1);
     json_encode_integer(str,
                         "%RH-key",
-                        GET_BIT(value, BIT2));       
-    strncat(str, ",", 1); 
+                        GET_BIT(value, BIT2));
+    strncat(str, ",", 1);
     json_encode_integer(str,
                         "post-heating-key",
-                        GET_BIT(value, BIT3));       
-    strncat(str, ",", 1); 
+                        GET_BIT(value, BIT3));
+    strncat(str, ",", 1);
     json_encode_integer(str,
                         "filter-check-symbol",
                         GET_BIT(value, BIT4));
-    strncat(str, ",", 1);                         
+    strncat(str, ",", 1);
     json_encode_integer(str,
                         "post-heating-symbol",
                         GET_BIT(value, BIT5));
-    strncat(str, ",", 1);                         
+    strncat(str, ",", 1);
     json_encode_integer(str,
                         "fault-symbol",
-                        GET_BIT(value, BIT6)); 
-    strncat(str, ",", 1); 
+                        GET_BIT(value, BIT6));
+    strncat(str, ",", 1);
     json_encode_integer(str,
                         "service-symbol",
-                        GET_BIT(value, BIT7));                      
-    strncat(str, "}", 1); 
+                        GET_BIT(value, BIT7));
+    strncat(str, "}", 1);
 }
 
 static void encode_RH(uint8 value, char *str)
