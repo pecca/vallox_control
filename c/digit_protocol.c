@@ -626,18 +626,19 @@ static void digit_send_set_req(uint8 u8Id, uint8 u8Value)
 
 static void digit_set_change_req(T_digit_var *ptVar, uint8 u8Value)
 {
-    printf("digit_set_change_req\n");
-    for (int i = 0; i < 10; i++) {
+    printf("digit_set_change_req: expected %d, actual %d\n", u8Value, ptVar->u8Value);
+    for (int i = 0; i < 100; i++) {
         if ((ptVar->u8Value & ptVar->u8ExpectedMask) != (u8Value & ptVar->u8ExpectedMask)) {
             ptVar->bSetOngoing = true;
             ptVar->u8ExpectedValue = u8Value;
             digit_send_set_req(ptVar->u8Id, u8Value);
             digit_send_get_req(ptVar->u8Id);
         } else {
-            printf("set succesfull");
+            printf("set succesfull: cnt %d\n", i);
             break;
         }
     }
+    printf("digit_set_ready: %d\n", ptVar->u8Value);
 }
 
 static void digit_update_vars()
