@@ -317,12 +317,17 @@ void digit_json_encode_vars(char *str)
 }
 
 // Process JSON message for changing value and update set request status.
-void digit_set_var_by_name(char *name, char *str_value)
+void digit_set_var_by_name(char *name, char *str_value, char *str)
 {
     T_digit_var *var = digit_get_var_by_name(name);
     uint8 value = var->decodeFunPtr(str_value);
 
-    digit_set_change_req(var, value);
+    bool setOk = digit_set_change_req(var, value);
+    if (setOk) {
+        strcpy(str, "{\"status\": true}");
+    } else {
+        strcpy(str, "{\"status\": false}");
+    }
 }
 
 // Check that variables are updated within intervals.
@@ -624,8 +629,9 @@ static void digit_send_set_req(uint8 u8Id, uint8 u8Value)
     digit_send_msg(au8Msg);
 }
 
-static void digit_set_change_req(T_digit_var *ptVar, uint8 u8Value)
+static bool digit_set_change_req(T_digit_var *ptVar, uint8 u8Value)
 {
+    bool ret = false;
     printf("digit_set_change_req: expected %d, actual %d\n", u8Value, ptVar->u8Value);
     for (int i = 0; i < 100; i++) {
         if ((ptVar->u8Value & ptVar->u8ExpectedMask) != (u8Value & ptVar->u8ExpectedMask)) {
@@ -635,9 +641,11 @@ static void digit_set_change_req(T_digit_var *ptVar, uint8 u8Value)
             digit_send_get_req(ptVar->u8Id);
         } else {
             printf("set succesfull: cnt %d\n", i);
+            ret = true;
             break;
         }
     }
+    return true;
     printf("digit_set_ready: %d\n", ptVar->u8Value);
 }
 
