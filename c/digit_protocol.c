@@ -629,15 +629,19 @@ static void digit_send_set_req(uint8 u8Id, uint8 u8Value)
     digit_send_msg(au8Msg);
 }
 
+bool g_is_set_ongoing = false;
+
 static bool digit_set_change_req(T_digit_var *ptVar, uint8 u8Value)
 {
     bool ret = false;
+    g_is_set_ongoing = true;
     printf("digit_set_change_req: expected %d, actual %d\n", u8Value, ptVar->u8Value);
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 500; i++) {
         if ((ptVar->u8Value & ptVar->u8ExpectedMask) != (u8Value & ptVar->u8ExpectedMask)) {
-            ptVar->bSetOngoing = true;
+            // ptVar->bSetOngoing = true;
             ptVar->u8ExpectedValue = u8Value;
             digit_send_set_req(ptVar->u8Id, u8Value);
+            usleep(50000);
             digit_send_get_req(ptVar->u8Id);
         } else {
             printf("set succesfull: cnt %d\n", i);
@@ -645,13 +649,18 @@ static bool digit_set_change_req(T_digit_var *ptVar, uint8 u8Value)
             break;
         }
     }
-    return true;
+    g_is_set_ongoing = false;
     printf("digit_set_ready: %d\n", ptVar->u8Value);
+    return true;
 }
 
 static void digit_update_vars()
 {
     time_t tCurrentTime = time(NULL);
+
+    if (g_is_set_ongoing) {
+	return;
+     }
 
     // First process ongoing set requests
     for (int i = 0; i < NUM_OF_DIGIT_VARS; i++)
