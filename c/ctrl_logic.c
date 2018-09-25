@@ -191,7 +191,7 @@ void ctrl_set_var_by_name(char *sName, char *sValue, char *str)
         sscanf(sValue, "%f", &fTemp);
         g_tCtrlVars.r32pressureOffset = fTemp;
     }
-    strcpy(sMesg, "{\"status\": true}");
+    strcpy(str, "{\"status\": true}");
 }
 
 void ctrl_json_encode(char *sMesg)
