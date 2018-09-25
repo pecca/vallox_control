@@ -551,6 +551,7 @@ static void digit_process_msg(uint8 u8Id, uint8 u8Value)
     T_digit_var *ptVar = digit_get_var_by_id(u8Id);
     if (ptVar)
     {
+        /*
         if (ptVar->bSetOngoing)
         {
             if ((u8Value & ptVar->u8ExpectedMask) == (ptVar->u8ExpectedValue & ptVar->u8ExpectedMask))
@@ -559,6 +560,7 @@ static void digit_process_msg(uint8 u8Id, uint8 u8Value)
                 ptVar->u32SetReqCnt = 0;
             }
         }
+        */
         ptVar->u8Value = u8Value;
         ptVar->tTimestamp = time(NULL);
         if (ptVar->bGetOngoing)
@@ -624,13 +626,17 @@ static void digit_send_set_req(uint8 u8Id, uint8 u8Value)
 
 static void digit_set_change_req(T_digit_var *ptVar, uint8 u8Value)
 {
-    if ((ptVar->u8Value & ptVar->u8ExpectedMask) != (u8Value & ptVar->u8ExpectedMask))
-    {
-        ptVar->bSetOngoing = true;
-        ptVar->u8ExpectedValue = u8Value;
-        digit_send_set_req(ptVar->u8Id, u8Value);
-        digit_send_set_req(ptVar->u8Id, u8Value);
-        digit_send_set_req(ptVar->u8Id, u8Value);
+    printf("digit_set_change_req\n");
+    for (int i = 0; i < 10; i++) {
+        if ((ptVar->u8Value & ptVar->u8ExpectedMask) != (u8Value & ptVar->u8ExpectedMask)) {
+            ptVar->bSetOngoing = true;
+            ptVar->u8ExpectedValue = u8Value;
+            digit_send_set_req(ptVar->u8Id, u8Value);
+            digit_send_get_req(ptVar->u8Id);
+        } else {
+            printf("set succesfull");
+            break;
+        }
     }
 }
 
