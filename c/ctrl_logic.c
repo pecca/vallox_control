@@ -585,6 +585,7 @@ static void defrost_control()
             {
                 g_tDefrostCtrl.tCheckTime = tCurrentTime;
                 g_tDefrostCtrl.eState = e_Defrost_Heating;
+				printf("heating started\n");
             }
         }
         else if (g_tDefrostCtrl.eState == e_Defrost_Heating ||
@@ -605,6 +606,7 @@ static void defrost_control()
             {
                 digit_set_input_fan_stop(14.0f);
                 g_tDefrostCtrl.eState = e_Defrost_InputFanStop;
+				printf("input fan stopped\n");
             }
         }
         else if (g_tDefrostCtrl.eState == e_Defrost_InputFanStop)
@@ -615,6 +617,7 @@ static void defrost_control()
                 digit_set_input_fan_stop(-6.0f);
                 g_tDefrostCtrl.tCheckTime = tCurrentTime;
                 g_tDefrostCtrl.eState = e_Defrost_Stopped;
+				printf("heating stopped\n");
             }
         }
         else if (g_tDefrostCtrl.eState == e_Defrost_Stopped)
