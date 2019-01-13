@@ -586,12 +586,15 @@ static void defrost_control()
                 g_tDefrostCtrl.tCheckTime = tCurrentTime;
                 g_tDefrostCtrl.eState = e_Defrost_Heating;
 				printf("heating started\n");
+				printf("target eff %f\n", g_tCtrlVars.r32DefrostTargetInEff);
+				printf("target temp %f\n", g_tCtrlVars.r32DefrostTargetTemp);
+				
             }
         }
         else if (g_tDefrostCtrl.eState == e_Defrost_Heating ||
                 g_tDefrostCtrl.eState == e_Defrost_PreHeating)
         {
-            if (r32ExhaustTemp > 22)
+            if (r32ExhaustTemp > 18)
             {
                 g_tDefrostCtrl.eState = e_Defrost_PreHeating;
             }
@@ -617,6 +620,8 @@ static void defrost_control()
                 digit_set_input_fan_stop(-6.0f);
                 g_tDefrostCtrl.tCheckTime = tCurrentTime;
                 g_tDefrostCtrl.eState = e_Defrost_Stopped;
+				printf("current eff %f\n", r32InEff);
+				printf("current temp %f\n", r32CurrentIncomingTemp);
 				printf("heating stopped\n");
             }
         }
