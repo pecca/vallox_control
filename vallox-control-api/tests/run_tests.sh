@@ -7,7 +7,8 @@ fi
 
 # Default values if not in .env
 API_PORT=${PORT:-3000}
-BASE_URL="http://localhost:$API_PORT"
+#BASE_URL="http://localhost:$API_PORT"
+BASE_URL="http://pekanraspi.duckdns.org:$API_PORT"
 API_TOKEN=${TOKEN:-""}
 
 echo "Checking if server is running at $BASE_URL..."
