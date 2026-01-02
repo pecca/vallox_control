@@ -1,10 +1,10 @@
 import express, { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
 import { sendReceiveMessage } from '../vallox/client';
 import { config } from '../config';
 
 const router = express.Router();
 
+// Auth middleware
 const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
     const token = req.query.token;
     if (token !== config.TOKEN) {
@@ -15,21 +15,13 @@ const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
 
 router.use(authMiddleware);
 
-const legacySchema = z.object({
-    action: z.enum(['get', 'set']),
-    type: z.string().optional(),
-    variable: z.string().optional(),
-    value: z.string().optional(),
-});
-
+// Legacy Endpoint for backwards compatibility
 router.get('/', async (req: Request, res: Response) => {
-    const result = legacySchema.safeParse(req.query);
+    const { action, type, variable, value } = req.query as any;
 
-    if (!result.success) {
+    if (!action || (action !== 'get' && action !== 'set')) {
         return res.status(500).json({ error: "invalid URL parameters" });
     }
-
-    const { action, type, variable, value } = result.data;
 
     let message;
     if (action === 'get') {
@@ -59,6 +51,7 @@ router.get('/', async (req: Request, res: Response) => {
     }
 });
 
+// Modern RESTful-ish Endpoints
 router.get('/status', async (req: Request, res: Response) => {
     const type = (req.query.type as string) || 'digit_vars';
     try {
@@ -69,23 +62,18 @@ router.get('/status', async (req: Request, res: Response) => {
     }
 });
 
-const controlSchema = z.object({
-    type: z.string().optional().default('digit_vars'),
-    variable: z.string(),
-    value: z.number(),
-});
-
 router.post('/control', express.json(), async (req: Request, res: Response) => {
-    const result = controlSchema.safeParse(req.body);
-    if (!result.success) {
-        return res.status(400).json({ error: "invalid request body", details: result.error.format() });
+    const { type, variable, value } = req.body;
+
+    if (!variable || value === undefined) {
+        return res.status(400).json({ error: "invalid request body", details: "variable and value are required" });
     }
 
-    const { type, variable, value } = result.data;
+    const finalType = type || 'digit_vars';
     try {
         const response = await sendReceiveMessage({
             id: 0,
-            set: { [type || 'digit_vars']: { [variable]: value } }
+            set: { [finalType]: { [variable]: Number(value) } }
         });
         return res.json(response);
     } catch (error) {
