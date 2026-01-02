@@ -10,6 +10,13 @@ API_PORT=${PORT:-3000}
 BASE_URL="http://localhost:$API_PORT"
 API_TOKEN=${TOKEN:-""}
 
+echo "Checking if server is running at $BASE_URL..."
+if ! curl -s "$BASE_URL/api/vallox?token=$API_TOKEN&action=get&type=digit_vars" > /dev/null; then
+  echo "❌ Error: Server is not running at $BASE_URL"
+  echo "Please start the server first with 'npm run dev' or 'npm start'"
+  exit 1
+fi
+
 echo "Running Hurl tests against $BASE_URL..."
 
 hurl --test tests/api.hurl \
