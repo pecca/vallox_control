@@ -1,11 +1,10 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { sendReceiveMessage } from '../vallox/client.js';
-import { config } from '../config.js';
+import { sendReceiveMessage } from '../vallox/client';
+import { config } from '../config';
 
 const router = express.Router();
 
-// Auth middleware
 const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
     const token = req.query.token;
     if (token !== config.TOKEN) {
@@ -16,7 +15,6 @@ const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
 
 router.use(authMiddleware);
 
-// Legacy Endpoint for backwards compatibility
 const legacySchema = z.object({
     action: z.enum(['get', 'set']),
     type: z.string().optional(),
@@ -61,7 +59,6 @@ router.get('/', async (req: Request, res: Response) => {
     }
 });
 
-// Modern RESTful-ish Endpoints
 router.get('/status', async (req: Request, res: Response) => {
     const type = (req.query.type as string) || 'digit_vars';
     try {
@@ -73,7 +70,7 @@ router.get('/status', async (req: Request, res: Response) => {
 });
 
 const controlSchema = z.object({
-    type: z.string().default('digit_vars'),
+    type: z.string().optional().default('digit_vars'),
     variable: z.string(),
     value: z.number(),
 });
@@ -88,7 +85,7 @@ router.post('/control', express.json(), async (req: Request, res: Response) => {
     try {
         const response = await sendReceiveMessage({
             id: 0,
-            set: { [type]: { [variable]: value } }
+            set: { [type || 'digit_vars']: { [variable]: value } }
         });
         return res.json(response);
     } catch (error) {

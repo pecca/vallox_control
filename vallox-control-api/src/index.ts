@@ -1,6 +1,6 @@
 import express from 'express';
-import { config } from './config.js';
-import valloxRoutes from './routes/vallox.js';
+import { config } from './config';
+import valloxRoutes from './routes/vallox';
 
 const app = express();
 
@@ -12,5 +12,5 @@ app.use((req, res, next) => {
 app.use('/api/vallox', valloxRoutes);
 
 app.listen(config.PORT, () => {
-    console.log(`🚀 Server is running on port ${config.PORT} (Express Mode)`);
+    console.log(`🚀 Server is running on port ${config.PORT} (CommonJS/Node 10 Mode)`);
 });

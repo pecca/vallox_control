@@ -1,6 +1,6 @@
-import dgram from 'node:dgram';
-import { Buffer } from 'node:buffer';
-import { config } from '../config.js';
+import dgram from 'dgram';
+import { Buffer } from 'buffer';
+import { config } from '../config';
 
 const UDP_TIMEOUT = 10000;
 
@@ -15,29 +15,26 @@ export const sendReceiveMessage = (messageSend: ValloxMessage): Promise<any> => 
         const message = Buffer.from(JSON.stringify(messageSend));
         const client = dgram.createSocket('udp4');
 
-        // Bind to the port mentioned in the original code, 
-        // though usually UDP clients use random ephemeral ports.
-        // Keeping it as is for compatibility.
         try {
             client.bind(config.VALLOX_CONTROL_PORT);
         } catch (err) {
             return reject({ error: "failed to bind socket", details: err });
         }
 
-        client.send(message, config.VALLOX_CONTROL_PORT, config.VALLOX_CONTROL_IP, (err) => {
+        client.send(message, config.VALLOX_CONTROL_PORT, config.VALLOX_CONTROL_IP, (err: any) => {
             if (err) {
-                client.close();
+                try { client.close(); } catch (e) { }
                 return reject({ error: "failed to send message", details: err });
             }
         });
 
         const receiveTimeout = setTimeout(() => {
-            client.close();
+            try { client.close(); } catch (e) { }
             reject({ error: "device not responding" });
         }, UDP_TIMEOUT);
 
-        client.once('message', (msg) => {
-            client.close();
+        client.once('message', (msg: any) => {
+            try { client.close(); } catch (e) { }
             clearTimeout(receiveTimeout);
             try {
                 resolve(JSON.parse(msg.toString()));
@@ -46,8 +43,8 @@ export const sendReceiveMessage = (messageSend: ValloxMessage): Promise<any> => 
             }
         });
 
-        client.on('error', (err) => {
-            client.close();
+        client.on('error', (err: any) => {
+            try { client.close(); } catch (e) { }
             clearTimeout(receiveTimeout);
             reject({ error: "UDP socket error", details: err });
         });
