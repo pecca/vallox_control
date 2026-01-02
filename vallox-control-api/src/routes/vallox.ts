@@ -1,19 +1,20 @@
-import { Hono } from 'hono';
+import express, { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { zValidator } from '@hono/zod-validator';
 import { sendReceiveMessage } from '../vallox/client.js';
 import { config } from '../config.js';
 
-const app = new Hono();
+const router = express.Router();
 
 // Auth middleware
-app.use('*', async (c, next) => {
-    const token = c.req.query('token');
+const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
+    const token = req.query.token;
     if (token !== config.TOKEN) {
-        return c.json({ error: "not authorized" }, 404);
+        return res.status(404).json({ error: "not authorized" });
     }
-    await next();
-});
+    next();
+};
+
+router.use(authMiddleware);
 
 // Legacy Endpoint for backwards compatibility
 const legacySchema = z.object({
@@ -23,19 +24,21 @@ const legacySchema = z.object({
     value: z.string().optional(),
 });
 
-app.get('/', zValidator('query', legacySchema, (result, c) => {
+router.get('/', async (req: Request, res: Response) => {
+    const result = legacySchema.safeParse(req.query);
+
     if (!result.success) {
-        return c.json({ error: "invalid URL parameters" }, 500);
+        return res.status(500).json({ error: "invalid URL parameters" });
     }
-}), async (c) => {
-    const { action, type, variable, value } = c.req.valid('query');
+
+    const { action, type, variable, value } = result.data;
 
     let message;
     if (action === 'get') {
-        if (!type) return c.json({ error: "invalid URL parameters" }, 500);
+        if (!type) return res.status(500).json({ error: "invalid URL parameters" });
         message = { id: 0, get: type };
     } else if (action === 'set') {
-        if (!type || !variable || !value) return c.json({ error: "invalid URL parameters" }, 500);
+        if (!type || !variable || !value) return res.status(500).json({ error: "invalid URL parameters" });
         message = {
             id: 0,
             set: {
@@ -47,25 +50,25 @@ app.get('/', zValidator('query', legacySchema, (result, c) => {
     }
 
     if (!message) {
-        return c.json({ error: "invalid URL parameters" }, 500);
+        return res.status(500).json({ error: "invalid URL parameters" });
     }
 
     try {
         const response = await sendReceiveMessage(message);
-        return c.json(response);
+        return res.json(response);
     } catch (error) {
-        return c.json(error, 500);
+        return res.status(500).json(error);
     }
 });
 
 // Modern RESTful-ish Endpoints
-app.get('/status', async (c) => {
-    const type = c.req.query('type') || 'digit_vars';
+router.get('/status', async (req: Request, res: Response) => {
+    const type = (req.query.type as string) || 'digit_vars';
     try {
         const response = await sendReceiveMessage({ id: 0, get: type });
-        return c.json(response);
+        return res.json(response);
     } catch (error) {
-        return c.json(error, 500);
+        return res.status(500).json(error);
     }
 });
 
@@ -75,17 +78,22 @@ const controlSchema = z.object({
     value: z.number(),
 });
 
-app.post('/control', zValidator('json', controlSchema), async (c) => {
-    const { type, variable, value } = c.req.valid('json');
+router.post('/control', express.json(), async (req: Request, res: Response) => {
+    const result = controlSchema.safeParse(req.body);
+    if (!result.success) {
+        return res.status(400).json({ error: "invalid request body", details: result.error.format() });
+    }
+
+    const { type, variable, value } = result.data;
     try {
         const response = await sendReceiveMessage({
             id: 0,
             set: { [type]: { [variable]: value } }
         });
-        return c.json(response);
+        return res.json(response);
     } catch (error) {
-        return c.json(error, 500);
+        return res.status(500).json(error);
     }
 });
 
-export default app;
+export default router;

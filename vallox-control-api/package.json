@@ -5,19 +5,18 @@
   "type": "module",
   "scripts": {
     "start": "node dist/index.js",
-    "dev": "tsx watch src/index.ts",
+    "dev": "ts-node-dev --respawn src/index.ts",
     "build": "tsc"
   },
   "dependencies": {
-    "@hono/node-server": "^1.13.7",
-    "@hono/zod-validator": "^0.4.1",
     "dotenv": "^17.2.3",
-    "hono": "^4.6.14",
+    "express": "^4.21.2",
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2",
-    "tsx": "^4.19.2",
+    "@types/express": "^5.0.0",
+    "@types/node": "^16.18.125",
+    "ts-node-dev": "^2.0.0",
     "typescript": "^5.7.2"
   }
 }

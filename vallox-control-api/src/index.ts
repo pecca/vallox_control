@@ -1,18 +1,16 @@
-import { serve } from '@hono/node-server';
-import { Hono } from 'hono';
-import { logger } from 'hono/logger';
+import express from 'express';
 import { config } from './config.js';
 import valloxRoutes from './routes/vallox.js';
 
-const app = new Hono();
+const app = express();
 
-app.use('*', logger());
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
+    next();
+});
 
-app.route('/api/vallox', valloxRoutes);
+app.use('/api/vallox', valloxRoutes);
 
-console.log(`🚀 Server is running on port ${config.PORT}`);
-
-serve({
-    fetch: app.fetch,
-    port: config.PORT,
+app.listen(config.PORT, () => {
+    console.log(`🚀 Server is running on port ${config.PORT} (Express Mode)`);
 });
