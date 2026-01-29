@@ -14,6 +14,9 @@ export const config = {
     VALLOX_CONTROL_PORT: Number(getEnv('VALLOX_CONTROL_PORT')),
     TOKEN: getEnv('TOKEN'),
     PORT: Number(getEnv('PORT', false, 3000)),
+    GCP_PROJECT_ID: getEnv('GCP_PROJECT_ID', false, ''),
+    PUBSUB_TOPIC: getEnv('PUBSUB_TOPIC', false, 'vallox-status'),
+    POLL_INTERVAL_MS: Number(getEnv('POLL_INTERVAL_MS', false, 300000)),
 };
 
 // Simple validation
