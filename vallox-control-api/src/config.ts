@@ -17,6 +17,7 @@ export const config = {
     GCP_PROJECT_ID: getEnv('GCP_PROJECT_ID', false, ''),
     PUBSUB_TOPIC: getEnv('PUBSUB_TOPIC', false, 'vallox-status'),
     POLL_INTERVAL_MS: Number(getEnv('POLL_INTERVAL_MS', false, 300000)),
+    GCP_SERVICE_ACCOUNT_KEY_PATH: getEnv('GCP_SERVICE_ACCOUNT_KEY_PATH', false, ''),
 };
 
 // Simple validation
