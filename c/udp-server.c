@@ -16,14 +16,13 @@
  ******************************************************************************/ 
  
 #define MSG_MAX_SIZE 8000
-#define UDP_LISTEN_PORT 8056
- 
 /******************************************************************************
  *  Global function implementation
  ******************************************************************************/
- 
+
 void *udp_server_thread(void *ptr)
 {
+    int port = *(int *)ptr;
     char sMesg[MSG_MAX_SIZE];
     int32 i32ConnSocket, i32MsgLen;
     struct sockaddr_in servaddr,cliaddr;
@@ -34,7 +33,7 @@ void *udp_server_thread(void *ptr)
     bzero(&servaddr,sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr=htonl(INADDR_ANY);
-    servaddr.sin_port=htons(UDP_LISTEN_PORT);
+    servaddr.sin_port=htons(port);
     bind(i32ConnSocket,(struct sockaddr *)&servaddr,sizeof(servaddr));
 
     while(true)
