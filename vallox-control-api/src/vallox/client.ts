@@ -15,11 +15,13 @@ export const sendReceiveMessage = (messageSend: ValloxMessage): Promise<any> => 
         const message = Buffer.from(JSON.stringify(messageSend));
         const client = dgram.createSocket('udp4');
 
+        /*
         try {
             client.bind(config.VALLOX_CONTROL_PORT);
         } catch (err) {
             return reject({ error: "failed to bind socket", details: err });
         }
+        */
 
         client.send(message, config.VALLOX_CONTROL_PORT, config.VALLOX_CONTROL_IP, (err: any) => {
             if (err) {
