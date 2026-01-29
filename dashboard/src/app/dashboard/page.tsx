@@ -6,21 +6,16 @@ import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import ThermostatIcon from '@mui/icons-material/Thermostat';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
+import SensorsIcon from '@mui/icons-material/Sensors';
 import StatusCard from '@/components/StatusCard';
 import FanControl from '@/components/FanControl';
 import LedIndicators from '@/components/LedIndicators';
 import ControlPanel from '@/components/ControlPanel';
 import { getDeviceStatus } from '@/actions/vallox';
-
-function getVal(data: Record<string, any> | null, key: string): number | undefined {
-  if (!data) return undefined;
-  const entry = data[key];
-  if (entry && entry.value !== undefined) return entry.value;
-  return undefined;
-}
+import type { DeviceStatus } from '@/lib/schemas';
 
 export default function DashboardPage() {
-  const [data, setData] = useState<Record<string, any> | null>(null);
+  const [data, setData] = useState<DeviceStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,6 +53,10 @@ export default function DashboardPage() {
     );
   }
 
+  const dv = data?.digitVars;
+  const cv = data?.controlVars;
+  const ds = data?.ds18b20Vars;
+
   return (
     <Box>
       <Typography variant="h5" sx={{ mb: 3 }}>
@@ -68,7 +67,7 @@ export default function DashboardPage() {
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatusCard
             title="Inside"
-            value={getVal(data, 'inside_temp')}
+            value={dv?.inside_temp.value}
             unit={'\u00B0C'}
             icon={<ThermostatIcon color="error" />}
           />
@@ -76,7 +75,7 @@ export default function DashboardPage() {
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatusCard
             title="Outside"
-            value={getVal(data, 'outside_temp')}
+            value={dv?.outside_temp.value}
             unit={'\u00B0C'}
             icon={<ThermostatIcon color="info" />}
           />
@@ -84,7 +83,7 @@ export default function DashboardPage() {
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatusCard
             title="Exhaust"
-            value={getVal(data, 'exhaust_temp')}
+            value={dv?.exhaust_temp.value}
             unit={'\u00B0C'}
             icon={<ThermostatIcon color="warning" />}
           />
@@ -92,7 +91,7 @@ export default function DashboardPage() {
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatusCard
             title="Incoming"
-            value={getVal(data, 'incoming_temp')}
+            value={dv?.incoming_temp.value}
             unit={'\u00B0C'}
             icon={<ThermostatIcon color="success" />}
           />
@@ -101,21 +100,62 @@ export default function DashboardPage() {
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatusCard
             title="Humidity"
-            value={getVal(data, 'rh1_sensor')}
+            value={dv?.rh1_sensor.value}
             unit="%"
             icon={<WaterDropIcon color="info" />}
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <FanControl currentSpeed={getVal(data, 'cur_fan_speed')} />
+          <StatusCard
+            title="Efficiency (in)"
+            value={cv?.in_efficiency_filtered.value}
+            unit="%"
+            icon={<ThermostatIcon color="primary" />}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatusCard
+            title="Efficiency (out)"
+            value={cv?.out_efficiency_filtered.value}
+            unit="%"
+            icon={<ThermostatIcon color="primary" />}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <FanControl currentSpeed={dv?.cur_fan_speed.value} />
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatusCard
+            title="DS Outside"
+            value={ds?.ds_outside_temp.value}
+            unit={'\u00B0C'}
+            icon={<SensorsIcon color="info" />}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatusCard
+            title="DS Exhaust"
+            value={ds?.ds_exhaust_temp.value}
+            unit={'\u00B0C'}
+            icon={<SensorsIcon color="warning" />}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatusCard
+            title="DS Incoming"
+            value={ds?.ds_incoming_temp.value}
+            unit={'\u00B0C'}
+            icon={<SensorsIcon color="success" />}
+          />
         </Grid>
 
         <Grid size={{ xs: 12 }}>
-          <LedIndicators leds={data?.panel_leds?.value} />
+          <LedIndicators leds={dv?.panel_leds.value} />
         </Grid>
 
         <Grid size={{ xs: 12 }}>
-          <ControlPanel digitVars={data || {}} />
+          <ControlPanel digitVars={dv} />
         </Grid>
       </Grid>
     </Box>

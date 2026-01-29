@@ -6,9 +6,11 @@ const router = express.Router();
 
 // Auth middleware
 const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
-    const token = req.query.token;
+    const auth = req.headers.authorization || '';
+    const token = req.query.token
+        || (auth.startsWith('Bearer ') && auth.slice(7));
     if (token !== config.TOKEN) {
-        return res.status(404).json({ error: "not authorized" });
+        return res.status(401).json({ error: "not authorized" });
     }
     next();
 };

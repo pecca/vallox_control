@@ -33,8 +33,10 @@ const WRITABLE_VARS: VarConfig[] = [
   { handle: 'DC_FAN_OUTPUT', label: 'DC Fan Output', unit: '%', min: 1, max: 100 },
 ];
 
+import type { DigitVars } from '@/lib/schemas';
+
 interface ControlPanelProps {
-  digitVars: Record<string, any>;
+  digitVars: DigitVars | undefined;
 }
 
 export default function ControlPanel({ digitVars }: ControlPanelProps) {
@@ -55,9 +57,10 @@ export default function ControlPanel({ digitVars }: ControlPanelProps) {
   }
 
   function getCurrentValue(handle: string): string {
-    const key = handle.toLowerCase();
+    if (!digitVars) return '--';
+    const key = handle.toLowerCase() as keyof DigitVars;
     const entry = digitVars[key];
-    if (entry && entry.value !== undefined) return String(entry.value);
+    if (entry && 'value' in entry && typeof entry.value === 'number') return String(entry.value);
     return '--';
   }
 

@@ -1,6 +1,11 @@
 const API_URL = process.env.VALLOX_API_URL || 'http://localhost:9000';
 const API_TOKEN = process.env.VALLOX_API_TOKEN || '';
 
+const headers: Record<string, string> = {
+  'Authorization': `Bearer ${API_TOKEN}`,
+  'Content-Type': 'application/json',
+};
+
 export async function getStatus(type: string = 'digit_vars'): Promise<Record<string, any>> {
   const url = `${API_URL}/api/vallox?action=get&type=${type}&token=${API_TOKEN}`;
   const res = await fetch(url, { cache: 'no-store' });

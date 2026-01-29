@@ -5,7 +5,7 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 
 interface LedIndicatorsProps {
-  leds: Record<string, boolean> | undefined;
+  leds: Record<string, number> | undefined;
 }
 
 export default function LedIndicators({ leds }: LedIndicatorsProps) {
