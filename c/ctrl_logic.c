@@ -35,7 +35,7 @@
 #define DEFROST_TARGET_TEMP             (18)
 #define DEFROST_STOP_TIME               (10 * 60)
 
-#define SUB_STR_MAX_SIZE                (4000)
+#define SUB_STR_MAX_SIZE                (4500)
 
 /******************************************************************************
  *  Data type declarations
@@ -127,6 +127,13 @@ typedef struct
     time_t tAiLastCmd;      /* timestamp of last AI command */
 } T_Defrost;
 
+typedef struct
+{
+    bool bActive;
+    time_t tStartTime;
+    uint32 u32MaxTimeSec;   /* auto-disable after this many seconds */
+} T_Fireplace;
+
 /******************************************************************************
  *  Local variables
  ******************************************************************************/
@@ -134,6 +141,7 @@ typedef struct
 static T_PreHeating g_tPreHeating;
 static T_Defrost g_tDefrostCtrl;
 static T_CtrlVars g_tCtrlVars;
+static T_Fireplace g_tFireplace;
 
 /******************************************************************************
  *  Local function declarations
@@ -234,6 +242,23 @@ void ctrl_set_var_by_name(char *sName, char *sValue, char *str)
         sscanf(sValue, "%d", &u32Temp);
         g_tDefrostCtrl.u8AiFanStop = (u32Temp != 0) ? 1 : 0;
         g_tDefrostCtrl.tAiLastCmd = time(NULL);
+    }
+    else if (!strcmp(sName, "fireplace_on"))
+    {
+        uint32 u32MaxTime;
+        sscanf(sValue, "%d", &u32MaxTime);
+        if (u32MaxTime > 0)
+        {
+            g_tFireplace.bActive = true;
+            g_tFireplace.tStartTime = time(NULL);
+            g_tFireplace.u32MaxTimeSec = u32MaxTime;
+            printf("[Fireplace] activated, max time %d seconds\n", u32MaxTime);
+        }
+    }
+    else if (!strcmp(sName, "fireplace_off"))
+    {
+        g_tFireplace.bActive = false;
+        printf("[Fireplace] deactivated\n");
     }
     strcpy(str, "{\"status\": true}");
 }
@@ -681,6 +706,41 @@ void ctrl_json_encode(char *sMesg)
     strncat(sSubStr2, ",", 1);
     json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tAiLastCmd);
     json_encode_object(sSubStr1, "ai_defrost_fan_stop", sSubStr2);
+    strncat(sSubStr1, ",", 1);
+
+    // fireplace_active
+    strcpy(sSubStr2, "");
+    json_encode_integer(sSubStr2, "value", g_tFireplace.bActive ? 1 : 0);
+    strncat(sSubStr2, ",", 1);
+    json_encode_integer(sSubStr2, "ts", g_tFireplace.tStartTime);
+    json_encode_object(sSubStr1, "fireplace_active", sSubStr2);
+    strncat(sSubStr1, ",", 1);
+
+    // fireplace_max_time (seconds)
+    strcpy(sSubStr2, "");
+    json_encode_integer(sSubStr2, "value", g_tFireplace.u32MaxTimeSec);
+    strncat(sSubStr2, ",", 1);
+    json_encode_integer(sSubStr2, "ts", g_tFireplace.tStartTime);
+    json_encode_object(sSubStr1, "fireplace_max_time", sSubStr2);
+    strncat(sSubStr1, ",", 1);
+
+    // fireplace_remaining (seconds, 0 if inactive)
+    strcpy(sSubStr2, "");
+    {
+        uint32 u32Remaining = 0;
+        if (g_tFireplace.bActive)
+        {
+            time_t tElapsed = time(NULL) - g_tFireplace.tStartTime;
+            if (tElapsed < g_tFireplace.u32MaxTimeSec)
+            {
+                u32Remaining = g_tFireplace.u32MaxTimeSec - tElapsed;
+            }
+        }
+        json_encode_integer(sSubStr2, "value", u32Remaining);
+    }
+    strncat(sSubStr2, ",", 1);
+    json_encode_integer(sSubStr2, "ts", time(NULL));
+    json_encode_object(sSubStr1, "fireplace_remaining", sSubStr2);
 
     json_encode_object(sMesg,
                        CONTROL_VARS,
@@ -697,6 +757,7 @@ static void ctrl_init()
     memset(&g_tCtrlVars, 0x0, sizeof(g_tCtrlVars));
     memset(&g_tPreHeating, 0x0, sizeof(g_tPreHeating));
     memset(&g_tDefrostCtrl, 0x0, sizeof(g_tDefrostCtrl));
+    memset(&g_tFireplace, 0x0, sizeof(g_tFireplace));
 
     g_tCtrlVars.r32MinExhaustTemp = -3.0f;
     g_tCtrlVars.u8DefrostMode = DEFROST_MODE_OFF;
@@ -717,6 +778,17 @@ static void ctrl_run()
     post_heating_counter_update();
     pre_heating_resistor_counter_update();
     defrost_resistor_counter_update();
+
+    /* Fireplace auto-disable timer */
+    if (g_tFireplace.bActive)
+    {
+        time_t tNow = time(NULL);
+        if ((tNow - g_tFireplace.tStartTime) >= g_tFireplace.u32MaxTimeSec)
+        {
+            g_tFireplace.bActive = false;
+            printf("[Fireplace] auto-disabled after %d seconds\n", g_tFireplace.u32MaxTimeSec);
+        }
+    }
 
     if (digit_vars_ok() && DS18B20_vars_ok())
     {
@@ -825,15 +897,41 @@ static void defrost_control()
             else if (tCurrentTime - g_tDefrostCtrl.tCheckTime > (g_tCtrlVars.u32DefrostMaxDuration * 60))
             {
                 g_tDefrostCtrl.tHeatingEnd = tCurrentTime;
-                g_tDefrostCtrl.tFanStopStart = tCurrentTime;
-                digit_set_input_fan_stop(14.0f);
-                g_tDefrostCtrl.eState = e_Defrost_InputFanStop;
-                printf("input fan stopped\n");
+                if (g_tFireplace.bActive)
+                {
+                    /* Fireplace active: skip input fan stop for safety */
+                    g_tDefrostCtrl.tCheckTime = tCurrentTime;
+                    g_tDefrostCtrl.eState = e_Defrost_Stopped;
+                    g_tDefrostCtrl.r32EndInEff = r32InEff;
+                    g_tDefrostCtrl.r32EndIncomingTemp = r32CurrentIncomingTemp;
+                    g_tDefrostCtrl.r32EndExhaustTemp = r32ExhaustTemp;
+                    g_tDefrostCtrl.eEndReason = e_EndReason_Timeout;
+                    printf("heating timeout, fan stop blocked (fireplace active)\n");
+                }
+                else
+                {
+                    g_tDefrostCtrl.tFanStopStart = tCurrentTime;
+                    digit_set_input_fan_stop(14.0f);
+                    g_tDefrostCtrl.eState = e_Defrost_InputFanStop;
+                    printf("input fan stopped\n");
+                }
             }
         }
         else if (g_tDefrostCtrl.eState == e_Defrost_InputFanStop)
         {
-            if (r32InEff > g_tCtrlVars.r32DefrostTargetInEff)
+            if (g_tFireplace.bActive)
+            {
+                /* Fireplace activated during fan stop: immediately resume input fan */
+                digit_set_input_fan_stop(-6.0f);
+                g_tDefrostCtrl.tCheckTime = tCurrentTime;
+                g_tDefrostCtrl.eState = e_Defrost_Stopped;
+                g_tDefrostCtrl.r32EndInEff = r32InEff;
+                g_tDefrostCtrl.r32EndIncomingTemp = r32CurrentIncomingTemp;
+                g_tDefrostCtrl.r32EndExhaustTemp = r32ExhaustTemp;
+                g_tDefrostCtrl.eEndReason = e_EndReason_Timeout;
+                printf("fan stop aborted (fireplace activated)\n");
+            }
+            else if (r32InEff > g_tCtrlVars.r32DefrostTargetInEff)
             {
                 digit_set_input_fan_stop(-6.0f);
                 g_tDefrostCtrl.tCheckTime = tCurrentTime;
@@ -926,10 +1024,25 @@ static void defrost_control()
         else if (g_tDefrostCtrl.u8AiFanStop && u8PrevHeating)
         {
             g_tDefrostCtrl.tHeatingEnd = tCurrentTime;
-            g_tDefrostCtrl.tFanStopStart = tCurrentTime;
-            digit_set_input_fan_stop(14.0f);
-            g_tDefrostCtrl.eState = e_Defrost_InputFanStop;
-            printf("[AI] input fan stopped\n");
+            if (g_tFireplace.bActive)
+            {
+                /* Fireplace active: reject AI fan stop command for safety */
+                g_tDefrostCtrl.u8AiFanStop = 0;
+                g_tDefrostCtrl.tCheckTime = tCurrentTime;
+                g_tDefrostCtrl.eState = e_Defrost_Stopped;
+                g_tDefrostCtrl.r32EndInEff = r32InEff;
+                g_tDefrostCtrl.r32EndIncomingTemp = r32CurrentIncomingTemp;
+                g_tDefrostCtrl.r32EndExhaustTemp = r32ExhaustTemp;
+                g_tDefrostCtrl.eEndReason = e_EndReason_Timeout;
+                printf("[AI] fan stop blocked (fireplace active)\n");
+            }
+            else
+            {
+                g_tDefrostCtrl.tFanStopStart = tCurrentTime;
+                digit_set_input_fan_stop(14.0f);
+                g_tDefrostCtrl.eState = e_Defrost_InputFanStop;
+                printf("[AI] input fan stopped\n");
+            }
         }
         /* Detect AI turning fan stop OFF */
         else if (!g_tDefrostCtrl.u8AiFanStop && u8PrevFanStop)
@@ -943,6 +1056,20 @@ static void defrost_control()
             g_tDefrostCtrl.r32EndExhaustTemp = r32ExhaustTemp;
             g_tDefrostCtrl.eEndReason = e_EndReason_FanStopResolved;
             printf("[AI] fan stop ended\n");
+        }
+
+        /* Fireplace safety: force-exit InputFanStop if fireplace activated */
+        if (g_tDefrostCtrl.eState == e_Defrost_InputFanStop && g_tFireplace.bActive)
+        {
+            digit_set_input_fan_stop(-6.0f);
+            g_tDefrostCtrl.u8AiFanStop = 0;
+            g_tDefrostCtrl.tCheckTime = tCurrentTime;
+            g_tDefrostCtrl.eState = e_Defrost_Stopped;
+            g_tDefrostCtrl.r32EndInEff = r32InEff;
+            g_tDefrostCtrl.r32EndIncomingTemp = r32CurrentIncomingTemp;
+            g_tDefrostCtrl.r32EndExhaustTemp = r32ExhaustTemp;
+            g_tDefrostCtrl.eEndReason = e_EndReason_Timeout;
+            printf("[AI] fan stop aborted (fireplace activated)\n");
         }
 
         /* Stopped → Measuring transition (cooldown) */

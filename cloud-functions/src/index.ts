@@ -55,6 +55,8 @@ async function checkAndStoreDefrostCycle(
         humidity: digitVars?.rh1_sensor?.value,
         fan_speed: digitVars?.cur_fan_speed?.value,
         ds_outside_temp: ds18b20Vars?.ds_outside_temp?.value,
+        // Fireplace context
+        fireplace_active: controlVars?.fireplace_active?.value,
     };
 
     const docId = `cycle-${cycleCount}`;
