@@ -21,9 +21,17 @@ export default function StatusCard({ title, value, unit, icon }: StatusCardProps
             {title}
           </Typography>
         </Box>
-        <Typography variant="h4">
+        <Typography variant="h4" sx={{ 
+          fontSize: { xs: '1.5rem', sm: '2.125rem' },
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis'
+        }}>
           {value !== undefined ? `${value}` : '--'}
-          <Typography component="span" variant="h6" color="text.secondary" sx={{ ml: 0.5 }}>
+          <Typography component="span" variant="h6" color="text.secondary" sx={{ 
+            ml: 0.5,
+            fontSize: { xs: '0.8rem', sm: '1.25rem' } 
+          }}>
             {unit}
           </Typography>
         </Typography>

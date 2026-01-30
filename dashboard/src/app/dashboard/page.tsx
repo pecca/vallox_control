@@ -12,6 +12,8 @@ import FanControl from '@/components/FanControl';
 import LedIndicators from '@/components/LedIndicators';
 import ControlPanel from '@/components/ControlPanel';
 import EfficiencyStats from '@/components/EfficiencyStats';
+import FireplaceControl from '@/components/FireplaceControl';
+import DefrostModeControl from '@/components/DefrostModeControl';
 import { getDeviceStatus } from '@/actions/vallox';
 import type { DeviceStatus } from '@/lib/schemas';
 
@@ -60,12 +62,14 @@ export default function DashboardPage() {
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ mb: 3 }}>
+      <Typography variant="h5" sx={{ mb: 3, fontWeight: 'bold' }}>
         Vallox 150 SE MLV
       </Typography>
 
-      <Grid container spacing={3}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+      {/* Priority Section: Essential Monitors & Controls */}
+      <Grid container spacing={2} sx={{ mb: 4 }}>
+        {/* Row 1: Primary Temperatures & Humidity */}
+        <Grid size={{ xs: 6, md: 3 }}>
           <StatusCard
             title="Inside"
             value={dv?.inside_temp.value}
@@ -73,7 +77,7 @@ export default function DashboardPage() {
             icon={<ThermostatIcon color="error" />}
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid size={{ xs: 6, md: 3 }}>
           <StatusCard
             title="Outside"
             value={dv?.outside_temp.value}
@@ -81,24 +85,7 @@ export default function DashboardPage() {
             icon={<ThermostatIcon color="info" />}
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatusCard
-            title="Exhaust"
-            value={dv?.exhaust_temp.value}
-            unit={'\u00B0C'}
-            icon={<ThermostatIcon color="warning" />}
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatusCard
-            title="Incoming"
-            value={dv?.incoming_temp.value}
-            unit={'\u00B0C'}
-            icon={<ThermostatIcon color="success" />}
-          />
-        </Grid>
-
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid size={{ xs: 6, md: 3 }}>
           <StatusCard
             title="Humidity"
             value={dv?.rh1_sensor.value}
@@ -106,45 +93,88 @@ export default function DashboardPage() {
             icon={<WaterDropIcon color="info" />}
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <FanControl currentSpeed={dv?.cur_fan_speed.value} />
-        </Grid>
-
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid size={{ xs: 6, md: 3 }}>
           <StatusCard
-            title="DS Outside"
-            value={ds?.ds_outside_temp.value}
-            unit={'\u00B0C'}
-            icon={<SensorsIcon color="info" />}
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatusCard
-            title="DS Exhaust"
-            value={ds?.ds_exhaust_temp.value}
-            unit={'\u00B0C'}
-            icon={<SensorsIcon color="warning" />}
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatusCard
-            title="DS Incoming"
-            value={ds?.ds_incoming_temp.value}
-            unit={'\u00B0C'}
+            title="LTO Eff Filtered"
+            value={cv?.in_efficiency_filtered.value?.toFixed(1)}
+            unit="%"
             icon={<SensorsIcon color="success" />}
           />
         </Grid>
 
-        <Grid size={{ xs: 12 }}>
-          <LedIndicators leds={dv?.panel_leds.value} />
-        </Grid>
-
+        {/* Row 2: High Priority Controls */}
         <Grid size={{ xs: 12, md: 4 }}>
-          <EfficiencyStats digitVars={dv} controlVars={cv} />
+          <DefrostModeControl controlVars={cv} />
+        </Grid>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <FireplaceControl controlVars={cv} />
+        </Grid>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <FanControl currentSpeed={dv?.cur_fan_speed.value} />
+        </Grid>
+      </Grid>
+
+      {/* Secondary Section: Detailed Status & Configuration */}
+      <Typography variant="h6" sx={{ mb: 2, color: 'text.secondary' }}>
+        System Details
+      </Typography>
+      
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, lg: 8 }}>
+          <Grid container spacing={2}>
+             <Grid size={{ xs: 6, sm: 4 }}>
+              <StatusCard
+                title="Exhaust"
+                value={dv?.exhaust_temp.value}
+                unit={'\u00B0C'}
+                icon={<ThermostatIcon color="warning" />}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 4 }}>
+              <StatusCard
+                title="Incoming"
+                value={dv?.incoming_temp.value}
+                unit={'\u00B0C'}
+                icon={<ThermostatIcon color="success" />}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 4 }}>
+               <StatusCard
+                title="DS Outside"
+                value={ds?.ds_outside_temp.value}
+                unit={'\u00B0C'}
+                icon={<SensorsIcon color="info" />}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 4 }}>
+              <StatusCard
+                title="DS Exhaust"
+                value={ds?.ds_exhaust_temp.value}
+                unit={'\u00B0C'}
+                icon={<SensorsIcon color="warning" />}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 4 }}>
+              <StatusCard
+                title="DS Incoming"
+                value={ds?.ds_incoming_temp.value}
+                unit={'\u00B0C'}
+                icon={<SensorsIcon color="success" />}
+              />
+            </Grid>
+            
+            <Grid size={{ xs: 12 }}>
+              <LedIndicators leds={dv?.panel_leds.value} />
+            </Grid>
+
+            <Grid size={{ xs: 12 }}>
+              <ControlPanel digitVars={dv} controlVars={cv} />
+            </Grid>
+          </Grid>
         </Grid>
 
-        <Grid size={{ xs: 12, md: 8 }}>
-          <ControlPanel digitVars={dv} controlVars={cv} />
+        <Grid size={{ xs: 12, lg: 4 }}>
+          <EfficiencyStats digitVars={dv} controlVars={cv} />
         </Grid>
       </Grid>
     </Box>

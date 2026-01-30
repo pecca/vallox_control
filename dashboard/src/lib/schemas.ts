@@ -107,6 +107,9 @@ const ControlVarsInner = z.object({
   pressure_diff: NumericVar,
   pressure_offset: NumericVar,
   defrost_start_duration: NumericVar,
+  fireplace_active: NumericVar,
+  fireplace_max_time: NumericVar,
+  fireplace_remaining: NumericVar,
 });
 
 export const ControlVarsResponse = z.object({
