@@ -34,6 +34,7 @@
 #define DEFROST_TARGET_IN_EFF           (85)
 #define DEFROST_TARGET_TEMP             (18)
 #define DEFROST_STOP_TIME               (10 * 60)
+#define DEFROST_HEATING_SAFETY_TIMEOUT  (30 * 60)   /* max heating duration before emergency shutoff */
 
 #define SUB_STR_MAX_SIZE                (4500)
 
@@ -55,7 +56,8 @@ typedef enum
     e_EndReason_EffRecovered,
     e_EndReason_TempTarget,
     e_EndReason_FanStopResolved,
-    e_EndReason_Timeout
+    e_EndReason_Timeout,
+    e_EndReason_SafetyShutoff
 } E_DefrostEndReason;
 
 typedef struct
@@ -125,6 +127,8 @@ typedef struct
     byte u8AiHeating;       /* 0=off, 1=on */
     byte u8AiFanStop;       /* 0=off, 1=on */
     time_t tAiLastCmd;      /* timestamp of last AI command */
+    /* Safety */
+    time_t tHeatingOnSince; /* when defrost resistor was last turned on (0 = off) */
 } T_Defrost;
 
 typedef struct
@@ -828,14 +832,46 @@ static void ctrl_update_vars()
 
 static void defrost_control()
 {
+    /* Safety: if defrost heating has been continuously on for 30 minutes, emergency shutoff.
+       Applies to all modes (ON, AUTO, AI). */
+    if (g_tDefrostCtrl.tHeatingOnSince > 0)
+    {
+        time_t tNow = time(NULL);
+        if ((tNow - g_tDefrostCtrl.tHeatingOnSince) >= DEFROST_HEATING_SAFETY_TIMEOUT)
+        {
+            defrost_resistor_stop();
+            digit_set_input_fan_stop(-6.0f);
+            g_tDefrostCtrl.tHeatingOnSince = 0;
+            g_tDefrostCtrl.tHeatingEnd = tNow;
+            g_tDefrostCtrl.tCycleEnd = tNow;
+            g_tDefrostCtrl.u32CycleCount++;
+            g_tDefrostCtrl.r32EndInEff = g_tCtrlVars.r32InEfficiency;
+            g_tDefrostCtrl.r32EndIncomingTemp = r32_digit_incoming_temp();
+            g_tDefrostCtrl.r32EndExhaustTemp = r32_DS18B20_exhaust_temp();
+            g_tDefrostCtrl.eEndReason = e_EndReason_SafetyShutoff;
+            g_tDefrostCtrl.eState = e_Measuring;
+            g_tDefrostCtrl.u8AiHeating = 0;
+            g_tDefrostCtrl.u8AiFanStop = 0;
+            g_tCtrlVars.u8DefrostMode = DEFROST_MODE_OFF;
+            printf("[SAFETY] heating exceeded %d seconds, emergency shutoff, defrost mode OFF\n",
+                   DEFROST_HEATING_SAFETY_TIMEOUT);
+            return;
+        }
+    }
+
     if (g_tCtrlVars.u8DefrostMode == DEFROST_MODE_ON)
     {
         defrost_resistor_start();
+        if (g_tDefrostCtrl.tHeatingOnSince == 0)
+        {
+            g_tDefrostCtrl.tHeatingOnSince = time(NULL);
+        }
         g_tDefrostCtrl.eState = e_Measuring;
     }
     else if (g_tCtrlVars.u8DefrostMode == DEFROST_MODE_OFF)
     {
         defrost_resistor_stop();
+        g_tDefrostCtrl.tHeatingOnSince = 0;
         g_tDefrostCtrl.eState = e_Measuring;
     }
     else if (g_tCtrlVars.u8DefrostMode == DEFROST_MODE_AUTO)
@@ -968,10 +1004,15 @@ static void defrost_control()
         if (g_tDefrostCtrl.eState == e_Defrost_Heating)
         {
             defrost_resistor_start();
+            if (g_tDefrostCtrl.tHeatingOnSince == 0)
+            {
+                g_tDefrostCtrl.tHeatingOnSince = time(NULL);
+            }
         }
         else
         {
             defrost_resistor_stop();
+            g_tDefrostCtrl.tHeatingOnSince = 0;
         }
     }
     else if (g_tCtrlVars.u8DefrostMode == DEFROST_MODE_AI)
@@ -1088,10 +1129,15 @@ static void defrost_control()
         if (g_tDefrostCtrl.eState == e_Defrost_Heating)
         {
             defrost_resistor_start();
+            if (g_tDefrostCtrl.tHeatingOnSince == 0)
+            {
+                g_tDefrostCtrl.tHeatingOnSince = time(NULL);
+            }
         }
         else
         {
             defrost_resistor_stop();
+            g_tDefrostCtrl.tHeatingOnSince = 0;
         }
     }
 }
