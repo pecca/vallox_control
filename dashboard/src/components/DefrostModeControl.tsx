@@ -46,7 +46,7 @@ export default function DefrostModeControl({ controlVars }: DefrostModeControlPr
             onChange={handleChange}
             sx={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
+              gridTemplateColumns: 'repeat(4, 1fr)',
               gap: 1,
               '& .MuiFormControlLabel-root': {
                 margin: 0,
@@ -79,6 +79,12 @@ export default function DefrostModeControl({ controlVars }: DefrostModeControlPr
               control={<Radio />} 
               label="AUTO" 
               sx={{ border: currentMode === 2 ? '1px solid #0288d1 !important' : 'inherit' }}
+            />
+            <FormControlLabel 
+              value="3" 
+              control={<Radio />} 
+              label="AI" 
+              sx={{ border: currentMode === 3 ? '1px solid #7c4dff !important' : 'inherit' }}
             />
           </RadioGroup>
         </FormControl>
