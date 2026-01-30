@@ -11,6 +11,7 @@ import StatusCard from '@/components/StatusCard';
 import FanControl from '@/components/FanControl';
 import LedIndicators from '@/components/LedIndicators';
 import ControlPanel from '@/components/ControlPanel';
+import EfficiencyStats from '@/components/EfficiencyStats';
 import { getDeviceStatus } from '@/actions/vallox';
 import type { DeviceStatus } from '@/lib/schemas';
 
@@ -106,22 +107,6 @@ export default function DashboardPage() {
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatusCard
-            title="Efficiency (in)"
-            value={cv?.in_efficiency_filtered.value}
-            unit="%"
-            icon={<ThermostatIcon color="primary" />}
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatusCard
-            title="Efficiency (out)"
-            value={cv?.out_efficiency_filtered.value}
-            unit="%"
-            icon={<ThermostatIcon color="primary" />}
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <FanControl currentSpeed={dv?.cur_fan_speed.value} />
         </Grid>
 
@@ -154,7 +139,11 @@ export default function DashboardPage() {
           <LedIndicators leds={dv?.panel_leds.value} />
         </Grid>
 
-        <Grid size={{ xs: 12 }}>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <EfficiencyStats digitVars={dv} controlVars={cv} />
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 8 }}>
           <ControlPanel digitVars={dv} controlVars={cv} />
         </Grid>
       </Grid>

@@ -5,7 +5,7 @@ import Typography from '@mui/material/Typography';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
-import TemperatureChart, { HumidityChart } from '@/components/TemperatureChart';
+import TemperatureChart, { HumidityChart, EfficiencyChart } from '@/components/TemperatureChart';
 import { getHistoricalData, type HistoryDataPoint } from '@/actions/history';
 
 const TIME_RANGES = [
@@ -57,6 +57,7 @@ export default function HistoryPage() {
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <TemperatureChart data={data} title="Temperature Trends" />
+          <EfficiencyChart data={data} />
           <HumidityChart data={data} />
         </Box>
       )}

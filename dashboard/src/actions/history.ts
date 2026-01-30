@@ -11,6 +11,10 @@ export interface HistoryDataPoint {
   incoming_temp?: number;
   rh1_sensor?: number;
   cur_fan_speed?: number;
+  in_efficiency?: number;
+  out_efficiency?: number;
+  in_efficiency_calc?: number;
+  out_efficiency_calc?: number;
 }
 
 export async function getHistoricalData(hours: number): Promise<HistoryDataPoint[]> {
@@ -30,16 +34,38 @@ export async function getHistoricalData(hours: number): Promise<HistoryDataPoint
 
   return snapshot.docs.map((doc) => {
     const data = doc.data();
-    const vars = data.digit_vars || data;
+    const digit = data.digit_vars || {};
+    const control = data.control_vars || {};
     const ts = data.timestamp?.toDate?.() || new Date(data.timestamp);
+
+    // Calc efficiency based on outside temp
+    const tin = digit.incoming_temp?.value;
+    const tout = digit.outside_temp?.value;
+    const tinside = digit.inside_temp?.value;
+    const texhaust = digit.exhaust_temp?.value;
+
+    let in_eff_calc = undefined;
+    let out_eff_calc = undefined;
+    if (tin !== undefined && tout !== undefined && tinside !== undefined && texhaust !== undefined) {
+      const diff = tinside - tout;
+      if (Math.abs(diff) > 0.1) {
+        in_eff_calc = ((tin - tout) / diff) * 100;
+        out_eff_calc = ((tinside - texhaust) / diff) * 100;
+      }
+    }
+
     return {
       timestamp: ts.toISOString(),
-      inside_temp: vars.inside_temp?.value,
-      outside_temp: vars.outside_temp?.value,
-      exhaust_temp: vars.exhaust_temp?.value,
-      incoming_temp: vars.incoming_temp?.value,
-      rh1_sensor: vars.rh1_sensor?.value,
-      cur_fan_speed: vars.cur_fan_speed?.value,
+      inside_temp: digit.inside_temp?.value,
+      outside_temp: digit.outside_temp?.value,
+      exhaust_temp: digit.exhaust_temp?.value,
+      incoming_temp: digit.incoming_temp?.value,
+      rh1_sensor: digit.rh1_sensor?.value,
+      cur_fan_speed: digit.cur_fan_speed?.value,
+      in_efficiency: control.in_efficiency_filtered?.value,
+      out_efficiency: control.out_efficiency_filtered?.value,
+      in_efficiency_calc: in_eff_calc,
+      out_efficiency_calc: out_eff_calc,
     };
   });
 }

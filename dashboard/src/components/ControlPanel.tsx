@@ -33,7 +33,7 @@ const digitWritableVars: VarConfig[] = [
   { type: 'digit_vars', handle: 'min_fan_speed', label: 'Min Fan Speed', unit: '', min: 1, max: 8 },
   { type: 'digit_vars', handle: 'max_fan_speed', label: 'Max Fan Speed', unit: '', min: 1, max: 8 },
   { type: 'digit_vars', handle: 'hrc_bypass_temp', label: 'HRC Bypass Temp', unit: '\u00B0C', min: 14, max: 20 },
-  { type: 'digit_vars', handle: 'input_fan_stop_temp', label: 'Input Fan Stop', unit: '\u00B0C', min: -3, max: 10 },
+  { type: 'digit_vars', handle: 'input_fan_stop_temp', label: 'Input Fan Stop', unit: '\u00B0C', min: -6, max: 14 },
   { type: 'digit_vars', handle: 'pre_heating_temp', label: 'Pre-heating Temp', unit: '\u00B0C', min: -3, max: 10 },
   { type: 'digit_vars', handle: 'cell_defrosting_hysteresis', label: 'Defrost Hysteresis', unit: '\u00B0C', min: 0, max: 3 },
   { type: 'digit_vars', handle: 'dc_fan_input', label: 'DC Fan Input', unit: '%', min: 1, max: 100 },

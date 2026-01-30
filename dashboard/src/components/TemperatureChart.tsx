@@ -91,3 +91,48 @@ export function HumidityChart({ data }: HumidityChartProps) {
     </Card>
   );
 }
+
+interface EfficiencyChartProps {
+  data: HistoryDataPoint[];
+}
+
+export function EfficiencyChart({ data }: EfficiencyChartProps) {
+  return (
+    <Card>
+      <CardContent>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          LTO Efficiency
+        </Typography>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+            <XAxis dataKey="timestamp" tickFormatter={formatTime} stroke="#999" />
+            <YAxis stroke="#999" unit="%" domain={[0, 110]} />
+            <Tooltip
+              labelFormatter={(label) => new Date(label).toLocaleString()}
+              contentStyle={{ backgroundColor: '#132f4c', border: 'none' }}
+            />
+            <Legend />
+            <Line
+              type="monotone"
+              dataKey="in_efficiency"
+              stroke="#4fc3f7"
+              name="In Efficiency (measured)"
+              dot={false}
+              strokeWidth={2}
+            />
+            <Line
+              type="monotone"
+              dataKey="in_efficiency_calc"
+              stroke="#ba68c8"
+              name="In Efficiency (calculated)"
+              dot={false}
+              strokeWidth={1}
+              strokeDasharray="5 5"
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+}
