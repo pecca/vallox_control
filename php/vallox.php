@@ -57,7 +57,7 @@ function get_control_vars($fp)
 {
     $id = '{"id": $g_id++, "get":control_vars}';
     fwrite($fp, $id);
-    $str = fread($fp, 1500);
+    $str = fread($fp, 6000);
     $ob = json_decode($str, true);
     return $ob;
 }
