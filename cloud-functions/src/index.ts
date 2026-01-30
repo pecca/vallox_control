@@ -44,11 +44,19 @@ async function checkAndStoreDefrostCycle(
         start_dew_point: controlVars.defrost_start_dew_point?.value,
         start_in_eff: controlVars.defrost_start_in_eff?.value,
         start_in_eff_filtered: controlVars.defrost_start_in_eff_filtered?.value,
+        // Start conditions: DS18B20 sensor snapshots
+        start_ds_outside_temp: controlVars.defrost_start_ds_outside_temp?.value,
+        start_ds_exhaust_temp: controlVars.defrost_start_ds_exhaust_temp?.value,
+        start_ds_incoming_temp: controlVars.defrost_start_ds_incoming_temp?.value,
         // End conditions
         end_in_eff: controlVars.defrost_end_in_eff?.value,
         end_incoming_temp: controlVars.defrost_end_incoming_temp?.value,
         end_exhaust_temp: controlVars.defrost_end_exhaust_temp?.value,
         end_reason: controlVars.defrost_end_reason?.value,
+        // End conditions: DS18B20 sensor snapshots
+        end_ds_outside_temp: controlVars.defrost_end_ds_outside_temp?.value,
+        end_ds_exhaust_temp: controlVars.defrost_end_ds_exhaust_temp?.value,
+        end_ds_incoming_temp: controlVars.defrost_end_ds_incoming_temp?.value,
         // Context: ambient conditions at poll time
         outside_temp: digitVars?.outside_temp?.value,
         inside_temp: digitVars?.inside_temp?.value,
