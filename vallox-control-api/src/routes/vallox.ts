@@ -31,10 +31,12 @@ router.get('/', async (req: Request, res: Response) => {
         message = { id: 0, get: type };
     } else if (action === 'set') {
         if (!type || !variable || !value) return res.status(500).json({ error: "invalid URL parameters" });
+        // Firmware expects singular form for SET: "digit_var" / "control_var"
+        const setType = (type as string).replace(/_vars$/, '_var');
         message = {
             id: 0,
             set: {
-                [type]: {
+                [setType]: {
                     [variable]: Number(value)
                 }
             }
@@ -72,10 +74,12 @@ router.post('/control', express.json(), async (req: Request, res: Response) => {
     }
 
     const finalType = type || 'digit_vars';
+    // Firmware expects singular form for SET: "digit_var" / "control_var"
+    const setType = finalType.replace(/_vars$/, '_var');
     try {
         const response = await sendReceiveMessage({
             id: 0,
-            set: { [finalType]: { [variable]: Number(value) } }
+            set: { [setType]: { [variable]: Number(value) } }
         });
         return res.json(response);
     } catch (error) {
