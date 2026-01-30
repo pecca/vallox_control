@@ -44,7 +44,6 @@ typedef enum
 {
     e_Measuring,
     e_Defrost_Heating,
-    e_Defrost_PreHeating,
     e_Defrost_Stopped,
     e_Defrost_InputFanStop
 } E_DefrostState;
@@ -482,6 +481,20 @@ void ctrl_json_encode(char *sMesg)
     json_encode_object(sSubStr1,
                        "defrost_start_duration",
                        sSubStr2);
+    strncat(sSubStr1, ",", 1);
+
+    // defrost_state
+    strcpy(sSubStr2, "");
+    json_encode_integer(sSubStr2,
+                      "value",
+                      g_tDefrostCtrl.eState);
+    strncat(sSubStr2, ",", 1);
+    json_encode_integer(sSubStr2,
+                        "ts",
+                        time(NULL));
+    json_encode_object(sSubStr1,
+                       "defrost_state",
+                       sSubStr2);
 
     json_encode_object(sMesg,
                        CONTROL_VARS,
@@ -560,13 +573,11 @@ static void defrost_control()
     if (g_tCtrlVars.u8DefrostMode == DEFROST_MODE_ON)
     {
         defrost_resistor_start();
-        pre_heating_resistor_start();
         g_tDefrostCtrl.eState = e_Measuring;
     }
     else if (g_tCtrlVars.u8DefrostMode == DEFROST_MODE_OFF)
     {
         defrost_resistor_stop();
-        pre_heating_resistor_stop();
         g_tDefrostCtrl.eState = e_Measuring;
     }
     else
@@ -591,14 +602,8 @@ static void defrost_control()
 				
             }
         }
-        else if (g_tDefrostCtrl.eState == e_Defrost_Heating ||
-                g_tDefrostCtrl.eState == e_Defrost_PreHeating)
+        else if (g_tDefrostCtrl.eState == e_Defrost_Heating)
         {
-            if (r32ExhaustTemp > 18)
-            {
-                g_tDefrostCtrl.eState = e_Defrost_PreHeating;
-            }
-
             if (r32InEff > g_tCtrlVars.r32DefrostTargetInEff ||
                 r32CurrentIncomingTemp > g_tCtrlVars.r32DefrostTargetTemp)
             {
@@ -636,17 +641,10 @@ static void defrost_control()
         if (g_tDefrostCtrl.eState == e_Defrost_Heating)
         {
             defrost_resistor_start();
-            pre_heating_resistor_start();
-        }
-        else if (g_tDefrostCtrl.eState == e_Defrost_PreHeating)
-        {
-            defrost_resistor_stop();
-            pre_heating_resistor_start();
         }
         else
         {
             defrost_resistor_stop();
-            pre_heating_resistor_stop();
         }
     }
 }

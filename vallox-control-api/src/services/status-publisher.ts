@@ -4,7 +4,12 @@ import { publishMessage } from './pubsub';
 
 const pollAndPublish = async (): Promise<void> => {
     try {
-        const status = await sendReceiveMessage({ id: 0, get: 'digit_vars' });
+        const [digitVars, controlVars, ds18b20Vars] = await Promise.all([
+            sendReceiveMessage({ id: 0, get: 'digit_vars' }),
+            sendReceiveMessage({ id: 0, get: 'control_vars' }),
+            sendReceiveMessage({ id: 0, get: 'ds18b20_vars' }),
+        ]);
+        const status = { digit_vars: digitVars, control_vars: controlVars, ds18b20_vars: ds18b20Vars };
         const messageId = await publishMessage(config.PUBSUB_TOPIC, status);
         console.log(`[StatusPublisher] Published message ${messageId} to ${config.PUBSUB_TOPIC}`);
     } catch (err) {
