@@ -155,7 +155,7 @@ export default function DashboardPage() {
         </Grid>
 
         <Grid size={{ xs: 12 }}>
-          <ControlPanel digitVars={dv} />
+          <ControlPanel digitVars={dv} controlVars={cv} />
         </Grid>
       </Grid>
     </Box>

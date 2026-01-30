@@ -25,18 +25,24 @@ export async function getDeviceStatus(): Promise<DeviceStatus> {
   const controlVars = ControlVarsResponse.parse(rawControl);
   const ds18b20Vars = DS18B20VarsResponse.parse(rawDS18B20);
 
-  return {
+  const ret = {
     digitVars: digitVars.digit_vars,
     controlVars: controlVars.control_vars,
     ds18b20Vars: ds18b20Vars.ds18b20_vars,
   };
+  console.log('digitVars.min_fan_speed', ret.digitVars.min_fan_speed);
+  return ret;
 }
 
-export async function setDeviceVariable(variable: string, value: number) {
+export async function setDeviceVariable(
+  type: 'digit_vars' | 'control_vars',
+  variable: string,
+  value: number
+) {
   const session = await getServerSession(authOptions);
   if (!session) {
     throw new Error('Unauthorized');
   }
-
-  return setVariable('digit_vars', variable, value);
+  console.log('setDeviceVariable', type, variable, value);
+  return setVariable(type, variable, value);
 }

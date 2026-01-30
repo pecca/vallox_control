@@ -19,7 +19,7 @@ export default function FanControl({ currentSpeed }: FanControlProps) {
 
   function handleSet() {
     startTransition(async () => {
-      await setDeviceVariable('FAN_SPEED', value);
+      await setDeviceVariable('digit_vars', 'FAN_SPEED', value);
     });
   }
 
