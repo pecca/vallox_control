@@ -42,6 +42,10 @@ const digitWritableVars: VarConfig[] = [
 
 const controlWritableVars: VarConfig[] = [
   { type: 'control_vars', handle: 'defrost_start_level', label: 'Start level (LTO efficiency incoming air)', unit: '%', min: 0, max: 100 },
+  { type: 'control_vars', handle: 'defrost_eff_imp_thresh', label: 'Efficiency Improvement Thresh', unit: '%', min: 0, max: 5 },
+  { type: 'control_vars', handle: 'defrost_heating_no_imp_time', label: 'Heating No-Improv Timeout', unit: 's', min: 30, max: 1200 },
+  { type: 'control_vars', handle: 'defrost_fan_stop_no_imp_time', label: 'Fan Stop No-Improv Timeout', unit: 's', min: 30, max: 1200 },
+  { type: 'control_vars', handle: 'defrost_fan_stop_max_dur', label: 'Fan Stop Max Duration', unit: 's', min: 60, max: 3600 },
 ];
 
 

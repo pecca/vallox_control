@@ -132,6 +132,10 @@ const ControlVarsInner = z.object({
   fireplace_active: NumericVar,
   fireplace_max_time: NumericVar,
   fireplace_remaining: NumericVar,
+  defrost_eff_imp_thresh: NumericVar,
+  defrost_heating_no_imp_time: NumericVar,
+  defrost_fan_stop_no_imp_time: NumericVar,
+  defrost_fan_stop_max_dur: NumericVar,
 });
 
 export const ControlVarsResponse = z.object({
