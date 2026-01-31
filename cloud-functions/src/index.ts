@@ -6,6 +6,16 @@ const STATUS_COLLECTION = 'vallox_status';
 const CYCLES_COLLECTION = 'defrost_cycles';
 const META_DOC = 'defrost_meta/last_cycle';
 
+
+function calculateRelativeHumidity(tempC: number, dewPointC: number): number {
+    const a = 17.625;
+    const b = 243.04;
+    const alpha = (a * dewPointC) / (b + dewPointC);
+    const beta = (a * tempC) / (b + tempC);
+    const rh = 100 * (Math.exp(alpha) / Math.exp(beta));
+    return parseFloat(Math.min(100, Math.max(0, rh)).toFixed(1));
+}
+
 interface PubSubData {
     message: {
         data: string;
@@ -40,8 +50,15 @@ async function checkAndStoreDefrostCycle(
         // Start conditions
         start_outside_temp: controlVars.defrost_start_outside_temp?.value,
         start_exhaust_temp: controlVars.defrost_start_exhaust_temp?.value,
+        start_exhaust_humidity: (controlVars.defrost_start_exhaust_temp?.value !== undefined && controlVars.defrost_start_dew_point?.value !== undefined) 
+            ? calculateRelativeHumidity(controlVars.defrost_start_exhaust_temp.value, controlVars.defrost_start_dew_point.value) 
+            : null,
         start_incoming_temp: controlVars.defrost_start_incoming_temp?.value,
         start_dew_point: controlVars.defrost_start_dew_point?.value,
+        start_dew_point_delta: (controlVars.defrost_start_exhaust_temp?.value !== undefined && controlVars.defrost_start_dew_point?.value !== undefined)
+            ? parseFloat((controlVars.defrost_start_exhaust_temp.value - controlVars.defrost_start_dew_point.value).toFixed(2))
+            : null,
+        start_fan_speed: digitVars?.cur_fan_speed?.value,
         start_in_eff: controlVars.defrost_start_in_eff?.value,
         start_in_eff_filtered: controlVars.defrost_start_in_eff_filtered?.value,
         // Start conditions: DS18B20 sensor snapshots
