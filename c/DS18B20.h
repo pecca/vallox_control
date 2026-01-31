@@ -1,11 +1,13 @@
 /**
  * @file   DS18B20.h
  * @Author Pekka Mäkelä (pekka.makela@iki.fi)
- * @brief  Interface of DS18B20 sensors. 
+ * @brief  Interface of DS18B20 sensors.
  */
 
 #ifndef DS18B20_H
 #define DS18B20_H
+
+#include "common.h"
 
 /******************************************************************************
  *  Global function declaration

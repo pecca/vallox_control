@@ -7,6 +7,8 @@
 #ifndef DIGIT_PROTOCOL_H
 #define DIGIT_PROTOCOL_H
 
+#include "common.h"
+
 /******************************************************************************
  *  Global function declarations
  ******************************************************************************/
