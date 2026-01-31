@@ -34,7 +34,7 @@
   (30 * 60) /* max heating duration before emergency shutoff */
 
 #define DEFROST_EXHAUST_MIN_TEMP                                               \
-  (5.0f) /* both exhaust sensors must exceed this to end heating */
+  (3.0f) /* both exhaust sensors must exceed this to end heating */
 #define DEFROST_EFF_SAMPLE_INTERVAL                                            \
   (30) /* seconds between efficiency samples for trend detection */
 #define DEFROST_EFF_IMPROVEMENT_THRESH                                         \
@@ -203,6 +203,10 @@ void ctrl_set_var_by_name(char *sName, char *sValue, char *str) {
     real32 fTemp;
     sscanf(sValue, "%f", &fTemp);
     g_tCtrlVars.r32DefrostStartLevel = fTemp;
+  } else if (!strcmp(sName, "min_exhaust_temp")) {
+    real32 fTemp;
+    sscanf(sValue, "%f", &fTemp);
+    g_tCtrlVars.r32MinExhaustTemp = fTemp;
   } else if (!strcmp(sName, "pressureOut")) {
     real32 fTemp;
     sscanf(sValue, "%f", &fTemp);
@@ -709,7 +713,7 @@ static void ctrl_init() {
   memset(&g_tDefrostCtrl, 0x0, sizeof(g_tDefrostCtrl));
   memset(&g_tFireplace, 0x0, sizeof(g_tFireplace));
 
-  g_tCtrlVars.r32MinExhaustTemp = -3.0f;
+  g_tCtrlVars.r32MinExhaustTemp = DEFROST_EXHAUST_MIN_TEMP;
   g_tCtrlVars.u8DefrostMode = DEFROST_MODE_OFF;
 
   g_tCtrlVars.r32DefrostStartLevel = DEFROST_TARGET_LEVEL;
@@ -849,8 +853,8 @@ static void defrost_control() {
       }
     } else if (g_tDefrostCtrl.eState == e_Defrost_Heating) {
       /* Check if both exhaust sensors are above 5C (surface ice melted) */
-      bool bExhaustAbove5C = (r32DsExhaust > DEFROST_EXHAUST_MIN_TEMP) &&
-                             (r32DigitExhaust > DEFROST_EXHAUST_MIN_TEMP);
+      bool bExhaustAbove5C = (r32DsExhaust > g_tCtrlVars.r32MinExhaustTemp) &&
+                             (r32DigitExhaust > g_tCtrlVars.r32MinExhaustTemp);
 
       /* Sample efficiency periodically for improvement tracking */
       if ((tCurrentTime - g_tDefrostCtrl.tLastEffSampleTime) >=

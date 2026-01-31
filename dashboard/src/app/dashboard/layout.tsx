@@ -8,6 +8,7 @@ import Box from '@mui/material/Box';
 import AirIcon from '@mui/icons-material/Air';
 import HistoryIcon from '@mui/icons-material/History';
 import DashboardIcon from '@mui/icons-material/Dashboard';
+import AcUnitIcon from '@mui/icons-material/AcUnit';
 import Link from 'next/link';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -36,6 +37,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             color="inherit"
           >
             History
+          </Button>
+          <Button
+            component={Link}
+            href="/defrost-cycles"
+            startIcon={<AcUnitIcon />}
+            color="inherit"
+          >
+            Defrost Cycles
           </Button>
           <Box sx={{ flexGrow: 1 }} />
           <Typography variant="body2" sx={{ mr: 2 }}>
