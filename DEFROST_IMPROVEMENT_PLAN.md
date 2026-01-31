@@ -39,6 +39,7 @@ When ice blocks the heat exchanger:
 The owner's experience over multiple winters has established that effective defrost requires **two distinct phases**:
 
 #### Phase 1: Infrared Heating (Melt ice from the outside surface)
+- **Defrost is NEVER started if outdoor temperature is above 0°C** - ice cannot form when outside air is above freezing
 - An infrared heating resistor (GPIO pin 22) heats the **exhaust side** of the heat exchanger
 - This melts ice from the **surface** of the output (exhaust) fan area
 - Heating should continue **as long as efficiency is improving** (not a fixed duration)
@@ -313,8 +314,9 @@ If exhaust sensors are still below 5°C, heating continues even if efficiency im
                     +--------------+
                     |  e_Measuring  |
                     +------+-------+
-                           | filtered_eff < start_level% AND
-                           | raw_eff < filtered_eff (trending down)
+                           | outside_temp < 0C (DS18B20)
+                           | AND filtered_eff < start_level%
+                           | AND raw_eff < filtered_eff (trending down)
                            v
                     +------------------+
                     | e_Defrost_Heating |
@@ -358,7 +360,13 @@ If exhaust sensors are still below 5°C, heating continues even if efficiency im
 
 #### Phase: Measuring -> Heating Trigger
 
-**Condition** (same as current):
+**Precondition** (hard rule):
+```
+Outside temperature (DS18B20 sensor 1) must be BELOW 0°C
+```
+Defrost is NEVER started if outdoor temperature is above zero. Ice cannot form on the heat exchanger when outdoor air is above freezing. This check must be enforced regardless of what efficiency readings show (efficiency drops from other causes should not trigger defrost in warm weather).
+
+**Condition** (same as current, only evaluated when outside temp < 0°C):
 ```
 filtered_efficiency < defrost_start_level (default 72%)
 AND raw_efficiency < filtered_efficiency (efficiency is dropping)
@@ -546,7 +554,8 @@ The defrost AUTO mode logic starts at `c/ctrl_logic.c:933`. The changes are:
 The AI mode (`c/ctrl_logic.c:1095-1234`) receives commands from the cloud. The C firmware should still enforce the exhaust temperature safety check even in AI mode. The improvement-based stopping logic should be implemented in the cloud function (Python), not in C for AI mode, since the cloud function controls the timing.
 
 However, add to AI mode in C:
-- Exhaust temperature safety override (force stop heating if < 5C regardless of AI command)
+- Exhaust temperature continuation enforcement: do NOT allow AI to stop heating while either exhaust sensor is below 5°C (ice still present on surface)
+- 30-minute safety timeout still applies regardless of AI commands
 - Log the new end reasons
 
 ### Step 4: Update JSON Encoding
@@ -678,9 +687,48 @@ Efficiency = ((DS18B20_incoming - DS18B20_outside) / (DIGIT_inside - DS18B20_out
 
 The existing ML pipeline (`python/ai_learner.py`) trains on defrost cycle data stored in Firestore. When implementing improvements:
 
+### Training Data: Use DS18B20 Sensors for Outside Temperature
+
+**IMPORTANT**: The `start_outside_temp` training feature must use the **DS18B20 outside temperature** sensor (`ds_outside_temp` from `ds18b20_vars`), NOT the DIGIT protocol NTC sensor (`outside_temp` from `digit_vars`). This has been corrected in both `python/ai_config.py` and `cloud-functions-training/ai_config.py`:
+
+```python
+# CORRECT - uses DS18B20 sensor (more accurate, same as efficiency calculation)
+'start_outside_temp': ('ds18b20_vars', 'ds_outside_temp'),
+
+# WRONG - was using DIGIT protocol NTC sensor
+# 'start_outside_temp': ('digit_vars', 'outside_temp'),
+```
+
+**Rationale**: The efficiency calculation itself uses DS18B20 sensors for outside and incoming temperatures. Training the ML model on the same sensor source ensures consistency. The DS18B20 sensors are also more accurate and update more frequently (every 5 seconds vs 15 seconds for DIGIT).
+
+### Training Data: Exhaust Temperature Is Average of Both Sensors
+
+**IMPORTANT**: The `start_exhaust_temp` training feature must be the **average of the DIGIT protocol and DS18B20 exhaust temperature** readings, NOT just one sensor. This is a calculated feature defined in `CALCULATED_FEATURES` in both config files:
+
+```python
+'start_exhaust_temp': {
+    'description': 'Average of DIGIT and DS18B20 exhaust temperatures',
+    'method': 'average',  # (sources[0] + sources[1]) / 2
+    'sources': [
+        ('digit_vars', 'exhaust_temp'),       # Vallox NTC sensor (further from surface)
+        ('ds18b20_vars', 'ds_exhaust_temp'),   # DS18B20 sensor (close to surface)
+    ],
+}
+```
+
+**Rationale**: The two exhaust sensors have different physical placements. The DS18B20 is mounted close to the heat exchanger surface (sensitive to ice presence), while the DIGIT NTC is further away. Averaging both gives a more representative exhaust air temperature for ML training. During defrost, the DS18B20 sensor near the surface stays near 0°C while ice is present, so the average captures both the air temperature and the surface condition influence.
+
+**Implementation note**: The `CALCULATED_FEATURES` dict in `ai_config.py` defines features that require values from multiple sources. Code that builds feature vectors must:
+1. Process `CALCULATED_FEATURES` entries **in dependency order** - check `depends_on` field
+2. `start_exhaust_temp` (average) must be calculated **first** because `start_dew_point_delta` depends on it
+3. `start_dew_point_delta` = averaged `start_exhaust_temp` minus dew point (its first source is the string `'start_exhaust_temp'` referencing the already-calculated feature, not a raw sensor tuple)
+4. For any feature not in `LIVE_FEATURE_MAPPING`, check `CALCULATED_FEATURES`, fetch the required sources, and apply the specified method (`average`, `subtract`, etc.)
+
+### Other Guidelines
+
 1. **Keep the cycle data capture** - the `T_Defrost` fields that record start/end conditions are used for ML training
 2. **Add new features** to the cycle data:
-   - `heating_stopped_reason` (new end reasons: EffPlateau, ExhaustTooCold)
+   - `heating_stopped_reason` (new end reasons: EffPlateau, FanStopPlateau, SafetyShutoff)
    - `peak_eff_during_heating` - highest efficiency reached during heating
    - `eff_improvement_rate` - average efficiency improvement per minute
    - `total_eff_gained` - efficiency at end minus efficiency at start

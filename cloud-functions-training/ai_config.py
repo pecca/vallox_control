@@ -37,14 +37,26 @@ TRAINING_FEATURES = [
 # The var_group is one of: control_vars, digit_vars, ds18b20_vars
 # The json_key is the flat key in the JSON response, e.g. {"in_efficiency": {"value": 75.3, "ts": ...}}
 LIVE_FEATURE_MAPPING = {
-    'start_outside_temp': ('digit_vars', 'outside_temp'),
+    'start_outside_temp': ('ds18b20_vars', 'ds_outside_temp'),
     'start_in_eff': ('control_vars', 'in_efficiency'),
     'start_in_eff_filtered': ('control_vars', 'in_efficiency_filtered'),
-    'start_exhaust_temp': ('digit_vars', 'exhaust_temp'),
+    # start_exhaust_temp is calculated: average of DIGIT and DS18B20 exhaust temps
     'start_incoming_temp': ('digit_vars', 'incoming_temp'),
     'start_dew_point': ('control_vars', 'dew_point'),
     'humidity': ('digit_vars', 'rh1_sensor'),
     'fan_speed': ('digit_vars', 'cur_fan_speed'),
+}
+
+# Calculated features that require values from multiple sources.
+CALCULATED_FEATURES = {
+    'start_exhaust_temp': {
+        'description': 'Average of DIGIT and DS18B20 exhaust temperatures',
+        'method': 'average',  # (sources[0] + sources[1]) / 2
+        'sources': [
+            ('digit_vars', 'exhaust_temp'),
+            ('ds18b20_vars', 'ds_exhaust_temp'),
+        ],
+    },
 }
 
 # Successful defrost end reasons (from C firmware ctrl_logic.h)

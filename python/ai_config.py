@@ -21,13 +21,11 @@ REGRESSOR_DISPLAY_NAME = 'defrost-regressor'
 SERVING_CONTAINER = 'europe-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.1-3:latest'
 
 # Training features (must match Firestore field names from cloud-functions)
-# Training features (must match Firestore field names from cloud-functions)
 TRAINING_FEATURES = [
     'start_outside_temp',      # T_outdoor
     'start_exhaust_temp',      # T_exhaust
     'start_exhaust_humidity',  # RH_exhaust (mapped to rh1_sensor)
     'start_supply_temp',       # T_supply (mapped to incoming_temp)
-    'start_pressure_diff',     # Delta P
     'start_fan_speed',         # Fan Speed
     'start_dew_point_delta',   # Delta T_dewpoint (Calculated: Exhaust - DewPoint)
     'start_in_eff',            # Efficiency (Raw)
@@ -37,15 +35,37 @@ TRAINING_FEATURES = [
 # Mapping from live UDP variable names to training feature names.
 # Format: feature_name -> (var_group, json_key)
 LIVE_FEATURE_MAPPING = {
-    'start_outside_temp': ('digit_vars', 'outside_temp'),
-    'start_exhaust_temp': ('digit_vars', 'exhaust_temp'),
+    'start_outside_temp': ('ds18b20_vars', 'ds_outside_temp'),
+    # start_exhaust_temp is calculated: average of DIGIT and DS18B20 exhaust temps
     'start_exhaust_humidity': ('digit_vars', 'rh1_sensor'),
     'start_supply_temp': ('digit_vars', 'incoming_temp'),
-    'start_pressure_diff': ('control_vars', 'pressure_diff'),
     'start_fan_speed': ('digit_vars', 'cur_fan_speed'),
     'start_in_eff': ('control_vars', 'in_efficiency'),
     'start_in_eff_filtered': ('control_vars', 'in_efficiency_filtered'),
     # start_dew_point_delta is calculated, not mapped directly
+}
+
+# Calculated features that require values from multiple sources.
+# Format: feature_name -> list of (var_group, json_key) pairs + calculation method
+CALCULATED_FEATURES = {
+    # start_exhaust_temp must be calculated FIRST (other features depend on it)
+    'start_exhaust_temp': {
+        'description': 'Average of DIGIT and DS18B20 exhaust temperatures',
+        'method': 'average',  # (sources[0] + sources[1]) / 2
+        'sources': [
+            ('digit_vars', 'exhaust_temp'),
+            ('ds18b20_vars', 'ds_exhaust_temp'),
+        ],
+    },
+    'start_dew_point_delta': {
+        'description': 'Averaged Exhaust Temp minus Dew Point',
+        'method': 'subtract',  # sources[0] - sources[1]
+        'depends_on': 'start_exhaust_temp',  # must be calculated first
+        'sources': [
+            'start_exhaust_temp',             # use the averaged exhaust temp (calculated above)
+            ('control_vars', 'dew_point'),
+        ],
+    },
 }
 
 # Successful defrost end reasons (from C firmware ctrl_logic.h)
