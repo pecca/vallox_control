@@ -29,14 +29,18 @@ const STATE_FAN_STOP = 3;
 const DEFROST_MODE_AI = 3;
 
 interface SensorData {
+    // New Features
     inEfficiency: number | null;
     inEfficiencyFiltered: number | null;
-    incomingTemp: number | null;
-    exhaustTemp: number | null;
     outsideTemp: number | null;
-    dewPoint: number | null;
-    humidity: number | null;
+    exhaustTemp: number | null;
+    exhaustHumidity: number | null; // rh1_sensor
+    supplyTemp: number | null;      // incoming_temp
+    pressureDiff: number | null;
     fanSpeed: number | null;
+    dewPointDelta: number | null;   // Calculated: exhaust - dew_point
+    
+    // Internal
     defrostMode: number | null;
 }
 
@@ -105,15 +109,27 @@ function extractSensorData(
     controlVars: Record<string, any>,
     digitVars: Record<string, any>,
 ): SensorData {
+    const exhaustTemp = extractValue(digitVars, 'exhaust_temp');
+    const dewPoint = extractValue(controlVars, 'dew_point');
+    const outsideTemp = extractValue(digitVars, 'outside_temp');
+    const pressureDiff = extractValue(controlVars, 'pressure_diff');
+    
+    // Calculate Dew Point Delta
+    let dewPointDelta: number | null = null;
+    if (exhaustTemp !== null && dewPoint !== null) {
+        dewPointDelta = Number((exhaustTemp - dewPoint).toFixed(2));
+    }
+
     return {
         inEfficiency: extractValue(controlVars, 'in_efficiency'),
         inEfficiencyFiltered: extractValue(controlVars, 'in_efficiency_filtered'),
-        incomingTemp: extractValue(digitVars, 'incoming_temp'),
-        exhaustTemp: extractValue(digitVars, 'exhaust_temp'),
-        outsideTemp: extractValue(digitVars, 'outside_temp'),
-        dewPoint: extractValue(controlVars, 'dew_point'),
-        humidity: extractValue(digitVars, 'rh1_sensor'),
+        outsideTemp,
+        exhaustTemp,
+        exhaustHumidity: extractValue(digitVars, 'rh1_sensor'),
+        supplyTemp: extractValue(digitVars, 'incoming_temp'),
+        pressureDiff,
         fanSpeed: extractValue(digitVars, 'cur_fan_speed'),
+        dewPointDelta,
         defrostMode: extractValue(controlVars, 'defrost_mode'),
     };
 }

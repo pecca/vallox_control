@@ -419,8 +419,19 @@ The system is currently in **Phase 1 (Learning)**. To move to **Phase 2 (Active 
     - **Regression**: RMSE represents the error in seconds. Lower is better (e.g., < 60s error).
 3.  **Feature Sense**:
     - Look at the "Top 3 Predictive Features" printed by the script.
-    - **Good**: `in_efficiency_filtered`, `outside_temp`, `humidity` (Physical causes).
+    - **Good**: `start_dew_point_delta` (Key physical indicator), `start_supply_temp`, `start_exhaust_humidity`.
     - **Bad**: Random noise or irrelevant variables.
+
+### New "Expert" Features (2026-01-30)
+
+We have enhanced the model with physics-based features:
+
+| Feature                      | Description                                                          | Importance            |
+| :--------------------------- | :------------------------------------------------------------------- | :-------------------- |
+| **`start_dew_point_delta`**  | `Exhaust Temp - Dew Point`. Negative values mean freezing risk.      | **Primary Predictor** |
+| **`start_pressure_diff`**    | Pressure drop across the unit. Increases with ice blocking the core. | Secondary             |
+| **`start_supply_temp`**      | Incoming air temperature.                                            | Context               |
+| **`start_exhaust_humidity`** | Relative humidity of exhaust air.                                    | Context               |
 
 Once these criteria are met, we can update the `predictDefrost` cloud function to load the trained model instead of using the hardcoded rules. 3. **Command Listening**: The firmware enters a "listening" state, waiting for explicit commands: - `ai_defrost_heating` (1 = ON, 0 = OFF) - `ai_defrost_fan_stop` (1 = ON, 0 = OFF) 4. **Cloud Control Loop**: - The `predictDefrost` Cloud Function runs every 60 seconds. - It checks the sensor data (efficiency, temperatures). - **If needed**, it sends API requests to toggle the variables above.
 _ **Phase 1 (Current)**: It uses the same logic as AUTO mode but runs in the cloud (Rule-Based). This verifies the data pipeline.
