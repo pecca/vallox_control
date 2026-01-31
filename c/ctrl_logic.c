@@ -36,6 +36,13 @@
 #define DEFROST_STOP_TIME               (10 * 60)
 #define DEFROST_HEATING_SAFETY_TIMEOUT  (30 * 60)   /* max heating duration before emergency shutoff */
 
+#define DEFROST_EXHAUST_MIN_TEMP        (5.0f)     /* both exhaust sensors must exceed this to end heating */
+#define DEFROST_EFF_SAMPLE_INTERVAL     (30)       /* seconds between efficiency samples for trend detection */
+#define DEFROST_EFF_IMPROVEMENT_THRESH  (0.5f)     /* min % improvement to count as improving */
+#define DEFROST_HEATING_NO_IMPROV_TIME  (3 * 60)   /* 3 min no-improvement -> heating done (if exhaust > 5C) */
+#define DEFROST_FANSTOP_NO_IMPROV_TIME  (5 * 60)   /* 5 min no-improvement -> fan stop done */
+#define DEFROST_FANSTOP_MAX_DURATION    (20 * 60)  /* 20 min max fan stop duration */
+
 #define SUB_STR_MAX_SIZE                (5000)
 
 /******************************************************************************
@@ -57,7 +64,9 @@ typedef enum
     e_EndReason_TempTarget,
     e_EndReason_FanStopResolved,
     e_EndReason_Timeout,
-    e_EndReason_SafetyShutoff
+    e_EndReason_SafetyShutoff,
+    e_EndReason_EffPlateau,         /* heating ended: eff plateaued AND both exhaust > 5C */
+    e_EndReason_FanStopPlateau      /* fan stop ended: eff plateaued */
 } E_DefrostEndReason;
 
 typedef struct
@@ -137,6 +146,11 @@ typedef struct
     time_t tAiLastCmd;      /* timestamp of last AI command */
     /* Safety */
     time_t tHeatingOnSince; /* when defrost resistor was last turned on (0 = off) */
+    /* Efficiency improvement tracking (improved AUTO mode) */
+    real32 r32PrevEffSample;        /* last sampled efficiency for trend detection */
+    time_t tLastEffSampleTime;      /* when we last sampled efficiency */
+    time_t tLastImprovementTime;    /* when efficiency last showed improvement */
+    real32 r32EffAtPhaseStart;      /* efficiency when current phase began */
 } T_Defrost;
 
 typedef struct
@@ -768,6 +782,30 @@ void ctrl_json_encode(char *sMesg)
     json_encode_object(sSubStr1, "ai_defrost_fan_stop", sSubStr2);
     strncat(sSubStr1, ",", 1);
 
+    // defrost_eff_at_phase_start (efficiency when current heating/fanstop phase began)
+    strcpy(sSubStr2, "");
+    json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.r32EffAtPhaseStart);
+    strncat(sSubStr2, ",", 1);
+    json_encode_integer(sSubStr2, "ts", time(NULL));
+    json_encode_object(sSubStr1, "defrost_eff_at_phase_start", sSubStr2);
+    strncat(sSubStr1, ",", 1);
+
+    // defrost_last_improvement_ago (seconds since last efficiency improvement, 0 if not in defrost)
+    strcpy(sSubStr2, "");
+    {
+        uint32 u32ImprovAgo = 0;
+        if (g_tDefrostCtrl.eState == e_Defrost_Heating ||
+            g_tDefrostCtrl.eState == e_Defrost_InputFanStop)
+        {
+            u32ImprovAgo = time(NULL) - g_tDefrostCtrl.tLastImprovementTime;
+        }
+        json_encode_integer(sSubStr2, "value", u32ImprovAgo);
+    }
+    strncat(sSubStr2, ",", 1);
+    json_encode_integer(sSubStr2, "ts", time(NULL));
+    json_encode_object(sSubStr1, "defrost_last_improvement_ago", sSubStr2);
+    strncat(sSubStr1, ",", 1);
+
     // fireplace_active
     strcpy(sSubStr2, "");
     json_encode_integer(sSubStr2, "value", g_tFireplace.bActive ? 1 : 0);
@@ -933,15 +971,19 @@ static void defrost_control()
     else if (g_tCtrlVars.u8DefrostMode == DEFROST_MODE_AUTO)
     {
         real32 r32InEffFiltered = g_tCtrlVars.tInEff.r32Value;
-        real32 r32InEff =  g_tCtrlVars.r32InEfficiency;
+        real32 r32InEff = g_tCtrlVars.r32InEfficiency;
         time_t tCurrentTime = time(NULL);
         real32 r32CurrentIncomingTemp = r32_digit_incoming_temp();
         real32 r32ExhaustTemp = r32_DS18B20_exhaust_temp();
+        real32 r32DsExhaust = r32_DS18B20_exhaust_temp();
+        real32 r32DigitExhaust = r32_digit_exhaust_temp();
 
         if (g_tDefrostCtrl.eState == e_Measuring)
         {
-            if (r32InEffFiltered < g_tCtrlVars.r32DefrostStartLevel &&
-                r32InEff <  r32InEffFiltered)
+            /* Precondition: outside temp must be below 0C (ice cannot form above freezing) */
+            if (r32_DS18B20_outside_temp() < 0.0f &&
+                r32InEffFiltered < g_tCtrlVars.r32DefrostStartLevel &&
+                r32InEff < r32InEffFiltered)
             {
                 g_tDefrostCtrl.tCheckTime = tCurrentTime;
                 g_tDefrostCtrl.eState = e_Defrost_Heating;
@@ -960,66 +1002,69 @@ static void defrost_control()
                 g_tDefrostCtrl.r32StartDsOutsideTemp = r32_DS18B20_outside_temp();
                 g_tDefrostCtrl.r32StartDsExhaustTemp = r32_DS18B20_exhaust_temp();
                 g_tDefrostCtrl.r32StartDsIncomingTemp = r32_DS18B20_incoming_temp();
-                printf("heating started\n");
-                printf("target eff %f\n", g_tCtrlVars.r32DefrostTargetInEff);
-                printf("target temp %f\n", g_tCtrlVars.r32DefrostTargetTemp);
+                /* Initialize efficiency improvement tracking */
+                g_tDefrostCtrl.r32PrevEffSample = r32InEff;
+                g_tDefrostCtrl.tLastEffSampleTime = tCurrentTime;
+                g_tDefrostCtrl.tLastImprovementTime = tCurrentTime;
+                g_tDefrostCtrl.r32EffAtPhaseStart = r32InEff;
+                printf("[AUTO] heating started, eff=%.1f%%, outside=%.1fC\n",
+                       r32InEff, r32_DS18B20_outside_temp());
             }
         }
         else if (g_tDefrostCtrl.eState == e_Defrost_Heating)
         {
-            if (r32InEff > g_tCtrlVars.r32DefrostTargetInEff)
+            /* Check if both exhaust sensors are above 5C (surface ice melted) */
+            bool bExhaustAbove5C = (r32DsExhaust > DEFROST_EXHAUST_MIN_TEMP) &&
+                                   (r32DigitExhaust > DEFROST_EXHAUST_MIN_TEMP);
+
+            /* Sample efficiency periodically for improvement tracking */
+            if ((tCurrentTime - g_tDefrostCtrl.tLastEffSampleTime) >= DEFROST_EFF_SAMPLE_INTERVAL)
+            {
+                if (r32InEff > g_tDefrostCtrl.r32PrevEffSample + DEFROST_EFF_IMPROVEMENT_THRESH)
+                {
+                    g_tDefrostCtrl.tLastImprovementTime = tCurrentTime;
+                }
+                g_tDefrostCtrl.r32PrevEffSample = r32InEff;
+                g_tDefrostCtrl.tLastEffSampleTime = tCurrentTime;
+            }
+
+            bool bEffStoppedImproving =
+                (tCurrentTime - g_tDefrostCtrl.tLastImprovementTime) > DEFROST_HEATING_NO_IMPROV_TIME;
+
+            /* Heating stops ONLY when efficiency plateaued AND both exhaust > 5C.
+               If exhaust is still < 5C, keep heating (latent heat phase - ice absorbing energy). */
+            if (bEffStoppedImproving && bExhaustAbove5C)
             {
                 g_tDefrostCtrl.tHeatingEnd = tCurrentTime;
-                g_tDefrostCtrl.tCheckTime = tCurrentTime;
-                g_tDefrostCtrl.eState = e_Defrost_Stopped;
                 g_tDefrostCtrl.r32EndInEff = r32InEff;
                 g_tDefrostCtrl.r32EndIncomingTemp = r32CurrentIncomingTemp;
                 g_tDefrostCtrl.r32EndExhaustTemp = r32ExhaustTemp;
                 g_tDefrostCtrl.r32EndDsOutsideTemp = r32_DS18B20_outside_temp();
                 g_tDefrostCtrl.r32EndDsExhaustTemp = r32_DS18B20_exhaust_temp();
                 g_tDefrostCtrl.r32EndDsIncomingTemp = r32_DS18B20_incoming_temp();
-                g_tDefrostCtrl.eEndReason = e_EndReason_EffRecovered;
-                printf("heating stopped: eff recovered %f\n", r32InEff);
-            }
-            else if (r32CurrentIncomingTemp > g_tCtrlVars.r32DefrostTargetTemp)
-            {
-                g_tDefrostCtrl.tHeatingEnd = tCurrentTime;
-                g_tDefrostCtrl.tCheckTime = tCurrentTime;
-                g_tDefrostCtrl.eState = e_Defrost_Stopped;
-                g_tDefrostCtrl.r32EndInEff = r32InEff;
-                g_tDefrostCtrl.r32EndIncomingTemp = r32CurrentIncomingTemp;
-                g_tDefrostCtrl.r32EndExhaustTemp = r32ExhaustTemp;
-                g_tDefrostCtrl.r32EndDsOutsideTemp = r32_DS18B20_outside_temp();
-                g_tDefrostCtrl.r32EndDsExhaustTemp = r32_DS18B20_exhaust_temp();
-                g_tDefrostCtrl.r32EndDsIncomingTemp = r32_DS18B20_incoming_temp();
-                g_tDefrostCtrl.eEndReason = e_EndReason_TempTarget;
-                printf("heating stopped: temp target %f\n", r32CurrentIncomingTemp);
-            }
-            else if (tCurrentTime - g_tDefrostCtrl.tCheckTime > (g_tCtrlVars.u32DefrostMaxDuration * 60))
-            {
-                g_tDefrostCtrl.tHeatingEnd = tCurrentTime;
+                g_tDefrostCtrl.eEndReason = e_EndReason_EffPlateau;
+
                 if (g_tFireplace.bActive)
                 {
                     /* Fireplace active: skip input fan stop for safety */
                     g_tDefrostCtrl.tCheckTime = tCurrentTime;
                     g_tDefrostCtrl.eState = e_Defrost_Stopped;
-                    g_tDefrostCtrl.r32EndInEff = r32InEff;
-                    g_tDefrostCtrl.r32EndIncomingTemp = r32CurrentIncomingTemp;
-                    g_tDefrostCtrl.r32EndExhaustTemp = r32ExhaustTemp;
-                g_tDefrostCtrl.r32EndDsOutsideTemp = r32_DS18B20_outside_temp();
-                g_tDefrostCtrl.r32EndDsExhaustTemp = r32_DS18B20_exhaust_temp();
-                g_tDefrostCtrl.r32EndDsIncomingTemp = r32_DS18B20_incoming_temp();
-                    g_tDefrostCtrl.eEndReason = e_EndReason_Timeout;
-                    printf("heating timeout, fan stop blocked (fireplace active)\n");
+                    printf("[AUTO] heating done, fan stop blocked (fireplace), eff=%.1f%%\n", r32InEff);
                 }
                 else
                 {
+                    /* Transition to fan stop phase: reset improvement tracking */
                     g_tDefrostCtrl.tFanStopStart = tCurrentTime;
+                    g_tDefrostCtrl.r32PrevEffSample = r32InEff;
+                    g_tDefrostCtrl.tLastEffSampleTime = tCurrentTime;
+                    g_tDefrostCtrl.tLastImprovementTime = tCurrentTime;
+                    g_tDefrostCtrl.r32EffAtPhaseStart = r32InEff;
                     digit_set_input_fan_stop(14.0f);
                     g_tDefrostCtrl.eState = e_Defrost_InputFanStop;
-                    printf("input fan stopped\n");
+                    printf("[AUTO] heating done, input fan stopped, eff=%.1f%%\n", r32InEff);
                 }
             }
+            /* Note: 30-min safety timeout is handled at the top of defrost_control() */
         }
         else if (g_tDefrostCtrl.eState == e_Defrost_InputFanStop)
         {
@@ -1036,35 +1081,42 @@ static void defrost_control()
                 g_tDefrostCtrl.r32EndDsExhaustTemp = r32_DS18B20_exhaust_temp();
                 g_tDefrostCtrl.r32EndDsIncomingTemp = r32_DS18B20_incoming_temp();
                 g_tDefrostCtrl.eEndReason = e_EndReason_Timeout;
-                printf("fan stop aborted (fireplace activated)\n");
+                printf("[AUTO] fan stop aborted (fireplace activated)\n");
             }
-            else if (r32InEff > g_tCtrlVars.r32DefrostTargetInEff)
+            else
             {
-                digit_set_input_fan_stop(-6.0f);
-                g_tDefrostCtrl.tCheckTime = tCurrentTime;
-                g_tDefrostCtrl.eState = e_Defrost_Stopped;
-                g_tDefrostCtrl.r32EndInEff = r32InEff;
-                g_tDefrostCtrl.r32EndIncomingTemp = r32CurrentIncomingTemp;
-                g_tDefrostCtrl.r32EndExhaustTemp = r32ExhaustTemp;
-                g_tDefrostCtrl.r32EndDsOutsideTemp = r32_DS18B20_outside_temp();
-                g_tDefrostCtrl.r32EndDsExhaustTemp = r32_DS18B20_exhaust_temp();
-                g_tDefrostCtrl.r32EndDsIncomingTemp = r32_DS18B20_incoming_temp();
-                g_tDefrostCtrl.eEndReason = e_EndReason_FanStopResolved;
-                printf("fan stop resolved: eff %f\n", r32InEff);
-            }
-            else if (r32CurrentIncomingTemp > g_tCtrlVars.r32DefrostTargetTemp)
-            {
-                digit_set_input_fan_stop(-6.0f);
-                g_tDefrostCtrl.tCheckTime = tCurrentTime;
-                g_tDefrostCtrl.eState = e_Defrost_Stopped;
-                g_tDefrostCtrl.r32EndInEff = r32InEff;
-                g_tDefrostCtrl.r32EndIncomingTemp = r32CurrentIncomingTemp;
-                g_tDefrostCtrl.r32EndExhaustTemp = r32ExhaustTemp;
-                g_tDefrostCtrl.r32EndDsOutsideTemp = r32_DS18B20_outside_temp();
-                g_tDefrostCtrl.r32EndDsExhaustTemp = r32_DS18B20_exhaust_temp();
-                g_tDefrostCtrl.r32EndDsIncomingTemp = r32_DS18B20_incoming_temp();
-                g_tDefrostCtrl.eEndReason = e_EndReason_TempTarget;
-                printf("fan stop resolved: temp %f\n", r32CurrentIncomingTemp);
+                /* Sample efficiency periodically for improvement tracking */
+                if ((tCurrentTime - g_tDefrostCtrl.tLastEffSampleTime) >= DEFROST_EFF_SAMPLE_INTERVAL)
+                {
+                    if (r32InEff > g_tDefrostCtrl.r32PrevEffSample + DEFROST_EFF_IMPROVEMENT_THRESH)
+                    {
+                        g_tDefrostCtrl.tLastImprovementTime = tCurrentTime;
+                    }
+                    g_tDefrostCtrl.r32PrevEffSample = r32InEff;
+                    g_tDefrostCtrl.tLastEffSampleTime = tCurrentTime;
+                }
+
+                bool bEffStoppedImproving =
+                    (tCurrentTime - g_tDefrostCtrl.tLastImprovementTime) > DEFROST_FANSTOP_NO_IMPROV_TIME;
+                bool bFanStopTimeout =
+                    (tCurrentTime - g_tDefrostCtrl.tFanStopStart) > DEFROST_FANSTOP_MAX_DURATION;
+
+                if (bEffStoppedImproving || bFanStopTimeout)
+                {
+                    digit_set_input_fan_stop(-6.0f);
+                    g_tDefrostCtrl.tCheckTime = tCurrentTime;
+                    g_tDefrostCtrl.eState = e_Defrost_Stopped;
+                    g_tDefrostCtrl.r32EndInEff = r32InEff;
+                    g_tDefrostCtrl.r32EndIncomingTemp = r32CurrentIncomingTemp;
+                    g_tDefrostCtrl.r32EndExhaustTemp = r32ExhaustTemp;
+                    g_tDefrostCtrl.r32EndDsOutsideTemp = r32_DS18B20_outside_temp();
+                    g_tDefrostCtrl.r32EndDsExhaustTemp = r32_DS18B20_exhaust_temp();
+                    g_tDefrostCtrl.r32EndDsIncomingTemp = r32_DS18B20_incoming_temp();
+                    g_tDefrostCtrl.eEndReason = bFanStopTimeout ?
+                        e_EndReason_Timeout : e_EndReason_FanStopPlateau;
+                    printf("[AUTO] fan stop ended: %s, eff=%.1f%%\n",
+                           bFanStopTimeout ? "timeout" : "eff plateau", r32InEff);
+                }
             }
         }
         else if (g_tDefrostCtrl.eState == e_Defrost_Stopped)
@@ -1074,7 +1126,7 @@ static void defrost_control()
                 g_tDefrostCtrl.tCycleEnd = tCurrentTime;
                 g_tDefrostCtrl.u32CycleCount++;
                 g_tDefrostCtrl.eState = e_Measuring;
-                printf("defrost cycle #%d complete\n", g_tDefrostCtrl.u32CycleCount);
+                printf("[AUTO] defrost cycle #%d complete\n", g_tDefrostCtrl.u32CycleCount);
             }
         }
 

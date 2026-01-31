@@ -14,6 +14,7 @@ import ControlPanel from '@/components/ControlPanel';
 import EfficiencyStats from '@/components/EfficiencyStats';
 import FireplaceControl from '@/components/FireplaceControl';
 import DefrostModeControl from '@/components/DefrostModeControl';
+import DefrostStatus from '@/components/DefrostStatus';
 import { getDeviceStatus } from '@/actions/vallox';
 import type { DeviceStatus } from '@/lib/schemas';
 
@@ -105,6 +106,9 @@ export default function DashboardPage() {
         {/* Row 2: High Priority Controls */}
         <Grid size={{ xs: 12, md: 4 }}>
           <DefrostModeControl controlVars={cv} />
+        </Grid>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <DefrostStatus controlVars={cv} digitVars={dv} ds18b20Vars={ds} />
         </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
           <FireplaceControl controlVars={cv} />

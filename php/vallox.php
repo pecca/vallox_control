@@ -274,8 +274,18 @@ function set_ctrl_var($fp, $var_id, $value)
     $defrost_start_level = get_ctrl_var($fp, $control_vars, "defrost_start_level");
     $defrost_target_in_eff = get_ctrl_var($fp, $control_vars, "defrost_target_in_eff");
     $defrost_target_temp = get_ctrl_var($fp, $control_vars, "defrost_target_temp");
-    
-    
+    $defrost_state = get_ctrl_var($fp, $control_vars, "defrost_state");
+    $defrost_eff_at_phase_start = get_ctrl_var($fp, $control_vars, "defrost_eff_at_phase_start");
+    $defrost_last_improvement_ago = get_ctrl_var($fp, $control_vars, "defrost_last_improvement_ago");
+    $defrost_cycle_count = get_ctrl_var($fp, $control_vars, "defrost_cycle_count");
+    $defrost_end_reason = get_ctrl_var($fp, $control_vars, "defrost_end_reason");
+    $defrost_heating_duration = get_ctrl_var($fp, $control_vars, "defrost_heating_duration");
+
+    $defrost_state_names = array(0 => "Measuring", 1 => "Heating", 2 => "Stopped", 3 => "Input Fan Stop");
+    $defrost_state_name = isset($defrost_state_names[intval($defrost_state)]) ? $defrost_state_names[intval($defrost_state)] : "Unknown";
+    $defrost_end_reason_names = array(0 => "None", 1 => "Eff Recovered", 2 => "Temp Target", 3 => "Fan Stop Resolved", 4 => "Timeout", 5 => "Safety Shutoff", 6 => "Eff Plateau", 7 => "Fan Stop Plateau");
+    $defrost_end_reason_name = isset($defrost_end_reason_names[intval($defrost_end_reason)]) ? $defrost_end_reason_names[intval($defrost_end_reason)] : "Unknown";
+
     $t = floatval($inside_temp);
     $rh = $rh1_sensor / 100; 
     $a = floatval(17.27);
@@ -625,6 +635,7 @@ function set_ctrl_var($fp, $var_id, $value)
                 <input type="radio" name="edit_defrost_mode_set" value="0" /> Off
                 <input type="radio" name="edit_defrost_mode_set" value="1" /> On
                 <input type="radio" name="edit_defrost_mode_set" value="2" /> Auto
+                <input type="radio" name="edit_defrost_mode_set" value="3" /> AI
                 <input type='submit' name='edit_defrost_mode' value="Set" />
             </form>
         </td>
@@ -632,7 +643,31 @@ function set_ctrl_var($fp, $var_id, $value)
         <tr>
         <td>Defrost time</td>
         <td> <?php echo $defrost_on_time . " s"; ?> </td>
-        </tr> 
+        </tr>
+        <tr>
+        <td>Defrost state</td>
+        <td> <?php echo $defrost_state_name; ?> </td>
+        </tr>
+        <tr>
+        <td>Cycle count</td>
+        <td> <?php echo $defrost_cycle_count; ?> </td>
+        </tr>
+        <tr>
+        <td>Eff at phase start</td>
+        <td> <?php echo round(floatval($defrost_eff_at_phase_start), 1) . " %"; ?> </td>
+        </tr>
+        <tr>
+        <td>Last improvement</td>
+        <td> <?php echo $defrost_last_improvement_ago . " s ago"; ?> </td>
+        </tr>
+        <tr>
+        <td>Last end reason</td>
+        <td> <?php echo $defrost_end_reason_name; ?> </td>
+        </tr>
+        <tr>
+        <td>Last heating duration</td>
+        <td> <?php echo $defrost_heating_duration . " s"; ?> </td>
+        </tr>
         <tr>
         <td>Start level (LTO efficiency incoming air)</td>
         <td> <?php echo $defrost_start_level . " %"; ?> </td>
