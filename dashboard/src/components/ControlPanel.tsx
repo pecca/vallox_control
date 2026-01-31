@@ -16,6 +16,9 @@ import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import FormControl from '@mui/material/FormControl';
+import Tooltip from '@mui/material/Tooltip';
+import IconButton from '@mui/material/IconButton';
+import InfoIcon from '@mui/icons-material/InfoOutlined';
 import { setDeviceVariable } from '@/actions/vallox';
 import type { DigitVars, ControlVars } from '@/lib/schemas';
 
@@ -27,27 +30,45 @@ interface VarConfig {
   min: number;
   max: number;
   isRadio?: boolean;
+  description?: string;
 }
 
 const digitWritableVars: VarConfig[] = [
-  { type: 'digit_vars', handle: 'min_fan_speed', label: 'Min Fan Speed', unit: '', min: 1, max: 8 },
-  { type: 'digit_vars', handle: 'max_fan_speed', label: 'Max Fan Speed', unit: '', min: 1, max: 8 },
-  { type: 'digit_vars', handle: 'hrc_bypass_temp', label: 'HRC Bypass Temp', unit: '\u00B0C', min: 14, max: 20 },
-  { type: 'digit_vars', handle: 'input_fan_stop_temp', label: 'Input Fan Stop', unit: '\u00B0C', min: -6, max: 14 },
-  { type: 'digit_vars', handle: 'pre_heating_temp', label: 'Pre-heating Temp', unit: '\u00B0C', min: -3, max: 10 },
-  { type: 'digit_vars', handle: 'cell_defrosting_hysteresis', label: 'Defrost Hysteresis', unit: '\u00B0C', min: 0, max: 3 },
-  { type: 'digit_vars', handle: 'dc_fan_input', label: 'DC Fan Input', unit: '%', min: 1, max: 100 },
-  { type: 'digit_vars', handle: 'dc_fan_output', label: 'DC Fan Output', unit: '%', min: 1, max: 100 },
+  { type: 'digit_vars', handle: 'min_fan_speed', label: 'Min Fan Speed', unit: '', min: 1, max: 8, description: 'Minimum fan speed allowed for the system.' },
+  { type: 'digit_vars', handle: 'max_fan_speed', label: 'Max Fan Speed', unit: '', min: 1, max: 8, description: 'Maximum fan speed allowed for the system.' },
+  { type: 'digit_vars', handle: 'hrc_bypass_temp', label: 'HRC Bypass Temp', unit: '\u00B0C', min: 14, max: 20, description: 'Temperature threshold at which the Heat Recovery Cell (HRC) is bypassed for cooling.' },
+  { type: 'digit_vars', handle: 'input_fan_stop_temp', label: 'Input Fan Stop', unit: '\u00B0C', min: -6, max: 14, description: 'Outdoor temperature at which the input fan is stopped for freeze protection.' },
+  { type: 'digit_vars', handle: 'pre_heating_temp', label: 'Pre-heating Temp', unit: '\u00B0C', min: -3, max: 10, description: 'Target temperature for pre-heating the incoming air.' },
+  { type: 'digit_vars', handle: 'cell_defrosting_hysteresis', label: 'Defrost Hysteresis', unit: '\u00B0C', min: 0, max: 3, description: 'Temperature hysteresis used for the defrosting cycle.' },
+  { type: 'digit_vars', handle: 'dc_fan_input', label: 'DC Fan Input', unit: '%', min: 1, max: 100, description: 'Calibration factor for the DC supply fan.' },
+  { type: 'digit_vars', handle: 'dc_fan_output', label: 'DC Fan Output', unit: '%', min: 1, max: 100, description: 'Calibration factor for the DC exhaust fan.' },
 ];
 
 const controlWritableVars: VarConfig[] = [
-  { type: 'control_vars', handle: 'defrost_start_level', label: 'Start level (LTO efficiency incoming air)', unit: '%', min: 0, max: 100 },
-  { type: 'control_vars', handle: 'defrost_eff_imp_thresh', label: 'Efficiency Improvement Thresh', unit: '%', min: 0, max: 5 },
-  { type: 'control_vars', handle: 'defrost_heating_no_imp_time', label: 'Heating No-Improv Timeout', unit: 's', min: 30, max: 1200 },
-  { type: 'control_vars', handle: 'defrost_fan_stop_no_imp_time', label: 'Fan Stop No-Improv Timeout', unit: 's', min: 30, max: 1200 },
-  { type: 'control_vars', handle: 'defrost_fan_stop_max_dur', label: 'Fan Stop Max Duration', unit: 's', min: 60, max: 3600 },
+  { type: 'control_vars', handle: 'defrost_start_level', label: 'Start level (LTO efficiency incoming air)', unit: '%', min: 0, max: 100, description: 'Efficiency threshold to trigger defrost cycle. If efficiency falls below this, heating begins.' },
+  { type: 'control_vars', handle: 'defrost_eff_imp_thresh', label: 'Efficiency Improvement Thresh', unit: '%', min: 0, max: 5, description: 'Minimum efficiency improvement (%) required within the sampling interval to reset the "No Improvement" timer.' },
+  { type: 'control_vars', handle: 'defrost_heating_no_imp_time', label: 'Heating No-Improv Timeout', unit: 's', min: 30, max: 1200, description: 'Max time allowed in heating phase without efficiency improvement before stopping (if exhaust > 5C).' },
+  { type: 'control_vars', handle: 'defrost_fan_stop_no_imp_time', label: 'Fan Stop No-Improv Timeout', unit: 's', min: 30, max: 1200, description: 'Max time allowed in fan stop phase without efficiency improvement before resuming fans.' },
+  { type: 'control_vars', handle: 'defrost_fan_stop_max_dur', label: 'Fan Stop Max Duration', unit: 's', min: 60, max: 3600, description: 'Absolute maximum time fans can be stopped during defrost, regardless of efficiency trend.' },
 ];
 
+const defrostStateNames: Record<number, string> = {
+  0: "Measuring",
+  1: "Heating",
+  2: "Stopped",
+  3: "Input Fan Stop"
+};
+
+const defrostEndReasonNames: Record<number, string> = {
+  0: "None",
+  1: "Eff Recovered",
+  2: "Temp Target",
+  3: "Fan Stop Resolved",
+  4: "Timeout",
+  5: "Safety Shutoff",
+  6: "Eff Plateau",
+  7: "Fan Stop Plateau"
+};
 
 
 interface ControlPanelProps {
@@ -111,6 +132,26 @@ export default function ControlPanel({ digitVars, controlVars }: ControlPanelPro
               </TableHead>
               <TableBody>
                 <TableRow>
+                  <TableCell>Defrost State</TableCell>
+                  <TableCell>
+                    {controlVars?.defrost_state.value !== undefined 
+                      ? (defrostStateNames[controlVars.defrost_state.value] || `Unknown (${controlVars.defrost_state.value})`)
+                      : '--'}
+                  </TableCell>
+                  <TableCell />
+                  <TableCell />
+                </TableRow>
+                <TableRow>
+                  <TableCell>Last End Reason</TableCell>
+                  <TableCell>
+                    {controlVars?.defrost_end_reason.value !== undefined 
+                      ? (defrostEndReasonNames[controlVars.defrost_end_reason.value] || `Unknown (${controlVars.defrost_end_reason.value})`)
+                      : '--'}
+                  </TableCell>
+                  <TableCell />
+                  <TableCell />
+                </TableRow>
+                <TableRow>
                   <TableCell>Defrost time</TableCell>
                   <TableCell>{controlVars?.defrost_time.value ?? '--'} s</TableCell>
                   <TableCell />
@@ -118,7 +159,18 @@ export default function ControlPanel({ digitVars, controlVars }: ControlPanelPro
                 </TableRow>
                 {controlWritableVars.map((v) => (
                   <TableRow key={v.handle}>
-                    <TableCell>{v.label}</TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        {v.label}
+                        {v.description && (
+                          <Tooltip title={v.description} arrow>
+                            <IconButton size="small" sx={{ p: 0 }}>
+                              <InfoIcon fontSize="inherit" color="action" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </TableCell>
                     <TableCell>
                       {getCurrentValue(v)} {v.unit}
                     </TableCell>
@@ -189,7 +241,18 @@ export default function ControlPanel({ digitVars, controlVars }: ControlPanelPro
               <TableBody>
                 {digitWritableVars.map((v) => (
                   <TableRow key={v.handle}>
-                    <TableCell>{v.label}</TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        {v.label}
+                        {v.description && (
+                          <Tooltip title={v.description} arrow>
+                            <IconButton size="small" sx={{ p: 0 }}>
+                              <InfoIcon fontSize="inherit" color="action" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </TableCell>
                     <TableCell>
                       {getCurrentValue(v)} {v.unit}
                     </TableCell>
