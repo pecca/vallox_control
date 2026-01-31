@@ -42,9 +42,6 @@ const digitWritableVars: VarConfig[] = [
 
 const controlWritableVars: VarConfig[] = [
   { type: 'control_vars', handle: 'defrost_start_level', label: 'Start level (LTO efficiency incoming air)', unit: '%', min: 0, max: 100 },
-  { type: 'control_vars', handle: 'defrost_max_duration', label: 'Max duration of defrost', unit: 'min', min: 0, max: 60 },
-  { type: 'control_vars', handle: 'defrost_target_in_eff', label: 'Target incoming efficiency', unit: '%', min: 0, max: 100 },
-  { type: 'control_vars', handle: 'defrost_target_temp', label: 'Target incoming temperature', unit: '\u00B0C', min: 0, max: 30 },
 ];
 
 

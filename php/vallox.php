@@ -169,12 +169,6 @@ function set_ctrl_var($fp, $var_id, $value)
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }           
-    else if (isset($_POST['edit_defrost_max_duration'])) 
-    {        
-        set_ctrl_var($fp, "defrost_max_duration", $_POST['edit_defrost_max_duration_set']);
-        header("Location: " . $_SERVER['REQUEST_URI']);
-        exit();
-    }
     else if (isset($_POST['edit_defrost_mode']))
     {
         set_ctrl_var($fp, "defrost_mode", $_POST['edit_defrost_mode_set']);
@@ -184,18 +178,6 @@ function set_ctrl_var($fp, $var_id, $value)
     else if (isset($_POST['edit_defrost_start_level'])) 
     {    
         set_ctrl_var($fp, "defrost_start_level", $_POST['edit_defrost_start_level_set']);
-        header("Location: " . $_SERVER['REQUEST_URI']);
-        exit();
-    }
-    else if (isset($_POST['edit_defrost_target_in_eff'])) 
-    {    
-        set_ctrl_var($fp, "defrost_target_in_eff", $_POST['edit_defrost_target_in_eff_set']);
-        header("Location: " . $_SERVER['REQUEST_URI']);
-        exit();
-    }
-    else if (isset($_POST['edit_defrost_target_temp'])) 
-    {    
-        set_ctrl_var($fp, "defrost_target_temp", $_POST['edit_defrost_target_temp_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
@@ -270,10 +252,7 @@ function set_ctrl_var($fp, $var_id, $value)
     $defrost_mode = get_ctrl_var($fp, $control_vars, "defrost_mode");
     
 
-    $defrost_max_duration = get_ctrl_var($fp, $control_vars, "defrost_max_duration");
     $defrost_start_level = get_ctrl_var($fp, $control_vars, "defrost_start_level");
-    $defrost_target_in_eff = get_ctrl_var($fp, $control_vars, "defrost_target_in_eff");
-    $defrost_target_temp = get_ctrl_var($fp, $control_vars, "defrost_target_temp");
     $defrost_state = get_ctrl_var($fp, $control_vars, "defrost_state");
     $defrost_eff_at_phase_start = get_ctrl_var($fp, $control_vars, "defrost_eff_at_phase_start");
     $defrost_last_improvement_ago = get_ctrl_var($fp, $control_vars, "defrost_last_improvement_ago");
@@ -675,35 +654,6 @@ function set_ctrl_var($fp, $var_id, $value)
             <form method="post">
                 <input type="text" name="edit_defrost_start_level_set" size="2" />
                 <input type='submit' name='edit_defrost_start_level' value="Set" />
-            </form>
-        </td>
-        </tr>
-        <tr>
-        <td>Max duration of defrost</td>
-        <td> <?php echo $defrost_max_duration . " min"; ?> </td>
-        <td>
-            <form method="post">
-                <input type="text" name="edit_defrost_max_duration_set" size="2" />
-                <input type='submit' name='edit_defrost_max_duration' value="Set" />
-            </form>
-        </td>
-        </tr>        
-        <tr>
-        <td>Target incoming efficiency</td>
-        <td> <?php echo $defrost_target_in_eff . " %"; ?> </td>
-        <td>
-            <form method="post">
-                <input type="text" name="edit_defrost_target_in_eff_set" size="2" />
-                <input type='submit' name='edit_defrost_target_in_eff' value="Set" />
-            </form>
-        </td>
-        </tr>
-        <td>Target incoming temperature</td>
-        <td> <?php echo $defrost_target_temp . " *C"; ?> </td>
-        <td>
-            <form method="post">
-                <input type="text" name="edit_defrost_target_temp_set" size="2" />
-                <input type='submit' name='edit_defrost_target_temp' value="Set" />
             </form>
         </td>
         </tr>

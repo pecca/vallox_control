@@ -28,11 +28,7 @@
 
 #define MOVING_AVERAGE_SIZE             (60 * 60 / CTRL_LOGIC_TIMELEVEL)
 
-#define DEFROST_MAX_DURATION            (15)
-#define DEFROST_START_DURATION          (10)
 #define DEFROST_TARGET_LEVEL            (72)
-#define DEFROST_TARGET_IN_EFF           (85)
-#define DEFROST_TARGET_TEMP             (18)
 #define DEFROST_STOP_TIME               (10 * 60)
 #define DEFROST_HEATING_SAFETY_TIMEOUT  (30 * 60)   /* max heating duration before emergency shutoff */
 
@@ -86,11 +82,7 @@ typedef struct
     T_AvfFilter tInEff;
     T_AvfFilter tOutEff;
     byte u8DefrostMode;
-    uint32 u32DefrostMaxDuration;
-    uint32 u32DefrostStartDuration;
     real32 r32DefrostStartLevel;
-    real32 r32DefrostTargetInEff;
-    real32 r32DefrostTargetTemp;
     real32 r32pressureOut;
     real32 r32pressureIn;
     real32 r32pressureOffset;
@@ -210,30 +202,6 @@ void ctrl_set_var_by_name(char *sName, char *sValue, char *str)
         real32 fTemp;
         sscanf(sValue, "%f", &fTemp);
         g_tCtrlVars.r32DefrostStartLevel = fTemp;
-    }
-    else if (!strcmp(sName, "defrost_target_in_eff"))
-    {
-        real32 fTemp;
-        sscanf(sValue, "%f", &fTemp);
-        g_tCtrlVars.r32DefrostTargetInEff = fTemp;
-    }
-    else if (!strcmp(sName, "defrost_target_temp"))
-    {
-        real32 fTemp;
-        sscanf(sValue, "%f", &fTemp);
-        g_tCtrlVars.r32DefrostTargetTemp = fTemp;
-    }
-    else if (!strcmp(sName, "defrost_max_duration"))
-    {
-        uint32 u32Temp;
-        sscanf(sValue, "%d", &u32Temp);
-        g_tCtrlVars.u32DefrostMaxDuration = u32Temp;
-    }
-    else if (!strcmp(sName, "defrost_start_duration"))
-    {
-        uint32 u32Temp;
-        sscanf(sValue, "%d", &u32Temp);
-        g_tCtrlVars.u32DefrostStartDuration = u32Temp;
     }
     else if (!strcmp(sName, "pressureOut"))
     {
@@ -466,48 +434,6 @@ void ctrl_json_encode(char *sMesg)
                        sSubStr2);
     strncat(sSubStr1, ",", 1);
 
-     // defrost_target_in_eff
-    strcpy(sSubStr2, "");
-    json_encode_real32(sSubStr2,
-                      "value",
-                      g_tCtrlVars.r32DefrostTargetInEff);
-    strncat(sSubStr2, ",", 1);
-    json_encode_integer(sSubStr2,
-                        "ts",
-                        time(NULL));
-    json_encode_object(sSubStr1,
-                       "defrost_target_in_eff",
-                       sSubStr2);
-    strncat(sSubStr1, ",", 1);
-
-     // defrost_target_temp
-    strcpy(sSubStr2, "");
-    json_encode_real32(sSubStr2,
-                      "value",
-                      g_tCtrlVars.r32DefrostTargetTemp);
-    strncat(sSubStr2, ",", 1);
-    json_encode_integer(sSubStr2,
-                        "ts",
-                        time(NULL));
-    json_encode_object(sSubStr1,
-                       "defrost_target_temp",
-                       sSubStr2);
-    strncat(sSubStr1, ",", 1);
-
-    // defrost_max_duration
-    strcpy(sSubStr2, "");
-    json_encode_integer(sSubStr2,
-                      "value",
-                      g_tCtrlVars.u32DefrostMaxDuration);
-    strncat(sSubStr2, ",", 1);
-    json_encode_integer(sSubStr2,
-                        "ts",
-                        time(NULL));
-    json_encode_object(sSubStr1,
-                       "defrost_max_duration",
-                       sSubStr2);
-    strncat(sSubStr1, ",", 1);
-
     // pressure out
     strcpy(sSubStr2, "");
     json_encode_real32(sSubStr2,
@@ -562,20 +488,6 @@ void ctrl_json_encode(char *sMesg)
                         time(NULL));
     json_encode_object(sSubStr1,
                        "pressure_offset",
-                       sSubStr2);
-    strncat(sSubStr1, ",", 1);
-
-    // defrost_start_duration
-    strcpy(sSubStr2, "");
-    json_encode_integer(sSubStr2,
-                      "value",
-                      g_tCtrlVars.u32DefrostStartDuration);
-    strncat(sSubStr2, ",", 1);
-    json_encode_integer(sSubStr2,
-                        "ts",
-                        time(NULL));
-    json_encode_object(sSubStr1,
-                       "defrost_start_duration",
                        sSubStr2);
     strncat(sSubStr1, ",", 1);
 
@@ -860,11 +772,7 @@ static void ctrl_init()
     g_tCtrlVars.r32MinExhaustTemp = -3.0f;
     g_tCtrlVars.u8DefrostMode = DEFROST_MODE_OFF;
 
-    g_tCtrlVars.u32DefrostMaxDuration = DEFROST_MAX_DURATION;
-    g_tCtrlVars.u32DefrostStartDuration = DEFROST_START_DURATION;
     g_tCtrlVars.r32DefrostStartLevel = DEFROST_TARGET_LEVEL;
-    g_tCtrlVars.r32DefrostTargetInEff = DEFROST_TARGET_IN_EFF;
-    g_tCtrlVars.r32DefrostTargetTemp = DEFROST_TARGET_TEMP;
 
     post_heating_counter_init();
     pre_heating_resistor_init();
