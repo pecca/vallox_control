@@ -29,21 +29,24 @@ async function checkAndStoreDefrostCycle(
     timestamp: Date
 ): Promise<void> {
     const cycleCount = controlVars?.defrost_cycle_count?.value;
-    if (cycleCount === undefined || cycleCount === 0) return;
+    const cycleStart = controlVars?.defrost_cycle_start?.value;
 
-    // Check if this is a new cycle
+    if (cycleCount === undefined || cycleCount === 0 || !cycleStart) return;
+
+    // Check if this is a new cycle by comparing start timestamps
     const metaRef = firestore.doc(META_DOC);
     const metaSnap = await metaRef.get();
-    const lastCycleCount = metaSnap.exists ? metaSnap.data()?.cycle_count || 0 : 0;
+    const lastCycleStart = metaSnap.exists ? metaSnap.data()?.last_cycle_start || 0 : 0;
 
-    if (cycleCount <= lastCycleCount) return;
+    // If the current cycle started at or before the last processed cycle, it's not new.
+    if (cycleStart <= lastCycleStart) return;
 
     // New cycle detected — store episode data
     const cycle = {
         timestamp,
-        cycle_number: cycleCount,
+        cycle_number: cycleCount, // Keep for reference, but not for ID
         // Timing
-        cycle_start: controlVars.defrost_cycle_start?.value || 0,
+        cycle_start: cycleStart,
         heating_duration: controlVars.defrost_heating_duration?.value || 0,
         fan_stop_duration: controlVars.defrost_fan_stop_duration?.value || 0,
         total_duration: controlVars.defrost_total_duration?.value || 0,
@@ -84,10 +87,19 @@ async function checkAndStoreDefrostCycle(
         fireplace_active: controlVars?.fireplace_active?.value,
     };
 
-    const docId = `cycle-${cycleCount}`;
+    // Use cycle start timestamp in ID to guarantee uniqueness across reboots and chronological sorting
+    const docId = `cycle-${cycleStart}`;
+    
     await firestore.collection(CYCLES_COLLECTION).doc(docId).set(cycle);
-    await metaRef.set({ cycle_count: cycleCount, updated: timestamp });
-    console.log(`Stored defrost cycle #${cycleCount}`);
+    
+    // Update meta with the new last_cycle_start
+    await metaRef.set({ 
+        cycle_count: cycleCount, // stored for debug/reference
+        last_cycle_start: cycleStart,
+        updated: timestamp 
+    });
+    
+    console.log(`Stored defrost cycle started at ${cycleStart} (count #${cycleCount})`);
 }
 
 cloudEvent<PubSubData>('processValloxStatus', async (event: CloudEvent<PubSubData>) => {

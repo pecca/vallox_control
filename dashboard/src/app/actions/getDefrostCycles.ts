@@ -26,8 +26,7 @@ export async function getDefrostCycles(limit: number = 50): Promise<DefrostCycle
   const firestore = getFirestore();
   const snapshot = await firestore
     .collection('defrost_cycles')
-    .where('cycle_number', '<', 1000)
-    .orderBy('cycle_number', 'desc')
+    .orderBy('timestamp', 'desc')
     .limit(limit)
     .get();
 
