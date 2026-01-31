@@ -50,7 +50,9 @@ const controlWritableVars: VarConfig[] = [
   { type: 'control_vars', handle: 'defrost_heating_no_imp_time', label: 'Heating No-Improv Timeout', unit: 's', min: 30, max: 1200, description: 'Max time allowed in heating phase without efficiency improvement before stopping (if exhaust > 5C).' },
   { type: 'control_vars', handle: 'defrost_fan_stop_no_imp_time', label: 'Fan Stop No-Improv Timeout', unit: 's', min: 30, max: 1200, description: 'Max time allowed in fan stop phase without efficiency improvement before resuming fans.' },
   { type: 'control_vars', handle: 'defrost_fan_stop_max_dur', label: 'Fan Stop Max Duration', unit: 's', min: 60, max: 3600, description: 'Absolute maximum time fans can be stopped during defrost, regardless of efficiency trend.' },
+  { type: 'control_vars', handle: 'min_exhaust_temp', label: 'Min Exhaust Temp', unit: '\u00B0C', min: 0, max: 10, description: 'Temperature threshold for exhaust air to end defrost cycle.' },
 ];
+
 
 const defrostStateNames: Record<number, string> = {
   0: "Measuring",

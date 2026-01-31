@@ -176,6 +176,10 @@ $g_id<html>
         set_ctrl_var($fp, "defrost_fan_stop_max_dur", $_POST['edit_defrost_fan_stop_max_dur_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
+    } else if (isset($_POST['edit_min_exhaust_temp'])) {
+        set_ctrl_var($fp, "min_exhaust_temp", $_POST['edit_min_exhaust_temp_set']);
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit();
     }
 
     if (!$fp) {
@@ -256,6 +260,7 @@ $g_id<html>
         $defrost_heating_no_imp_time = get_ctrl_var($fp, $control_vars, "defrost_heating_no_imp_time");
         $defrost_fan_stop_no_imp_time = get_ctrl_var($fp, $control_vars, "defrost_fan_stop_no_imp_time");
         $defrost_fan_stop_max_dur = get_ctrl_var($fp, $control_vars, "defrost_fan_stop_max_dur");
+        $min_exhaust_temp = get_ctrl_var($fp, $control_vars, "min_exhaust_temp");
 
         $defrost_state_names = array(0 => "Measuring", 1 => "Heating", 2 => "Stopped", 3 => "Input Fan Stop");
         $defrost_state_name = isset($defrost_state_names[intval($defrost_state)]) ? $defrost_state_names[intval($defrost_state)] : "Unknown";
@@ -692,6 +697,16 @@ $g_id<html>
                 <form method="post">
                     <input type="text" name="edit_defrost_fan_stop_max_dur_set" size="4" />
                     <input type='submit' name='edit_defrost_fan_stop_max_dur' value="Set" />
+                </form>
+            </td>
+        </tr>
+        <tr>
+            <td>Min exhaust temp (defrost end)</td>
+            <td> <?php echo $min_exhaust_temp . " *C"; ?> </td>
+            <td>
+                <form method="post">
+                    <input type="text" name="edit_min_exhaust_temp_set" size="4" />
+                    <input type='submit' name='edit_min_exhaust_temp' value="Set" />
                 </form>
             </td>
         </tr>
