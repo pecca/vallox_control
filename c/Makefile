@@ -21,7 +21,7 @@ OBJ = \
 	$(CC) -c -o $@ $< $(CFLAGS)
 
    %.o: %.cpp $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS
+	$(CC) -c -o $@ $< $(CFLAGS)
     
 vallox_ctrl: $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS) -lm -lpthread -lbcm2835
