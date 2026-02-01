@@ -131,6 +131,7 @@ typedef struct {
     real32 r32OutsideTemp;
 
     real32 r32IncomingTemp;
+    real32 r32Rh; /* Captured humidity */
     real32 r32DewPoint;
     /* DS18B20 sensors */
     real32 r32DsOutsideTemp;
@@ -559,6 +560,14 @@ void ctrl_json_encode(char *sMesg) {
   json_encode_object(sSubStr1, "defrost_start_ds_incoming_temp", sSubStr2);
   strncat(sSubStr1, ",", 1);
 
+  // defrost_start_rh
+  strcpy(sSubStr2, "");
+  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.tStart.r32Rh);
+  strncat(sSubStr2, ",", 1);
+  json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tCycleStart);
+  json_encode_object(sSubStr1, "defrost_start_rh", sSubStr2);
+  strncat(sSubStr1, ",", 1);
+
   // defrost_end_in_eff
   strcpy(sSubStr2, "");
   json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.tEnd.r32InEff);
@@ -818,6 +827,7 @@ static void capture_cycle_start_data(void) {
   g_tDefrostCtrl.tStart.r32OutsideTemp = r32_DS18B20_outside_temp();
 
   g_tDefrostCtrl.tStart.r32IncomingTemp = r32_digit_incoming_temp();
+  g_tDefrostCtrl.tStart.r32Rh = r32_digit_rh1_sensor() / 100.0f;
   g_tDefrostCtrl.tStart.r32DewPoint = g_tCtrlVars.r32DewPoint;
   g_tDefrostCtrl.tStart.r32DsOutsideTemp = r32_DS18B20_outside_temp();
   g_tDefrostCtrl.tStart.r32DsExhaustTemp = r32_DS18B20_exhaust_temp();
