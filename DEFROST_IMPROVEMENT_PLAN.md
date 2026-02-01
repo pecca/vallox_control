@@ -36,30 +36,31 @@ When ice blocks the heat exchanger:
 - The incoming (supply) air temperature drops relative to what it should be
 - The efficiency reading falls progressively
 
-### The One-Phase Defrost Process (Input Fan Stop Only)
+### The One-Phase Defrost Process (Fan Stop + Heating)
 
-Based on recent user requirements, the defrost process has been simplified to a **one-phase** approach. The heating resistor (Phase 1) is **disabled** in this mode. Defrost relies entirely on stopping the input fan to allow warm exhaust air to melt the ice.
+The defrost process has been simplified to a **one-phase** approach.
 
-#### Phase 1: Input Fan Stop (Melt ice using exhaust air)
+#### Phase 1: Defrost (Fan Stop + Heating)
 
 - **Trigger**:
   - Outside temp < 0°C
   - `filtered_efficiency < start_level` (e.g., 72%)
   - Efficiency likely trending down (`raw < filtered`)
 - **Action**:
-  - **Heating Turned OFF**: `defrost_resistor_stop()`
+  - **Heating Turned ON**: `defrost_resistor_start()` (Ensures efficient melting)
   - **Input Fan STOPPED**: `digit_set_input_fan_stop(14.0f)`
-- **Duration**: Continues as long as efficiency is improving.
+- **Duration**: Continues until target met AND improvement stalls (Greedy Strategy).
 - **Stop Condition** (Defrost Over):
-  - **Success**: Efficiency recovers > `defrost_target_level` (e.g., 85%)
-  - **Plateau**: Efficiency is NOT increasing anymore (improvement stalled) even if below target.
+  - **Success**: Efficiency > Target (85%) **AND** Efficiency Plateaued (No improvement for X mins).
   - **Timeout**: Safety max duration reached.
+  - **Fireplace Mode**: If active, Input Fan is FORCED ON (Heating Only).
 
 #### Phase 2: Stop State (Cooldown / Refractory Period)
 
 - **Action**:
   - Input Fan Resumed (`digit_set_input_fan_stop(-6.0f)`)
-  - **New Heating/Defrost Forbidden**: The system enters a "Stop State" where no new defrost can start.
+  - **Heating Stopped**: `defrost_resistor_stop()`
+  - **New Defrost Forbidden**: The system enters a "Stop State".
 - **Duration**: Configurable via `defrost_stop_duration` (default 10 mins).
 - **Purpose**: Prevents rapid cycling and allows system to stabilize.
 
@@ -70,7 +71,7 @@ Based on recent user requirements, the defrost process has been simplified to a 
 ### File Map (What to Modify)
 
 | File              | Role                           | Needs Changes?                  |
-| ----------------- | ------------------------------ | ------------------------------- |
+| :---------------- | :----------------------------- | :------------------------------ |
 | `c/ctrl_logic.c`  | **Main defrost state machine** | **YES - Primary target**        |
 | `c/ctrl_logic.h`  | Interface for control logic    | No changes needed               |
 | `c/json_codecs.c` | UDP JSON encoding/decoding     | **YES - Add new stop_duration** |
@@ -89,14 +90,14 @@ Based on recent user requirements, the defrost process has been simplified to a 
                            | AND filtered_eff < start_level%
                            v
                     +------------------+
-                    | e_Defrost_       | <--- HEATER OFF
+                    | e_Defrost_       | <--- HEATER ON
                     | InputFanStop     | <--- INPUT FAN STOPPED
                     +------+-----------+
                            |
               +------------+----------------+
               |            |                |
-     eff > target |   improvement |    safety
-     (Success)    |   stalled     |    timeout
+     eff > target |                   safety
+     AND plateau  |                   timeout
               |            |                |
               v            v                v
         +-------------------------------------+
@@ -139,9 +140,10 @@ AND raw_efficiency < filtered_efficiency
     - Compare current efficiency to last sample.
     - If `eff > prev + threshold`: `tLastImprovementTime = now`.
 2.  **Check Exit Conditions**:
-    - **Success**: `eff > g_tCtrlVars.r32DefrostTargetInEff` (e.g., 85%). -> Go to Stopped.
-    - **Plateau**: `(now - tLastImprovementTime) > defrost_fanstop_no_imp_time`. -> Go to Stopped.
-    - **Safety**: `(now - tCycleStart) > defrost_fanstop_max_duration`. -> Go to Stopped.
+    - **Success**: `eff > g_tCtrlVars.r32DefrostTargetInEff` (e.g., 85%).
+    - **Plateau**: `(now - tLastImprovementTime) > defrost_fanstop_no_imp_time`.
+    - **Greedy Stop Logic**: Stop ONLY if `(Success AND Plateau) OR MaxDuration`.
+      (We keep heating/defrosting even if target is met, as long as it's improving).
 
 #### Phase: Stopped (Cooldown)
 

@@ -96,7 +96,6 @@ typedef struct {
   time_t tPressureIn_ts;
   real32 r32pressureDiff;
   real32 r32EffImpThresh;     // % improvement to count as improving
-  uint32 u32HeatingNoImpTime; // seconds of no improvement to end heating
   uint32 u32FanStopNoImpTime; // seconds of no improvement to end fan stop
   uint32 u32FanStopMaxDur;    // max fan stop duration in seconds
   uint32 u32StopDuration;     // cooldown duration after defrost
@@ -251,14 +250,12 @@ void ctrl_set_var_by_name(char *sName, char *sValue, char *str) {
     real32 fTemp;
     sscanf(sValue, "%f", &fTemp);
     g_tCtrlVars.r32EffImpThresh = fTemp;
-  } else if (!strcmp(sName, "defrost_heating_no_imp_time")) {
-    int32 i32Temp;
-    sscanf(sValue, "%d", &i32Temp);
-    g_tCtrlVars.u32HeatingNoImpTime = i32Temp;
   } else if (!strcmp(sName, "defrost_fan_stop_no_imp_time")) {
     int32 i32Temp;
     sscanf(sValue, "%d", &i32Temp);
-    g_tCtrlVars.u32FanStopNoImpTime = i32Temp;
+    if (i32Temp >= 1) {
+      g_tCtrlVars.u32FanStopNoImpTime = i32Temp;
+    }
   } else if (!strcmp(sName, "defrost_fan_stop_max_dur")) {
     int32 i32Temp;
     sscanf(sValue, "%d", &i32Temp);
@@ -692,14 +689,6 @@ void ctrl_json_encode(char *sMesg) {
   json_encode_object(sSubStr1, "defrost_eff_imp_thresh", sSubStr2);
   strncat(sSubStr1, ",", 1);
 
-  // defrost_heating_no_imp_time
-  strcpy(sSubStr2, "");
-  json_encode_integer(sSubStr2, "value", g_tCtrlVars.u32HeatingNoImpTime);
-  strncat(sSubStr2, ",", 1);
-  json_encode_integer(sSubStr2, "ts", time(NULL));
-  json_encode_object(sSubStr1, "defrost_heating_no_imp_time", sSubStr2);
-  strncat(sSubStr1, ",", 1);
-
   // defrost_fan_stop_no_imp_time
   strcpy(sSubStr2, "");
   json_encode_integer(sSubStr2, "value", g_tCtrlVars.u32FanStopNoImpTime);
@@ -743,7 +732,6 @@ static void ctrl_init() {
   g_tCtrlVars.r32DefrostStartLevel = DEFROST_TARGET_LEVEL;
 
   g_tCtrlVars.r32EffImpThresh = DEFROST_EFF_IMPROVEMENT_THRESH;
-  g_tCtrlVars.u32HeatingNoImpTime = DEFROST_HEATING_NO_IMPROV_TIME;
   g_tCtrlVars.u32FanStopNoImpTime = DEFROST_FANSTOP_NO_IMPROV_TIME;
   g_tCtrlVars.u32FanStopMaxDur = DEFROST_FANSTOP_MAX_DURATION;
   g_tCtrlVars.u32StopDuration = DEFROST_STOP_DURATION;
@@ -844,9 +832,10 @@ static void defrost_control(void) {
           digit_set_input_fan_stop(0); // Ensure fan runs
           printf("[AUTO] Defrost Started (Fireplace Mode - Heating Only)\n");
         } else {
-          /* Normal One-Phase: Input Fan Stop Only */
+          /* Normal One-Phase: Input Fan Stop + Heating */
           g_tDefrostCtrl.eState = e_Defrost_InputFanStop;
-          defrost_resistor_stop(); // Ensure heating off
+          defrost_resistor_start(); // Ensure heating ON (One-phase =
+                                    // FanStop+Heating)
           /* Fan stop command is sent in state handler below */
         }
 
@@ -954,7 +943,10 @@ static void defrost_control(void) {
       bool bMaxDuration = (tCurrentTime - g_tDefrostCtrl.tFanStopStart) >
                           g_tCtrlVars.u32FanStopMaxDur;
 
-      if ((bRecovered && bExhaustOK) || bEffPlateau || bMaxDuration) {
+      /* Greedy Stop: Only stop if Target reached AND Plateaued (OR Safety Max
+       * Duration) */
+      /* We ignore standalone bEffPlateau to ensure we try to reach target */
+      if ((bRecovered && bExhaustOK && bEffPlateau) || bMaxDuration) {
         /* Transition to STOPPED State (Cooldown) instead of Measuring */
         g_tDefrostCtrl.eState = e_Defrost_Stopped;
         g_tDefrostCtrl.tStopStateStart = tCurrentTime;
@@ -970,6 +962,9 @@ static void defrost_control(void) {
         g_tDefrostCtrl.r32EndDsOutsideTemp = r32_DS18B20_outside_temp();
         g_tDefrostCtrl.r32EndDsExhaustTemp = r32_DS18B20_exhaust_temp();
         g_tDefrostCtrl.r32EndDsIncomingTemp = r32_DS18B20_incoming_temp();
+
+        /* Ensure heater is stopped when modifying state to Stopped */
+        defrost_resistor_stop();
 
         if (bRecovered && bExhaustOK) {
           g_tDefrostCtrl.eEndReason = e_EndReason_EffRecovered;
@@ -993,12 +988,6 @@ static void defrost_control(void) {
       }
     }
 
-    /* Ensure resistor is OFF in AUTO mode (One-Phase) */
-    if (g_tDefrostCtrl.eState !=
-        e_Defrost_Heating) { // Should never be Heating in AUTO
-      defrost_resistor_stop();
-      g_tDefrostCtrl.tHeatingOnSince = 0;
-    }
   }
   // --- AI Mode Implementation (Preserved) ---
   else if (g_tCtrlVars.u8DefrostMode == DEFROST_MODE_AI) {
@@ -1124,14 +1113,37 @@ static void defrost_control(void) {
 
     /* Execute AI commands */
     if (g_tDefrostCtrl.eState == e_Defrost_Heating) {
+      /* AI Heating command handling */
+      /* Note: We will override this below if in FanStop */
       defrost_resistor_start();
       if (g_tDefrostCtrl.tHeatingOnSince == 0) {
         g_tDefrostCtrl.tHeatingOnSince = time(NULL);
       }
     } else {
-      defrost_resistor_stop();
-      g_tDefrostCtrl.tHeatingOnSince = 0;
+      /* AI Heating OFF */
+      /* Note: We will override this below if in FanStop */
+      /* defrost_resistor_stop(); removed here, handled globally below */
     }
+  }
+
+  /* GLOBAL: Ensure resistor is managed for One-Phase (Fan Stop + Heating) */
+  /* This applies to BOTH Auto and AI modes to enforce the One-Phase physics */
+  if (g_tDefrostCtrl.eState == e_Defrost_InputFanStop) {
+    /* Keep heating ON during Fan Stop phase */
+    defrost_resistor_start();
+    if (g_tDefrostCtrl.tHeatingOnSince == 0) {
+      g_tDefrostCtrl.tHeatingOnSince = time(NULL);
+    }
+  } else if (g_tDefrostCtrl.eState == e_Defrost_Heating) {
+    /* Explicit Heating State (Fireplace or AI-Heating) */
+    defrost_resistor_start();
+    if (g_tDefrostCtrl.tHeatingOnSince == 0) {
+      g_tDefrostCtrl.tHeatingOnSince = time(NULL);
+    }
+  } else {
+    /* All other states: STOP HEATING */
+    defrost_resistor_stop();
+    g_tDefrostCtrl.tHeatingOnSince = 0;
   }
 }
 

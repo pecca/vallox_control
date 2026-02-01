@@ -164,10 +164,6 @@ $g_id<html>
         set_ctrl_var($fp, "defrost_eff_imp_thresh", $_POST['edit_defrost_eff_imp_thresh_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
-    } else if (isset($_POST['edit_defrost_heating_no_imp_time'])) {
-        set_ctrl_var($fp, "defrost_heating_no_imp_time", $_POST['edit_defrost_heating_no_imp_time_set']);
-        header("Location: " . $_SERVER['REQUEST_URI']);
-        exit();
     } else if (isset($_POST['edit_defrost_fan_stop_no_imp_time'])) {
         set_ctrl_var($fp, "defrost_fan_stop_no_imp_time", $_POST['edit_defrost_fan_stop_no_imp_time_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);
@@ -261,7 +257,6 @@ $g_id<html>
         $defrost_end_reason = get_ctrl_var($fp, $control_vars, "defrost_end_reason");
         $defrost_heating_duration = get_ctrl_var($fp, $control_vars, "defrost_heating_duration");
         $defrost_eff_imp_thresh = get_ctrl_var($fp, $control_vars, "defrost_eff_imp_thresh");
-        $defrost_heating_no_imp_time = get_ctrl_var($fp, $control_vars, "defrost_heating_no_imp_time");
         $defrost_fan_stop_no_imp_time = get_ctrl_var($fp, $control_vars, "defrost_fan_stop_no_imp_time");
         $defrost_fan_stop_max_dur = get_ctrl_var($fp, $control_vars, "defrost_fan_stop_max_dur");
         $min_exhaust_temp = get_ctrl_var($fp, $control_vars, "min_exhaust_temp");
@@ -686,7 +681,7 @@ $g_id<html>
             </td>
         </tr>
         <tr>
-            <td>Fan stop no-improvement timeout</td>
+            <td>Defrost no-improvement timeout</td>
             <td> <?php echo $defrost_fan_stop_no_imp_time . " s"; ?> </td>
             <td>
                 <form method="post">
