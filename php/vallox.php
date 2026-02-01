@@ -180,6 +180,10 @@ $g_id<html>
         set_ctrl_var($fp, "min_exhaust_temp", $_POST['edit_min_exhaust_temp_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
+    } else if (isset($_POST['edit_defrost_stop_duration'])) {
+        set_ctrl_var($fp, "defrost_stop_duration", $_POST['edit_defrost_stop_duration_set']);
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit();
     }
 
     if (!$fp) {
@@ -261,10 +265,11 @@ $g_id<html>
         $defrost_fan_stop_no_imp_time = get_ctrl_var($fp, $control_vars, "defrost_fan_stop_no_imp_time");
         $defrost_fan_stop_max_dur = get_ctrl_var($fp, $control_vars, "defrost_fan_stop_max_dur");
         $min_exhaust_temp = get_ctrl_var($fp, $control_vars, "min_exhaust_temp");
+        $defrost_stop_duration = get_ctrl_var($fp, $control_vars, "defrost_stop_duration");
 
         $defrost_state_names = array(0 => "Measuring", 1 => "Heating", 2 => "Stopped", 3 => "Input Fan Stop");
         $defrost_state_name = isset($defrost_state_names[intval($defrost_state)]) ? $defrost_state_names[intval($defrost_state)] : "Unknown";
-        $defrost_end_reason_names = array(0 => "None", 1 => "Eff Recovered", 2 => "Temp Target", 3 => "Fan Stop Resolved", 4 => "Timeout", 5 => "Safety Shutoff", 6 => "Eff Plateau", 7 => "Fan Stop Plateau");
+        $defrost_end_reason_names = array(0 => "None", 1 => "Eff Recovered", 2 => "Temp Target", 3 => "Fan Stop Resolved", 4 => "Timeout", 5 => "Safety Shutoff", 6 => "Eff Plateau", 7 => "Fan Stop Plateau", 8 => "Stop State Complete");
         $defrost_end_reason_name = isset($defrost_end_reason_names[intval($defrost_end_reason)]) ? $defrost_end_reason_names[intval($defrost_end_reason)] : "Unknown";
 
         $t = floatval($inside_temp);
@@ -707,6 +712,16 @@ $g_id<html>
                 <form method="post">
                     <input type="text" name="edit_min_exhaust_temp_set" size="4" />
                     <input type='submit' name='edit_min_exhaust_temp' value="Set" />
+                </form>
+            </td>
+        </tr>
+        <tr>
+            <td>Defrost stop duration</td>
+            <td> <?php echo $defrost_stop_duration . " s"; ?> </td>
+            <td>
+                <form method="post">
+                    <input type="text" name="edit_defrost_stop_duration_set" size="4" />
+                    <input type='submit' name='edit_defrost_stop_duration' value="Set" />
                 </form>
             </td>
         </tr>

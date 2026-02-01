@@ -14,15 +14,14 @@ const PREDICTIONS_COLLECTION = 'ai_predictions';
 // Defrost algorithm thresholds (matching C firmware)
 const DEFROST_START_LEVEL = 73;        // Filtered efficiency must drop below this (%)
 const DEFROST_TARGET_IN_EFF = 85;      // Fan stop ends when filtered eff exceeds this (%)
-const DEFROST_HEATING_MIN = 10 * 60;   // Min heating duration (seconds)
-const DEFROST_HEATING_MAX = 15 * 60;   // Max heating duration (seconds)
 
 // Prediction mode: 'rules' or 'vertex_ai' (future)
 const PREDICTION_MODE = process.env.PREDICTION_MODE || 'rules';
 
 // Defrost states
 const STATE_MEASURING = 0;
-const STATE_HEATING = 1;
+const STATE_HEATING = 1; 
+const STATE_STOPPED = 2; 
 const STATE_FAN_STOP = 3;
 
 // Defrost mode in C firmware
@@ -40,8 +39,10 @@ interface SensorData {
     fanSpeed: number | null;
     dewPointDelta: number | null;   // Calculated: exhaust - dew_point
     
-    // Internal
+    // Internal / Config
     defrostMode: number | null;
+    fireplaceMode: number | null;   // 1=Active, 0=Inactive
+    minExhaustTemp: number | null;  // Threshold for stopping heating in Fireplace mode
 }
 
 interface AiState {
@@ -51,10 +52,9 @@ interface AiState {
 }
 
 interface PredictResult {
-    action: 'none' | 'start_heating' | 'stop_heating_start_fan_stop' | 'stop_fan_stop';
+    action: 'none' | 'start_fan_stop' | 'stop_fan_stop' | 'start_heating' | 'stop_heating';
     reason: string;
     confidence: number;
-    heating_duration: number;
 }
 
 // --- Vallox API communication ---
@@ -108,11 +108,11 @@ function extractValue(vars: Record<string, any>, key: string): number | null {
 function extractSensorData(
     controlVars: Record<string, any>,
     digitVars: Record<string, any>,
+    ds18b20Vars: Record<string, any>,
 ): SensorData {
-    const exhaustTemp = extractValue(digitVars, 'exhaust_temp');
+    const exhaustTemp = extractValue(ds18b20Vars, 'ds_exhaust_temp');
     const dewPoint = extractValue(controlVars, 'dew_point');
-    const outsideTemp = extractValue(digitVars, 'outside_temp');
-    const pressureDiff = extractValue(controlVars, 'pressure_diff');
+    const dsOutsideTemp = extractValue(ds18b20Vars, 'ds_outside_temp'); 
     
     // Calculate Dew Point Delta
     let dewPointDelta: number | null = null;
@@ -123,96 +123,114 @@ function extractSensorData(
     return {
         inEfficiency: extractValue(controlVars, 'in_efficiency'),
         inEfficiencyFiltered: extractValue(controlVars, 'in_efficiency_filtered'),
-        outsideTemp,
-        exhaustTemp,
+        outsideTemp: dsOutsideTemp, 
+        exhaustTemp,                
         exhaustHumidity: extractValue(digitVars, 'rh1_sensor'),
         supplyTemp: extractValue(digitVars, 'incoming_temp'),
-        pressureDiff,
+        pressureDiff: extractValue(controlVars, 'pressure_diff'),
         fanSpeed: extractValue(digitVars, 'cur_fan_speed'),
         dewPointDelta,
         defrostMode: extractValue(controlVars, 'defrost_mode'),
+        fireplaceMode: extractValue(controlVars, 'fireplace_mode'),
+        minExhaustTemp: extractValue(controlVars, 'min_exhaust_temp'),
     };
 }
 
 // --- Defrost algorithm ---
 
-/**
- * Rule-based defrost decision.
- * Replicates the AUTO mode logic from c/ctrl_logic.c:
- *
- * Cycle: Measuring → Heating (10-15 min) → Fan Stop (until filtered eff > 85%) → Measuring
- */
-function ruleBasedPredict(sensors: SensorData, defrostState: number, heatingElapsed: number): PredictResult {
-    const { inEfficiency, inEfficiencyFiltered } = sensors;
+function ruleBasedPredict(sensors: SensorData, defrostState: number): PredictResult {
+    const { inEfficiency, inEfficiencyFiltered, fireplaceMode, exhaustTemp, minExhaustTemp } = sensors;
 
     if (inEfficiency === null || inEfficiencyFiltered === null) {
-        return { action: 'none', reason: 'missing_efficiency_data', confidence: 0, heating_duration: 0 };
+        return { action: 'none', reason: 'missing_efficiency_data', confidence: 0 };
     }
 
+    // 1. MEASURING STATE
     if (defrostState === STATE_MEASURING) {
         const belowThreshold = inEfficiencyFiltered < DEFROST_START_LEVEL;
         const trendingDown = inEfficiency < inEfficiencyFiltered;
 
         if (!belowThreshold) {
-            return { action: 'none', reason: 'efficiency_ok', confidence: 0, heating_duration: 0 };
+            return { action: 'none', reason: 'efficiency_ok', confidence: 0 };
         }
         if (!trendingDown) {
-            return { action: 'none', reason: 'efficiency_low_but_recovering', confidence: 0.3, heating_duration: 0 };
+            return { action: 'none', reason: 'efficiency_low_but_recovering', confidence: 0.3 };
         }
 
         const effDrop = DEFROST_START_LEVEL - inEfficiencyFiltered;
-        const dropFraction = Math.min(effDrop / 30, 1.0);
-        const heatingDuration = Math.round(
-            DEFROST_HEATING_MIN + (DEFROST_HEATING_MAX - DEFROST_HEATING_MIN) * dropFraction
-        );
         const confidence = Math.min(0.5 + effDrop / 20, 1.0);
 
+        // FIREPLACE OVERRIDE: Use Heating instead of Fan Stop
+        if (fireplaceMode === 1) {
+            return {
+                action: 'start_heating',
+                reason: `fireplace_active eff=${inEfficiencyFiltered.toFixed(1)}%`,
+                confidence,
+            };
+        }
+
+        // Standard One-Phase: Start Fan Stop
         return {
-            action: 'start_heating',
+            action: 'start_fan_stop',
             reason: `filtered_eff=${inEfficiencyFiltered.toFixed(1)}% raw_eff=${inEfficiency.toFixed(1)}%`,
             confidence,
-            heating_duration: heatingDuration,
         };
     }
 
-    if (defrostState === STATE_HEATING) {
-        if (heatingElapsed >= DEFROST_HEATING_MAX) {
-            return {
-                action: 'stop_heating_start_fan_stop',
-                reason: `heating_max_reached ${heatingElapsed}s`,
-                confidence: 1.0,
-                heating_duration: 0,
-            };
-        }
-        if (heatingElapsed >= DEFROST_HEATING_MIN && inEfficiency > DEFROST_TARGET_IN_EFF) {
-            return {
-                action: 'stop_heating_start_fan_stop',
-                reason: `eff_recovered_during_heating eff=${inEfficiency.toFixed(1)}%`,
-                confidence: 1.0,
-                heating_duration: 0,
-            };
-        }
-        return { action: 'none', reason: `heating ${heatingElapsed}s`, confidence: 0, heating_duration: 0 };
-    }
-
+    // 2. FAN STOP STATE (Standard)
     if (defrostState === STATE_FAN_STOP) {
+        // Fireplace Safety: If activated during fan stop, switch to heating
+        if (fireplaceMode === 1) {
+             return {
+                 action: 'start_heating',
+                 reason: 'fireplace_activated_during_fan_stop',
+                 confidence: 1.0
+             };
+        }
+
         if (inEfficiencyFiltered > DEFROST_TARGET_IN_EFF) {
             return {
                 action: 'stop_fan_stop',
                 reason: `filtered_eff_recovered=${inEfficiencyFiltered.toFixed(1)}%`,
                 confidence: 1.0,
-                heating_duration: 0,
             };
         }
         return {
             action: 'none',
             reason: `fan_stop_waiting filtered_eff=${inEfficiencyFiltered.toFixed(1)}%`,
             confidence: 0,
-            heating_duration: 0,
         };
     }
 
-    return { action: 'none', reason: 'unknown_state', confidence: 0, heating_duration: 0 };
+    // 3. HEATING STATE (Fireplace Mode)
+    if (defrostState === STATE_HEATING) {
+        if (fireplaceMode === 0) {
+            // Fireplace turned off? Fallback to Fan Stop (One-Phase)
+             return {
+                 action: 'start_fan_stop',
+                 reason: 'fireplace_deactivated_switching_to_fan_stop',
+                 confidence: 1.0
+             };
+        }
+
+        // Stop condition: Exhaust Temp > Min Limit
+        const limit = minExhaustTemp || 3.0; // Default 3C if missing
+        if (exhaustTemp !== null && exhaustTemp > limit) {
+             return {
+                 action: 'stop_heating',
+                 reason: `exhaust_temp_target_reached ${exhaustTemp} > ${limit}`,
+                 confidence: 1.0
+             };
+        }
+
+        return {
+             action: 'none',
+             reason: `heating_active exhaust=${exhaustTemp}`,
+             confidence: 0
+        };
+    }
+
+    return { action: 'none', reason: 'unknown_state', confidence: 0 };
 }
 
 // --- Logging ---
@@ -237,28 +255,18 @@ async function logPrediction(
 
 // --- Main entry point ---
 
-/**
- * Cloud Function triggered by Cloud Scheduler (every 60s) or HTTP.
- *
- * 1. Fetches current sensor data from Vallox API
- * 2. Loads AI defrost state from Firestore
- * 3. Runs defrost algorithm
- * 4. Sends commands to Vallox API if needed
- * 5. Saves updated state to Firestore
- */
 http('predictDefrost', async (req: Request, res: Response) => {
     try {
-        // 1. Fetch current data from Vallox API
-        const [controlVars, digitVars] = await Promise.all([
+        // 1. Fetch current data
+        const [controlVars, digitVars, ds18b20Vars] = await Promise.all([
             fetchFromApi('control_vars'),
             fetchFromApi('digit_vars'),
+            fetchFromApi('ds18b20_vars'),
         ]);
 
-        const sensors = extractSensorData(controlVars, digitVars);
+        const sensors = extractSensorData(controlVars, digitVars, ds18b20Vars);
 
-        // Check firmware is in AI mode
         if (sensors.defrostMode !== DEFROST_MODE_AI) {
-            // Reset state if not in AI mode
             const state = await loadState();
             if (state.defrost_state !== STATE_MEASURING) {
                 await saveState({ defrost_state: STATE_MEASURING, heating_start_time: 0, updated: new Date() });
@@ -268,35 +276,46 @@ http('predictDefrost', async (req: Request, res: Response) => {
             return;
         }
 
-        // 2. Load state from Firestore
+        // 2. Load state
         const state = await loadState();
-        const now = Date.now() / 1000;
-        const heatingElapsed = (state.defrost_state === STATE_HEATING && state.heating_start_time > 0)
-            ? Math.round(now - state.heating_start_time)
-            : 0;
 
         // 3. Run algorithm
-        const result = ruleBasedPredict(sensors, state.defrost_state, heatingElapsed);
+        const result = ruleBasedPredict(sensors, state.defrost_state);
 
         console.log(`[${PREDICTION_MODE}] state=${state.defrost_state} action=${result.action} reason=${result.reason}`);
 
-        // 4. Execute action via Vallox API
-        if (result.action === 'start_heating') {
-            await sendCommand('ai_defrost_heating', 1);
-            state.defrost_state = STATE_HEATING;
-            state.heating_start_time = now;
-            console.log('Defrost heating started');
-        } else if (result.action === 'stop_heating_start_fan_stop') {
+        // 4. Execute action
+        if (result.action === 'start_fan_stop') {
             await sendCommand('ai_defrost_heating', 0);
             await sendCommand('ai_defrost_fan_stop', 1);
             state.defrost_state = STATE_FAN_STOP;
             state.heating_start_time = 0;
-            console.log('Heating stopped, fan stop started');
-        } else if (result.action === 'stop_fan_stop') {
+            console.log('Defrost Fan Stop started');
+        } 
+        else if (result.action === 'stop_fan_stop') {
             await sendCommand('ai_defrost_fan_stop', 0);
             state.defrost_state = STATE_MEASURING;
             state.heating_start_time = 0;
-            console.log('Fan stop ended, back to measuring');
+            console.log('Fan stop ended');
+        }
+        else if (result.action === 'start_heating') {
+            await sendCommand('ai_defrost_fan_stop', 0); // Ensure fan stop is OFF
+            await sendCommand('ai_defrost_heating', 1);
+            state.defrost_state = STATE_HEATING;
+            state.heating_start_time = Date.now() / 1000;
+            console.log('Defrost Heating started (Fireplace Mode)');
+        }
+        else if (result.action === 'stop_heating') {
+            await sendCommand('ai_defrost_heating', 0);
+            state.defrost_state = STATE_MEASURING; // Or Stopped (Cooldown)?
+            // For now, go to Measuring. The C firmware handles cooldown if needed.
+            if (sensors.fireplaceMode === 1) {
+                // In fireplace mode, we might want to respect cooldown?
+                // The algorithm doesn't track cooldown, the C firmware does.
+                // Cloud just sends commands.
+            }
+            state.heating_start_time = 0;
+            console.log('Heating stopped');
         }
 
         // 5. Save state + log

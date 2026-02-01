@@ -36,7 +36,7 @@ TRAINING_FEATURES = [
 # Format: feature_name -> (var_group, json_key)
 LIVE_FEATURE_MAPPING = {
     'start_outside_temp': ('ds18b20_vars', 'ds_outside_temp'),
-    # start_exhaust_temp is calculated: average of DIGIT and DS18B20 exhaust temps
+    'start_exhaust_temp': ('ds18b20_vars', 'ds_exhaust_temp'),
     'start_exhaust_humidity': ('digit_vars', 'rh1_sensor'),
     'start_incoming_temp': ('digit_vars', 'incoming_temp'),
     'start_fan_speed': ('digit_vars', 'cur_fan_speed'),
@@ -48,21 +48,11 @@ LIVE_FEATURE_MAPPING = {
 # Calculated features that require values from multiple sources.
 # Format: feature_name -> list of (var_group, json_key) pairs + calculation method
 CALCULATED_FEATURES = {
-    # start_exhaust_temp must be calculated FIRST (other features depend on it)
-    'start_exhaust_temp': {
-        'description': 'Average of DIGIT and DS18B20 exhaust temperatures',
-        'method': 'average',  # (sources[0] + sources[1]) / 2
-        'sources': [
-            ('digit_vars', 'exhaust_temp'),
-            ('ds18b20_vars', 'ds_exhaust_temp'),
-        ],
-    },
     'start_dew_point_delta': {
-        'description': 'Averaged Exhaust Temp minus Dew Point',
+        'description': 'Exhaust Temp (DS18B20) minus Dew Point',
         'method': 'subtract',  # sources[0] - sources[1]
-        'depends_on': 'start_exhaust_temp',  # must be calculated first
         'sources': [
-            'start_exhaust_temp',             # use the averaged exhaust temp (calculated above)
+            ('ds18b20_vars', 'ds_exhaust_temp'),
             ('control_vars', 'dew_point'),
         ],
     },
