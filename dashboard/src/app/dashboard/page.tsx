@@ -15,6 +15,7 @@ import EfficiencyStats from '@/components/EfficiencyStats';
 import FireplaceControl from '@/components/FireplaceControl';
 import DefrostModeControl from '@/components/DefrostModeControl';
 import DefrostStatus from '@/components/DefrostStatus';
+import DefrostConfigPanel from '@/components/DefrostConfigPanel';
 import { getDeviceStatus } from '@/actions/vallox';
 import type { DeviceStatus } from '@/lib/schemas';
 
@@ -115,6 +116,9 @@ export default function DashboardPage() {
         </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
           <FanControl currentSpeed={dv?.cur_fan_speed.value} />
+        </Grid>
+        <Grid size={{ xs: 12 }}>
+          <DefrostConfigPanel controlVars={cv} />
         </Grid>
       </Grid>
 
