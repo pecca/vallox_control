@@ -325,6 +325,18 @@ void ctrl_json_encode(char *sMesg) {
   json_encode_object(sSubStr1, "defrost_time", sSubStr2);
   strncat(sSubStr1, ",", 1);
 
+  // defrost_total_duration
+  strcpy(sSubStr2, "");
+  uint32 total_dur = 0;
+  if (g_tDefrostCtrl.tCycleEnd > g_tDefrostCtrl.tCycleStart) {
+    total_dur = g_tDefrostCtrl.tCycleEnd - g_tDefrostCtrl.tCycleStart;
+  }
+  json_encode_real32(sSubStr2, "value", total_dur);
+  strncat(sSubStr2, ",", 1);
+  json_encode_integer(sSubStr2, "ts", time(NULL));
+  json_encode_object(sSubStr1, "defrost_total_duration", sSubStr2);
+  strncat(sSubStr1, ",", 1);
+
   // defrost_time
   strcpy(sSubStr2, "");
   json_encode_real32(sSubStr2, "value", u32_defrost_resistor_get_on_time());

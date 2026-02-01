@@ -240,8 +240,7 @@ $g_id<html>
         $ds18b20_sensor2 = get_ds18b20_var($fp, $ds18b20_vars, "ds_exhaust_temp", $ds18b20_sensor2_ts);
         $ds18b20_sensor3 = get_ds18b20_var($fp, $ds18b20_vars, "ds_incoming_temp", $ds18b20_sensor3_ts);
 
-        $am2302_temp = get_am2302_var($fp, AM2302_TEMP, $am2302_temp_ts);
-        $am2302_rh = get_am2302_var($fp, AM2302_RH, $am2302_rh_ts);
+
 
         $post_heating_on_time_total = get_ctrl_var($fp, $control_vars, "post_heating_time");
         $pre_heating_on_time_total = get_ctrl_var($fp, $control_vars, "pre_heating_time");

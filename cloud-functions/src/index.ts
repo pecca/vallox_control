@@ -26,6 +26,11 @@ async function checkAndStoreDefrostCycle(
 
     if (cycleCount === undefined || cycleCount === 0 || !cycleStart) return;
 
+    const endReason = controlVars?.defrost_end_reason?.value;
+    // Only store completed cycles (where we have a valid end reason)
+    // This ensures total_duration and end stats are populated
+    if (!endReason || endReason === 0) return;
+
     // Check if this is a new cycle by comparing start timestamps
     const metaRef = firestore.doc(META_DOC);
     const metaSnap = await metaRef.get();
