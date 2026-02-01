@@ -722,6 +722,12 @@ void ctrl_json_encode(char *sMesg) {
   json_encode_integer(sSubStr2, "ts", time(NULL));
   json_encode_object(sSubStr1, "defrost_stop_duration", sSubStr2);
 
+  /* Remove trailing comma if present */
+  size_t len = strlen(sSubStr1);
+  if (len > 0 && sSubStr1[len - 1] == ',') {
+    sSubStr1[len - 1] = '\0';
+  }
+
   json_encode_object(sMesg, CONTROL_VARS, sSubStr1);
   strncat(sMesg, "}", 1);
 }
