@@ -541,7 +541,7 @@ void ctrl_json_encode(char *sMesg) {
   strncat(sSubStr2, ",", 1);
   json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tCycleStart);
   json_encode_object(sSubStr1, "defrost_start_ds_outside_temp", sSubStr2);
-  strncat(sSubStr2, ",", 1);
+  strncat(sSubStr1, ",", 1);
 
   // defrost_start_ds_exhaust_temp
   strcpy(sSubStr2, "");
