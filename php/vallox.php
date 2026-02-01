@@ -160,6 +160,10 @@ $g_id<html>
         set_ctrl_var($fp, "defrost_start_level", $_POST['edit_defrost_start_level_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
+    } else if (isset($_POST['edit_defrost_target_level'])) {
+        set_ctrl_var($fp, "defrost_target_level", $_POST['edit_defrost_target_level_set']);
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit();
     } else if (isset($_POST['edit_defrost_eff_imp_thresh'])) {
         set_ctrl_var($fp, "defrost_eff_imp_thresh", $_POST['edit_defrost_eff_imp_thresh_set']);
         header("Location: " . $_SERVER['REQUEST_URI']);

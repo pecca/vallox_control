@@ -45,12 +45,12 @@ const digitWritableVars: VarConfig[] = [
 ];
 
 const controlWritableVars: VarConfig[] = [
-  { type: 'control_vars', handle: 'defrost_start_level', label: 'Start level (LTO efficiency incoming air)', unit: '%', min: 0, max: 100, description: 'Efficiency threshold to trigger defrost cycle. If efficiency falls below this, heating begins.' },
-  { type: 'control_vars', handle: 'defrost_eff_imp_thresh', label: 'Efficiency Improvement Thresh', unit: '%', min: 0, max: 5, description: 'Minimum efficiency improvement (%) required within the sampling interval to reset the "No Improvement" timer.' },
-  { type: 'control_vars', handle: 'defrost_heating_no_imp_time', label: 'Heating No-Improv Timeout', unit: 's', min: 30, max: 1200, description: 'Max time allowed in heating phase without efficiency improvement before stopping (if exhaust > 5C).' },
-  { type: 'control_vars', handle: 'defrost_fan_stop_no_imp_time', label: 'Fan Stop No-Improv Timeout', unit: 's', min: 30, max: 1200, description: 'Max time allowed in fan stop phase without efficiency improvement before resuming fans.' },
-  { type: 'control_vars', handle: 'defrost_fan_stop_max_dur', label: 'Fan Stop Max Duration', unit: 's', min: 60, max: 3600, description: 'Absolute maximum time fans can be stopped during defrost, regardless of efficiency trend.' },
-  { type: 'control_vars', handle: 'min_exhaust_temp', label: 'Min Exhaust Temp', unit: '\u00B0C', min: 0, max: 10, description: 'Temperature threshold for exhaust air to end defrost cycle.' },
+  { type: 'control_vars', handle: 'defrost_start_level', label: 'Defrost Trigger Level', unit: '%', min: 0, max: 100, description: 'When incoming air efficiency drops below this level, defrost cycle starts (fan stop + heating).' },
+  { type: 'control_vars', handle: 'defrost_target_level', label: 'Defrost Target Level', unit: '%', min: 60, max: 90, description: 'Target efficiency to reach before stopping defrost (must be higher than trigger level).' },
+  { type: 'control_vars', handle: 'defrost_eff_imp_thresh', label: 'Improvement Threshold', unit: '%', min: 0, max: 5, description: 'Minimum efficiency gain per check to count as improvement (prevents false plateau detection).' },
+  { type: 'control_vars', handle: 'defrost_fan_stop_no_imp_time', label: 'Plateau Timeout', unit: 's', min: 30, max: 1200, description: 'Stop defrost if no efficiency improvement for this long (plateau detection).' },
+  { type: 'control_vars', handle: 'defrost_fan_stop_max_dur', label: 'Max Defrost Duration', unit: 's', min: 60, max: 3600, description: 'Absolute maximum defrost duration (safety timeout).' },
+  { type: 'control_vars', handle: 'min_exhaust_temp', label: 'Min Exhaust Temp', unit: '\u00B0C', min: 0, max: 10, description: 'Safety shutoff: stops heating if DS18B20 exhaust temp drops below this (ice risk).' },
 ];
 
 

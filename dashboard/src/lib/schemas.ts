@@ -99,6 +99,7 @@ const ControlVarsInner = z.object({
   in_efficiency_filtered: NumericVar,
   out_efficiency_filtered: NumericVar,
   defrost_start_level: NumericVar,
+  defrost_target_level: NumericVar.optional(),
   pressure_outdoor: NumericVar,
   pressure_indoor: NumericVar,
   pressure_diff: NumericVar,

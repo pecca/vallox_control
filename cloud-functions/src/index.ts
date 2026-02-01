@@ -37,33 +37,26 @@ async function checkAndStoreDefrostCycle(
     // New cycle detected — store episode data
     const cycle = {
         timestamp,
-        cycle_number: cycleCount, // Keep for reference, but not for ID
+        cycle_number: cycleCount,
         // Timing
         cycle_start: cycleStart,
-        heating_duration: controlVars.defrost_heating_duration?.value || 0,
-        fan_stop_duration: controlVars.defrost_fan_stop_duration?.value || 0,
         total_duration: controlVars.defrost_total_duration?.value || 0,
-        // Start conditions
+        // Start conditions (captured at defrost trigger)
         start_outside_temp: controlVars.defrost_start_outside_temp?.value,
-        start_exhaust_temp: controlVars.defrost_start_ds_exhaust_temp?.value,
-        start_exhaust_temp: controlVars.defrost_start_ds_exhaust_temp?.value,
         start_humidity: controlVars.defrost_start_rh?.value,
         start_incoming_temp: controlVars.defrost_start_incoming_temp?.value,
         start_dew_point: controlVars.defrost_start_dew_point?.value,
-        start_dew_point_delta: (controlVars.defrost_start_ds_exhaust_temp?.value !== undefined && controlVars.defrost_start_dew_point?.value !== undefined)
-            ? parseFloat((controlVars.defrost_start_ds_exhaust_temp.value - controlVars.defrost_start_dew_point.value).toFixed(2))
-            : null,
         start_fan_speed: digitVars?.cur_fan_speed?.value,
-        start_in_eff: controlVars.defrost_start_in_eff?.value,
-        start_in_eff_filtered: controlVars.defrost_start_in_eff_filtered?.value,
         // Start conditions: DS18B20 sensor snapshots
         start_ds_outside_temp: controlVars.defrost_start_ds_outside_temp?.value,
         start_ds_exhaust_temp: controlVars.defrost_start_ds_exhaust_temp?.value,
         start_ds_incoming_temp: controlVars.defrost_start_ds_incoming_temp?.value,
+        start_dew_point_delta: (controlVars.defrost_start_ds_exhaust_temp?.value !== undefined && controlVars.defrost_start_dew_point?.value !== undefined)
+            ? parseFloat((controlVars.defrost_start_ds_exhaust_temp.value - controlVars.defrost_start_dew_point.value).toFixed(2))
+            : null,
         // End conditions
         end_in_eff: controlVars.defrost_end_in_eff?.value,
         end_incoming_temp: controlVars.defrost_end_incoming_temp?.value,
-        end_exhaust_temp: controlVars.defrost_end_ds_exhaust_temp?.value,
         end_reason: controlVars.defrost_end_reason?.value,
         // End conditions: DS18B20 sensor snapshots
         end_ds_outside_temp: controlVars.defrost_end_ds_outside_temp?.value,

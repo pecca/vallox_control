@@ -97,10 +97,12 @@ typedef struct {
   time_t tPressureOut_ts;
   time_t tPressureIn_ts;
   real32 r32pressureDiff;
-  real32 r32EffImpThresh;     // % improvement to count as improving
-  uint32 u32FanStopNoImpTime; // seconds of no improvement to end fan stop
-  uint32 u32FanStopMaxDur;    // max fan stop duration in seconds
-  uint32 u32StopDuration;     // cooldown duration after defrost
+  real32 r32EffImpThresh;       // % improvement to count as improving
+  real32 r32DefrostTargetLevel; // target efficiency to reach before stopping
+                                // defrost
+  uint32 u32FanStopNoImpTime;   // seconds of no improvement to end fan stop
+  uint32 u32FanStopMaxDur;      // max fan stop duration in seconds
+  uint32 u32StopDuration;       // cooldown duration after defrost
 } T_CtrlVars;
 
 typedef struct {
@@ -223,6 +225,10 @@ void ctrl_set_var_by_name(char *sName, char *sValue, char *str) {
     real32 fTemp;
     sscanf(sValue, "%f", &fTemp);
     g_tCtrlVars.r32DefrostStartLevel = fTemp;
+  } else if (!strcmp(sName, "defrost_target_level")) {
+    real32 fTemp;
+    sscanf(sValue, "%f", &fTemp);
+    g_tCtrlVars.r32DefrostTargetLevel = fTemp;
   } else if (!strcmp(sName, "min_exhaust_temp")) {
     real32 fTemp;
     sscanf(sValue, "%f", &fTemp);
@@ -397,6 +403,14 @@ void ctrl_json_encode(char *sMesg) {
   strncat(sSubStr2, ",", 1);
   json_encode_integer(sSubStr2, "ts", time(NULL));
   json_encode_object(sSubStr1, "defrost_start_level", sSubStr2);
+  strncat(sSubStr1, ",", 1);
+
+  // defrost_target_level
+  strcpy(sSubStr2, "");
+  json_encode_real32(sSubStr2, "value", g_tCtrlVars.r32DefrostTargetLevel);
+  strncat(sSubStr2, ",", 1);
+  json_encode_integer(sSubStr2, "ts", time(NULL));
+  json_encode_object(sSubStr1, "defrost_target_level", sSubStr2);
   strncat(sSubStr1, ",", 1);
 
   // pressure out
@@ -746,6 +760,7 @@ static void ctrl_init() {
   g_tCtrlVars.u8DefrostMode = DEFROST_MODE_OFF;
 
   g_tCtrlVars.r32DefrostStartLevel = DEFROST_TARGET_LEVEL;
+  g_tCtrlVars.r32DefrostTargetLevel = DEFROST_TARGET_LEVEL; // default 72%
 
   g_tCtrlVars.r32EffImpThresh = DEFROST_EFF_IMPROVEMENT_THRESH;
   g_tCtrlVars.u32FanStopNoImpTime = DEFROST_FANSTOP_NO_IMPROV_TIME;
@@ -996,8 +1011,8 @@ static void defrost_control(void) {
         g_tDefrostCtrl.tLastEffSampleTime = tCurrentTime;
       }
 
-      /* End Condition 1: Efficiency recovered > 72% AND Exh > Min */
-      bool bRecovered = (r32InEff > DEFROST_TARGET_LEVEL);
+      /* End Condition 1: Efficiency recovered > target AND Exh > Min */
+      bool bRecovered = (r32InEff > g_tCtrlVars.r32DefrostTargetLevel);
       bool bExhaustOK = (r32ExhaustTemp > g_tCtrlVars.r32MinExhaustTemp);
 
       /* End Condition 2: No improvement for X minutes (Efficiency Plateau) */
