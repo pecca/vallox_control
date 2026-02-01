@@ -183,6 +183,8 @@ static real32 r32_calc_dew_point(void);
 static void avf_filter_init(T_AvfFilter *tFilter, real32 r32Value);
 static void avf_filter_calc(T_AvfFilter *tFilter, real32 r32NewValue,
                             uint32 i32index);
+static void input_fan_stop(void);
+static void input_fan_start(void);
 
 /******************************************************************************
  *  Global function implementation
@@ -786,6 +788,10 @@ static void ctrl_update_vars() {
   g_tCtrlVars.u32CallCnt++;
 }
 
+static void input_fan_stop(void) { digit_set_input_fan_stop(14.0f); }
+
+static void input_fan_start(void) { digit_set_input_fan_stop(-6.0f); }
+
 static void defrost_control(void) {
   time_t tCurrentTime = time(NULL);
   real32 r32InEffFiltered = g_tCtrlVars.tInEff.r32Value;
@@ -799,7 +805,7 @@ static void defrost_control(void) {
   if (g_tCtrlVars.u8DefrostMode == DEFROST_MODE_OFF) {
     g_tDefrostCtrl.eState = e_Measuring;
     /* Reset controls */
-    digit_set_input_fan_stop(0);
+    input_fan_start();
     defrost_resistor_stop();
     return;
   }
@@ -829,7 +835,7 @@ static void defrost_control(void) {
           /* Fireplace Mode: Heating ONLY, Fan Stop FORBIDDEN */
           g_tDefrostCtrl.eState = e_Defrost_Heating;
           defrost_resistor_start();
-          digit_set_input_fan_stop(0); // Ensure fan runs
+          input_fan_start(); // Ensure fan runs
           printf("[AUTO] Defrost Started (Fireplace Mode - Heating Only)\n");
         } else {
           /* Normal One-Phase: Input Fan Stop + Heating */
@@ -868,11 +874,12 @@ static void defrost_control(void) {
         g_tDefrostCtrl.r32EffAtPhaseStart = r32InEff;
 
         g_tDefrostCtrl.u32CycleCount++;
-        digit_set_input_fan_stop(1.0f); // 1V = Fan Running (Ensure it's ON)
+        input_fan_start(); // 1.0f was legacy for ON, using standard start
+                           // (-6.0f)
         printf("Defrost Cycle %d STARTED (Fireplace: Heating)\n",
                g_tDefrostCtrl.u32CycleCount);
       } else {
-        digit_set_input_fan_stop(14.0f); // 14V = Stopped
+        input_fan_stop(); // 14V = Stopped
         printf("Defrost Cycle %d STARTED (FanStop)\n",
                g_tDefrostCtrl.u32CycleCount);
       }
@@ -914,7 +921,7 @@ static void defrost_control(void) {
       if (g_tFireplace.bActive) {
         /* Fireplace started -> Switch to Heating immediately */
         g_tDefrostCtrl.eState = e_Defrost_Heating;
-        digit_set_input_fan_stop(0);                   // Fan ON
+        input_fan_start();                             // Fan ON
         defrost_resistor_start();                      // Heater ON
         g_tDefrostCtrl.tHeatingOnSince = tCurrentTime; // Start tracking heating
         printf("[AUTO] Fan Stop aborted -> Switched to Fireplace Heating\n");
@@ -953,7 +960,7 @@ static void defrost_control(void) {
         g_tDefrostCtrl.tCycleEnd =
             tCurrentTime; // Cycle officially ends here (active part)
 
-        digit_set_input_fan_stop(-6.0f); // Resume Fan
+        input_fan_start(); // Resume Fan
 
         /* Capture End Stats */
         g_tDefrostCtrl.r32EndInEff = r32InEff;
@@ -1062,14 +1069,14 @@ static void defrost_control(void) {
         printf("[AI] fan stop blocked (fireplace active)\n");
       } else {
         g_tDefrostCtrl.tFanStopStart = tCurrentTime;
-        digit_set_input_fan_stop(14.0f);
+        input_fan_stop();
         g_tDefrostCtrl.eState = e_Defrost_InputFanStop;
         printf("[AI] input fan stopped\n");
       }
     }
     /* Detect AI turning fan stop OFF */
     else if (!g_tDefrostCtrl.u8AiFanStop && u8PrevFanStop) {
-      digit_set_input_fan_stop(-6.0f);
+      input_fan_start();
       g_tDefrostCtrl.tCheckTime = tCurrentTime;
       g_tDefrostCtrl.eState = e_Defrost_Stopped;
       /* Capture end conditions */
@@ -1086,7 +1093,7 @@ static void defrost_control(void) {
     /* Fireplace safety: force-exit InputFanStop if fireplace activated */
     if (g_tDefrostCtrl.eState == e_Defrost_InputFanStop &&
         g_tFireplace.bActive) {
-      digit_set_input_fan_stop(-6.0f);
+      input_fan_start();
       g_tDefrostCtrl.u8AiFanStop = 0;
       g_tDefrostCtrl.tCheckTime = tCurrentTime;
       g_tDefrostCtrl.eState = e_Defrost_Stopped;
