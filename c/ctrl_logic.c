@@ -47,6 +47,8 @@
   (45 * 60) /* 45 min max fan stop duration (increased for one-phase) */
 #define DEFROST_STOP_DURATION (30 * 60) /* 30 min cooldown after defrost */
 
+#define CYCLE_COUNT_FILE "defrost_cycle_count.txt"
+
 #define SUB_STR_MAX_SIZE (5000)
 
 /******************************************************************************
@@ -185,6 +187,8 @@ static void avf_filter_calc(T_AvfFilter *tFilter, real32 r32NewValue,
                             uint32 i32index);
 static void input_fan_stop(void);
 static void input_fan_start(void);
+static void load_cycle_count(void);
+static void save_cycle_count(void);
 
 /******************************************************************************
  *  Global function implementation
@@ -741,6 +745,7 @@ static void ctrl_init() {
   post_heating_counter_init();
   pre_heating_resistor_init();
   defrost_resistor_init();
+  load_cycle_count();
 }
 
 static void ctrl_run() {
@@ -791,6 +796,26 @@ static void ctrl_update_vars() {
 static void input_fan_stop(void) { digit_set_input_fan_stop(14.0f); }
 
 static void input_fan_start(void) { digit_set_input_fan_stop(-6.0f); }
+
+static void load_cycle_count(void) {
+  FILE *file = fopen(CYCLE_COUNT_FILE, "r");
+  if (file) {
+    if (fscanf(file, "%u", &g_tDefrostCtrl.u32CycleCount) != 1) {
+      g_tDefrostCtrl.u32CycleCount = 0;
+    }
+    fclose(file);
+  } else {
+    g_tDefrostCtrl.u32CycleCount = 0;
+  }
+}
+
+static void save_cycle_count(void) {
+  FILE *file = fopen(CYCLE_COUNT_FILE, "w");
+  if (file) {
+    fprintf(file, "%u\n", g_tDefrostCtrl.u32CycleCount);
+    fclose(file);
+  }
+}
 
 static void defrost_control(void) {
   time_t tCurrentTime = time(NULL);
@@ -874,14 +899,17 @@ static void defrost_control(void) {
         g_tDefrostCtrl.r32EffAtPhaseStart = r32InEff;
 
         g_tDefrostCtrl.u32CycleCount++;
-        input_fan_start(); // 1.0f was legacy for ON, using standard start
-                           // (-6.0f)
-        printf("Defrost Cycle %d STARTED (Fireplace: Heating)\n",
-               g_tDefrostCtrl.u32CycleCount);
-      } else {
-        input_fan_stop(); // 14V = Stopped
-        printf("Defrost Cycle %d STARTED (FanStop)\n",
-               g_tDefrostCtrl.u32CycleCount);
+        save_cycle_count();
+
+        if (g_tDefrostCtrl.eState == e_Defrost_Heating) {
+          input_fan_start();
+          printf("Defrost Cycle %d STARTED (Fireplace: Heating)\n",
+                 g_tDefrostCtrl.u32CycleCount);
+        } else {
+          input_fan_stop();
+          printf("Defrost Cycle %d STARTED (FanStop)\n",
+                 g_tDefrostCtrl.u32CycleCount);
+        }
       }
     }
 
@@ -1112,6 +1140,7 @@ static void defrost_control(void) {
       if (tCurrentTime - g_tDefrostCtrl.tCheckTime > DEFROST_STOP_TIME) {
         g_tDefrostCtrl.tCycleEnd = tCurrentTime;
         g_tDefrostCtrl.u32CycleCount++;
+        save_cycle_count();
         g_tDefrostCtrl.eState = e_Measuring;
         printf("[AI] defrost cycle #%d complete\n",
                g_tDefrostCtrl.u32CycleCount);
