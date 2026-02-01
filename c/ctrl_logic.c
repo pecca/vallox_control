@@ -123,26 +123,32 @@ typedef struct {
   time_t tCycleEnd;
   time_t tStopStateStart; /* when the stop state (cooldown) began */
   uint32 u32CycleCount;
-  /* Conditions at cycle start */
-  real32 r32StartInEff;
-  real32 r32StartInEffFiltered;
-  real32 r32StartOutsideTemp;
-  real32 r32StartExhaustTemp;
-  real32 r32StartIncomingTemp;
-  real32 r32StartDewPoint;
-  /* DS18B20 sensors at cycle start */
-  real32 r32StartDsOutsideTemp;
-  real32 r32StartDsExhaustTemp;
-  real32 r32StartDsIncomingTemp;
-  /* Conditions at cycle end */
-  real32 r32EndInEff;
-  real32 r32EndIncomingTemp;
-  real32 r32EndExhaustTemp;
-  E_DefrostEndReason eEndReason;
-  /* DS18B20 sensors at cycle end */
-  real32 r32EndDsOutsideTemp;
-  real32 r32EndDsExhaustTemp;
-  real32 r32EndDsIncomingTemp;
+
+  /* Cycle Data Snapshots */
+  struct {
+    real32 r32InEff;
+    real32 r32InEffFiltered;
+    real32 r32OutsideTemp;
+
+    real32 r32IncomingTemp;
+    real32 r32DewPoint;
+    /* DS18B20 sensors */
+    real32 r32DsOutsideTemp;
+    real32 r32DsExhaustTemp;
+    real32 r32DsIncomingTemp;
+  } tStart;
+
+  struct {
+    real32 r32InEff;
+    real32 r32IncomingTemp;
+
+    E_DefrostEndReason eReason;
+    /* DS18B20 sensors */
+    real32 r32DsOutsideTemp;
+    real32 r32DsExhaustTemp;
+    real32 r32DsIncomingTemp;
+  } tEnd;
+
   /* AI control commands */
   byte u8AiHeating;  /* 0=off, 1=on */
   byte u8AiFanStop;  /* 0=off, 1=on */
@@ -188,7 +194,11 @@ static void avf_filter_calc(T_AvfFilter *tFilter, real32 r32NewValue,
 static void input_fan_stop(void);
 static void input_fan_start(void);
 static void load_cycle_count(void);
+static void input_fan_start(void);
+static void load_cycle_count(void);
 static void save_cycle_count(void);
+static void capture_cycle_start_data(void);
+static void capture_cycle_end_data(E_DefrostEndReason eReason);
 
 /******************************************************************************
  *  Global function implementation
@@ -484,25 +494,33 @@ void ctrl_json_encode(char *sMesg) {
   json_encode_object(sSubStr1, "defrost_total_duration", sSubStr2);
   strncat(sSubStr1, ",", 1);
 
+  // defrost_start_ineff
+  strcpy(sSubStr2, "");
+  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.tStart.r32InEff);
+  strncat(sSubStr2, ",", 1);
+  json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tCycleStart);
+  json_encode_object(sSubStr1, "defrost_start_ineff", sSubStr2);
+  strncat(sSubStr1, ",", 1);
+
+  // defrost_start_ineff_filtered
+  strcpy(sSubStr2, "");
+  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.tStart.r32InEffFiltered);
+  strncat(sSubStr2, ",", 1);
+  json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tCycleStart);
+  json_encode_object(sSubStr1, "defrost_start_ineff_filtered", sSubStr2);
+  strncat(sSubStr1, ",", 1);
+
   // defrost_start_outside_temp
   strcpy(sSubStr2, "");
-  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.r32StartOutsideTemp);
+  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.tStart.r32OutsideTemp);
   strncat(sSubStr2, ",", 1);
   json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tCycleStart);
   json_encode_object(sSubStr1, "defrost_start_outside_temp", sSubStr2);
   strncat(sSubStr1, ",", 1);
 
-  // defrost_start_exhaust_temp
-  strcpy(sSubStr2, "");
-  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.r32StartExhaustTemp);
-  strncat(sSubStr2, ",", 1);
-  json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tCycleStart);
-  json_encode_object(sSubStr1, "defrost_start_exhaust_temp", sSubStr2);
-  strncat(sSubStr1, ",", 1);
-
   // defrost_start_incoming_temp
   strcpy(sSubStr2, "");
-  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.r32StartIncomingTemp);
+  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.tStart.r32IncomingTemp);
   strncat(sSubStr2, ",", 1);
   json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tCycleStart);
   json_encode_object(sSubStr1, "defrost_start_incoming_temp", sSubStr2);
@@ -510,39 +528,23 @@ void ctrl_json_encode(char *sMesg) {
 
   // defrost_start_dew_point
   strcpy(sSubStr2, "");
-  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.r32StartDewPoint);
+  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.tStart.r32DewPoint);
   strncat(sSubStr2, ",", 1);
   json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tCycleStart);
   json_encode_object(sSubStr1, "defrost_start_dew_point", sSubStr2);
   strncat(sSubStr1, ",", 1);
 
-  // defrost_start_in_eff
-  strcpy(sSubStr2, "");
-  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.r32StartInEff);
-  strncat(sSubStr2, ",", 1);
-  json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tCycleStart);
-  json_encode_object(sSubStr1, "defrost_start_in_eff", sSubStr2);
-  strncat(sSubStr1, ",", 1);
-
-  // defrost_start_in_eff_filtered
-  strcpy(sSubStr2, "");
-  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.r32StartInEffFiltered);
-  strncat(sSubStr2, ",", 1);
-  json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tCycleStart);
-  json_encode_object(sSubStr1, "defrost_start_in_eff_filtered", sSubStr2);
-  strncat(sSubStr1, ",", 1);
-
   // defrost_start_ds_outside_temp
   strcpy(sSubStr2, "");
-  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.r32StartDsOutsideTemp);
+  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.tStart.r32DsOutsideTemp);
   strncat(sSubStr2, ",", 1);
   json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tCycleStart);
   json_encode_object(sSubStr1, "defrost_start_ds_outside_temp", sSubStr2);
-  strncat(sSubStr1, ",", 1);
+  strncat(sSubStr2, ",", 1);
 
   // defrost_start_ds_exhaust_temp
   strcpy(sSubStr2, "");
-  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.r32StartDsExhaustTemp);
+  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.tStart.r32DsExhaustTemp);
   strncat(sSubStr2, ",", 1);
   json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tCycleStart);
   json_encode_object(sSubStr1, "defrost_start_ds_exhaust_temp", sSubStr2);
@@ -550,7 +552,8 @@ void ctrl_json_encode(char *sMesg) {
 
   // defrost_start_ds_incoming_temp
   strcpy(sSubStr2, "");
-  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.r32StartDsIncomingTemp);
+  json_encode_real32(sSubStr2, "value",
+                     g_tDefrostCtrl.tStart.r32DsIncomingTemp);
   strncat(sSubStr2, ",", 1);
   json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tCycleStart);
   json_encode_object(sSubStr1, "defrost_start_ds_incoming_temp", sSubStr2);
@@ -558,7 +561,7 @@ void ctrl_json_encode(char *sMesg) {
 
   // defrost_end_in_eff
   strcpy(sSubStr2, "");
-  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.r32EndInEff);
+  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.tEnd.r32InEff);
   strncat(sSubStr2, ",", 1);
   json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tHeatingEnd);
   json_encode_object(sSubStr1, "defrost_end_in_eff", sSubStr2);
@@ -566,23 +569,15 @@ void ctrl_json_encode(char *sMesg) {
 
   // defrost_end_incoming_temp
   strcpy(sSubStr2, "");
-  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.r32EndIncomingTemp);
+  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.tEnd.r32IncomingTemp);
   strncat(sSubStr2, ",", 1);
   json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tHeatingEnd);
   json_encode_object(sSubStr1, "defrost_end_incoming_temp", sSubStr2);
   strncat(sSubStr1, ",", 1);
 
-  // defrost_end_exhaust_temp
-  strcpy(sSubStr2, "");
-  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.r32EndExhaustTemp);
-  strncat(sSubStr2, ",", 1);
-  json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tHeatingEnd);
-  json_encode_object(sSubStr1, "defrost_end_exhaust_temp", sSubStr2);
-  strncat(sSubStr1, ",", 1);
-
   // defrost_end_ds_outside_temp
   strcpy(sSubStr2, "");
-  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.r32EndDsOutsideTemp);
+  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.tEnd.r32DsOutsideTemp);
   strncat(sSubStr2, ",", 1);
   json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tHeatingEnd);
   json_encode_object(sSubStr1, "defrost_end_ds_outside_temp", sSubStr2);
@@ -590,7 +585,7 @@ void ctrl_json_encode(char *sMesg) {
 
   // defrost_end_ds_exhaust_temp
   strcpy(sSubStr2, "");
-  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.r32EndDsExhaustTemp);
+  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.tEnd.r32DsExhaustTemp);
   strncat(sSubStr2, ",", 1);
   json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tHeatingEnd);
   json_encode_object(sSubStr1, "defrost_end_ds_exhaust_temp", sSubStr2);
@@ -598,7 +593,7 @@ void ctrl_json_encode(char *sMesg) {
 
   // defrost_end_ds_incoming_temp
   strcpy(sSubStr2, "");
-  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.r32EndDsIncomingTemp);
+  json_encode_real32(sSubStr2, "value", g_tDefrostCtrl.tEnd.r32DsIncomingTemp);
   strncat(sSubStr2, ",", 1);
   json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tHeatingEnd);
   json_encode_object(sSubStr1, "defrost_end_ds_incoming_temp", sSubStr2);
@@ -607,7 +602,7 @@ void ctrl_json_encode(char *sMesg) {
   // defrost_end_reason (0=none, 1=eff_recovered, 2=temp_target,
   // 3=fan_stop_resolved, 4=timeout)
   strcpy(sSubStr2, "");
-  json_encode_integer(sSubStr2, "value", g_tDefrostCtrl.eEndReason);
+  json_encode_integer(sSubStr2, "value", g_tDefrostCtrl.tEnd.eReason);
   strncat(sSubStr2, ",", 1);
   json_encode_integer(sSubStr2, "ts", g_tDefrostCtrl.tHeatingEnd);
   json_encode_object(sSubStr1, "defrost_end_reason", sSubStr2);
@@ -817,6 +812,28 @@ static void save_cycle_count(void) {
   }
 }
 
+static void capture_cycle_start_data(void) {
+  g_tDefrostCtrl.tStart.r32InEff = g_tCtrlVars.r32InEfficiency;
+  g_tDefrostCtrl.tStart.r32InEffFiltered = g_tCtrlVars.tInEff.r32Value;
+  g_tDefrostCtrl.tStart.r32OutsideTemp = r32_DS18B20_outside_temp();
+
+  g_tDefrostCtrl.tStart.r32IncomingTemp = r32_digit_incoming_temp();
+  g_tDefrostCtrl.tStart.r32DewPoint = g_tCtrlVars.r32DewPoint;
+  g_tDefrostCtrl.tStart.r32DsOutsideTemp = r32_DS18B20_outside_temp();
+  g_tDefrostCtrl.tStart.r32DsExhaustTemp = r32_DS18B20_exhaust_temp();
+  g_tDefrostCtrl.tStart.r32DsIncomingTemp = r32_DS18B20_incoming_temp();
+}
+
+static void capture_cycle_end_data(E_DefrostEndReason eReason) {
+  g_tDefrostCtrl.tEnd.r32InEff = g_tCtrlVars.r32InEfficiency;
+
+  g_tDefrostCtrl.tEnd.r32IncomingTemp = r32_digit_incoming_temp();
+  g_tDefrostCtrl.tEnd.eReason = eReason;
+  g_tDefrostCtrl.tEnd.r32DsOutsideTemp = r32_DS18B20_outside_temp();
+  g_tDefrostCtrl.tEnd.r32DsExhaustTemp = r32_DS18B20_exhaust_temp();
+  g_tDefrostCtrl.tEnd.r32DsIncomingTemp = r32_DS18B20_incoming_temp();
+}
+
 static void defrost_control(void) {
   time_t tCurrentTime = time(NULL);
   real32 r32InEffFiltered = g_tCtrlVars.tInEff.r32Value;
@@ -882,16 +899,13 @@ static void defrost_control(void) {
           g_tDefrostCtrl.tFanStopStart = tCurrentTime;
         }
         g_tDefrostCtrl.tCycleEnd = 0;
-        g_tDefrostCtrl.eEndReason = e_EndReason_None;
-        g_tDefrostCtrl.r32StartInEff = r32InEff;
-        g_tDefrostCtrl.r32StartInEffFiltered = r32InEffFiltered;
-        g_tDefrostCtrl.r32StartOutsideTemp = r32_DS18B20_outside_temp();
-        g_tDefrostCtrl.r32StartExhaustTemp = r32ExhaustTemp;
-        g_tDefrostCtrl.r32StartIncomingTemp = r32CurrentIncomingTemp;
-        g_tDefrostCtrl.r32StartDewPoint = g_tCtrlVars.r32DewPoint;
-        g_tDefrostCtrl.r32StartDsOutsideTemp = r32_DS18B20_outside_temp();
-        g_tDefrostCtrl.r32StartDsExhaustTemp = r32_DS18B20_exhaust_temp();
-        g_tDefrostCtrl.r32StartDsIncomingTemp = r32_DS18B20_incoming_temp();
+        g_tDefrostCtrl.tEnd.eReason = e_EndReason_None;
+
+        capture_cycle_start_data();
+        // Override with local vars if they differed from helper logic
+        // (preserving existing logic)
+
+        g_tDefrostCtrl.tStart.r32IncomingTemp = r32CurrentIncomingTemp;
         /* Initialize efficiency improvement tracking */
         g_tDefrostCtrl.r32PrevEffSample = r32InEff;
         g_tDefrostCtrl.tLastEffSampleTime = tCurrentTime;
@@ -932,10 +946,10 @@ static void defrost_control(void) {
         defrost_resistor_stop();
 
         /* Capture End Stats */
-        g_tDefrostCtrl.r32EndInEff = r32InEff;
-        g_tDefrostCtrl.r32EndIncomingTemp = r32CurrentIncomingTemp;
-        g_tDefrostCtrl.r32EndExhaustTemp = r32ExhaustTemp;
-        g_tDefrostCtrl.eEndReason = e_EndReason_TempTarget;
+        capture_cycle_end_data(e_EndReason_TempTarget);
+        // Override with local vars to match previous logic exactly
+        g_tDefrostCtrl.tEnd.r32InEff = r32InEff;
+        g_tDefrostCtrl.tEnd.r32IncomingTemp = r32CurrentIncomingTemp;
 
         printf("[Fireplace] Heating Done (Exhaust %.1f > %.1f)\n",
                r32ExhaustTemp, g_tCtrlVars.r32MinExhaustTemp);
@@ -990,26 +1004,20 @@ static void defrost_control(void) {
 
         input_fan_start(); // Resume Fan
 
-        /* Capture End Stats */
-        g_tDefrostCtrl.r32EndInEff = r32InEff;
-        g_tDefrostCtrl.r32EndIncomingTemp = r32CurrentIncomingTemp;
-        g_tDefrostCtrl.r32EndExhaustTemp = r32ExhaustTemp;
-        g_tDefrostCtrl.r32EndDsOutsideTemp = r32_DS18B20_outside_temp();
-        g_tDefrostCtrl.r32EndDsExhaustTemp = r32_DS18B20_exhaust_temp();
-        g_tDefrostCtrl.r32EndDsIncomingTemp = r32_DS18B20_incoming_temp();
-
-        /* Ensure heater is stopped when modifying state to Stopped */
-        defrost_resistor_stop();
-
         if (bRecovered && bExhaustOK) {
-          g_tDefrostCtrl.eEndReason = e_EndReason_EffRecovered;
+          capture_cycle_end_data(e_EndReason_EffRecovered);
         } else if (bEffPlateau) {
-          g_tDefrostCtrl.eEndReason = e_EndReason_FanStopPlateau;
+          capture_cycle_end_data(e_EndReason_FanStopPlateau);
         } else {
-          g_tDefrostCtrl.eEndReason = e_EndReason_Timeout;
+          capture_cycle_end_data(e_EndReason_Timeout);
         }
+
+        /* Capture End Stats Overrides */
+        g_tDefrostCtrl.tEnd.r32InEff = r32InEff;
+        g_tDefrostCtrl.tEnd.r32IncomingTemp = r32CurrentIncomingTemp;
+
         printf("Defrost Cycle Ended (Reason: %d, Eff: %.1f)\n",
-               g_tDefrostCtrl.eEndReason, r32InEff);
+               g_tDefrostCtrl.tEnd.eReason, r32InEff);
       }
     } else if (g_tDefrostCtrl.eState == e_Defrost_Stopped) {
       /* Stop State (Cooldown) */
@@ -1051,16 +1059,12 @@ static void defrost_control(void) {
       g_tDefrostCtrl.tHeatingEnd = 0;
       g_tDefrostCtrl.tFanStopStart = 0;
       g_tDefrostCtrl.tCycleEnd = 0;
-      g_tDefrostCtrl.eEndReason = e_EndReason_None;
-      g_tDefrostCtrl.r32StartInEff = r32InEff;
-      g_tDefrostCtrl.r32StartInEffFiltered = r32InEffFiltered;
-      g_tDefrostCtrl.r32StartOutsideTemp = r32_DS18B20_outside_temp();
-      g_tDefrostCtrl.r32StartExhaustTemp = r32ExhaustTemp;
-      g_tDefrostCtrl.r32StartIncomingTemp = r32CurrentIncomingTemp;
-      g_tDefrostCtrl.r32StartDewPoint = g_tCtrlVars.r32DewPoint;
-      g_tDefrostCtrl.r32StartDsOutsideTemp = r32_DS18B20_outside_temp();
-      g_tDefrostCtrl.r32StartDsExhaustTemp = r32_DS18B20_exhaust_temp();
-      g_tDefrostCtrl.r32StartDsIncomingTemp = r32_DS18B20_incoming_temp();
+      g_tDefrostCtrl.tEnd.eReason = e_EndReason_None;
+
+      capture_cycle_start_data();
+      // Overrides
+
+      g_tDefrostCtrl.tStart.r32IncomingTemp = r32CurrentIncomingTemp;
       printf("[AI] heating started\n");
     }
     /* Detect AI turning heating OFF (while heating) */
@@ -1070,13 +1074,11 @@ static void defrost_control(void) {
       g_tDefrostCtrl.tCheckTime = tCurrentTime;
       g_tDefrostCtrl.eState = e_Defrost_Stopped;
       /* Capture end conditions */
-      g_tDefrostCtrl.r32EndInEff = r32InEff;
-      g_tDefrostCtrl.r32EndIncomingTemp = r32CurrentIncomingTemp;
-      g_tDefrostCtrl.r32EndExhaustTemp = r32ExhaustTemp;
-      g_tDefrostCtrl.r32EndDsOutsideTemp = r32_DS18B20_outside_temp();
-      g_tDefrostCtrl.r32EndDsExhaustTemp = r32_DS18B20_exhaust_temp();
-      g_tDefrostCtrl.r32EndDsIncomingTemp = r32_DS18B20_incoming_temp();
-      g_tDefrostCtrl.eEndReason = e_EndReason_EffRecovered;
+      capture_cycle_end_data(e_EndReason_EffRecovered);
+      // Overrides
+      g_tDefrostCtrl.tEnd.r32InEff = r32InEff;
+      g_tDefrostCtrl.tEnd.r32IncomingTemp = r32CurrentIncomingTemp;
+
       printf("[AI] heating stopped\n");
     }
     /* Detect AI switching from heating to fan stop */
@@ -1087,13 +1089,11 @@ static void defrost_control(void) {
         g_tDefrostCtrl.u8AiFanStop = 0;
         g_tDefrostCtrl.tCheckTime = tCurrentTime;
         g_tDefrostCtrl.eState = e_Defrost_Stopped;
-        g_tDefrostCtrl.r32EndInEff = r32InEff;
-        g_tDefrostCtrl.r32EndIncomingTemp = r32CurrentIncomingTemp;
-        g_tDefrostCtrl.r32EndExhaustTemp = r32ExhaustTemp;
-        g_tDefrostCtrl.r32EndDsOutsideTemp = r32_DS18B20_outside_temp();
-        g_tDefrostCtrl.r32EndDsExhaustTemp = r32_DS18B20_exhaust_temp();
-        g_tDefrostCtrl.r32EndDsIncomingTemp = r32_DS18B20_incoming_temp();
-        g_tDefrostCtrl.eEndReason = e_EndReason_Timeout;
+        capture_cycle_end_data(e_EndReason_Timeout);
+        // Overrides
+        g_tDefrostCtrl.tEnd.r32InEff = r32InEff;
+        g_tDefrostCtrl.tEnd.r32IncomingTemp = r32CurrentIncomingTemp;
+
         printf("[AI] fan stop blocked (fireplace active)\n");
       } else {
         g_tDefrostCtrl.tFanStopStart = tCurrentTime;
@@ -1108,13 +1108,11 @@ static void defrost_control(void) {
       g_tDefrostCtrl.tCheckTime = tCurrentTime;
       g_tDefrostCtrl.eState = e_Defrost_Stopped;
       /* Capture end conditions */
-      g_tDefrostCtrl.r32EndInEff = r32InEff;
-      g_tDefrostCtrl.r32EndIncomingTemp = r32CurrentIncomingTemp;
-      g_tDefrostCtrl.r32EndExhaustTemp = r32ExhaustTemp;
-      g_tDefrostCtrl.r32EndDsOutsideTemp = r32_DS18B20_outside_temp();
-      g_tDefrostCtrl.r32EndDsExhaustTemp = r32_DS18B20_exhaust_temp();
-      g_tDefrostCtrl.r32EndDsIncomingTemp = r32_DS18B20_incoming_temp();
-      g_tDefrostCtrl.eEndReason = e_EndReason_FanStopResolved;
+      capture_cycle_end_data(e_EndReason_FanStopResolved);
+      // Overrides
+      g_tDefrostCtrl.tEnd.r32InEff = r32InEff;
+      g_tDefrostCtrl.tEnd.r32IncomingTemp = r32CurrentIncomingTemp;
+
       printf("[AI] fan stop ended\n");
     }
 
@@ -1125,13 +1123,11 @@ static void defrost_control(void) {
       g_tDefrostCtrl.u8AiFanStop = 0;
       g_tDefrostCtrl.tCheckTime = tCurrentTime;
       g_tDefrostCtrl.eState = e_Defrost_Stopped;
-      g_tDefrostCtrl.r32EndInEff = r32InEff;
-      g_tDefrostCtrl.r32EndIncomingTemp = r32CurrentIncomingTemp;
-      g_tDefrostCtrl.r32EndExhaustTemp = r32ExhaustTemp;
-      g_tDefrostCtrl.r32EndDsOutsideTemp = r32_DS18B20_outside_temp();
-      g_tDefrostCtrl.r32EndDsExhaustTemp = r32_DS18B20_exhaust_temp();
-      g_tDefrostCtrl.r32EndDsIncomingTemp = r32_DS18B20_incoming_temp();
-      g_tDefrostCtrl.eEndReason = e_EndReason_Timeout;
+      capture_cycle_end_data(e_EndReason_Timeout);
+      // Overrides
+      g_tDefrostCtrl.tEnd.r32InEff = r32InEff;
+      g_tDefrostCtrl.tEnd.r32IncomingTemp = r32CurrentIncomingTemp;
+
       printf("[AI] fan stop aborted (fireplace activated)\n");
     }
 
@@ -1188,7 +1184,7 @@ static void calc_in_out_effiency(real32 *pr32InEff, real32 *pr32OutEff) {
   real32 r32IncomingTemp = r32_digit_incoming_temp();
   real32 r32OutsideTemp = r32_DS18B20_outside_temp();
   real32 r32InsideTemp = r32_digit_inside_temp();
-  real32 r32ExhaustTemp = r32_digit_exhaust_temp();
+  real32 r32ExhaustTemp = r32_DS18B20_exhaust_temp();
 
   real32 r32IncomingEff =
       ((r32IncomingTemp - r32OutsideTemp) / (r32InsideTemp - r32OutsideTemp)) *
