@@ -46,12 +46,16 @@ async function checkAndStoreDefrostCycle(
         // Timing
         cycle_start: cycleStart,
         total_duration: controlVars.defrost_total_duration?.value || 0,
+        heating_duration: controlVars.defrost_heating_duration?.value || 0,
+        fan_stop_duration: controlVars.defrost_fan_stop_duration?.value || 0,
         // Start conditions (captured at defrost trigger)
         start_outside_temp: controlVars.defrost_start_outside_temp?.value,
         start_humidity: controlVars.defrost_start_rh?.value,
         start_incoming_temp: controlVars.defrost_start_incoming_temp?.value,
         start_dew_point: controlVars.defrost_start_dew_point?.value,
         start_fan_speed: digitVars?.cur_fan_speed?.value,
+        start_in_eff: controlVars.defrost_start_ineff?.value,
+        start_in_eff_filtered: controlVars.defrost_start_ineff_filtered?.value,
         // Start conditions: DS18B20 sensor snapshots
         start_ds_outside_temp: controlVars.defrost_start_ds_outside_temp?.value,
         start_ds_exhaust_temp: controlVars.defrost_start_ds_exhaust_temp?.value,

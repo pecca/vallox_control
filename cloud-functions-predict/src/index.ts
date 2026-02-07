@@ -1,11 +1,20 @@
 import { http, Request, Response } from '@google-cloud/functions-framework';
 import { Firestore } from '@google-cloud/firestore';
+import { PredictionServiceClient, helpers } from '@google-cloud/aiplatform';
 
 const firestore = new Firestore();
+const predictionClient = new PredictionServiceClient({
+    apiEndpoint: 'europe-north1-aiplatform.googleapis.com',
+});
 
 // Vallox API configuration
 const VALLOX_API_URL = process.env.VALLOX_API_URL || 'http://91.157.190.137:9000';
 const VALLOX_API_TOKEN = process.env.VALLOX_API_TOKEN || '';
+
+// GCP Configuration
+const GCP_PROJECT_ID = process.env.GCP_PROJECT_ID || 'pekan-vallox-control';
+const GCP_LOCATION = process.env.GCP_LOCATION || 'europe-north1';
+const VERTEX_ENDPOINT_ID = process.env.VERTEX_ENDPOINT_ID || ''; // e.g. "1234567890"
 
 // Firestore collections
 const STATE_DOC = 'ai_defrost/state';
@@ -134,6 +143,65 @@ function extractSensorData(
         fireplaceMode: extractValue(controlVars, 'fireplace_mode'),
         minExhaustTemp: extractValue(controlVars, 'min_exhaust_temp'),
     };
+}
+
+// --- Vertex AI Prediction ---
+
+async function vertexAiPredict(sensors: SensorData): Promise<PredictResult> {
+    if (!VERTEX_ENDPOINT_ID) {
+        return { action: 'none', reason: 'vertex_endpoint_not_configured', confidence: 0 };
+    }
+
+    // Features MUST be in exactly the same order as in ai_config.py's TRAINING_FEATURES
+    const featureValues = [
+        sensors.outsideTemp || 0,
+        sensors.exhaustTemp || 0, // Using ds_exhaust_temp
+        sensors.exhaustHumidity || 0,
+        sensors.supplyTemp || 0,
+        sensors.fanSpeed || 0,
+        sensors.dewPointDelta || 0,
+        sensors.outsideTemp || 0, // start_ds_outside_temp
+        sensors.supplyTemp || 0,  // start_ds_incoming_temp
+        sensors.inEfficiency || 0, // start_in_eff
+    ];
+    
+    const instances = [helpers.toValue(featureValues)!];
+
+    const endpoint = `projects/${GCP_PROJECT_ID}/locations/${GCP_LOCATION}/endpoints/${VERTEX_ENDPOINT_ID}`;
+
+    try {
+        const responseArray = await predictionClient.predict({
+            endpoint,
+            instances,
+        }) as any;
+        const response = responseArray[0];
+
+        if (!response.predictions || response.predictions.length === 0) {
+            throw new Error('No predictions returned from Vertex AI');
+        }
+
+        // Assuming the model returns a class probability or label
+        // Scikit-learn classifier typically returns probabilities [p0, p1]
+        const prediction = helpers.fromValue(response.predictions[0] as any) as any;
+        
+        // Structure depends on how the model was deployed. 
+        // For standard sklearn on Vertex, it might be just the label [1.0] or probabilities.
+        const label = Array.isArray(prediction) ? prediction[0] : prediction;
+        const confidence = Array.isArray(prediction) && prediction.length > 1 ? prediction[label] : 1.0;
+
+        if (label === 1 || label === '1' || label === 1.0) {
+            return {
+                action: sensors.fireplaceMode === 1 ? 'start_heating' : 'start_fan_stop',
+                reason: `vertex_ai_prediction_positive_conf_${confidence.toFixed(2)}`,
+                confidence: Number(confidence),
+            };
+        }
+
+        return { action: 'none', reason: 'vertex_ai_predicts_no_defrost_needed', confidence: 1 - Number(confidence) };
+    } catch (err: any) {
+        console.error('Vertex AI Prediction failed:', err);
+        return { action: 'none', reason: `vertex_ai_error: ${err.message}`, confidence: 0 };
+    }
 }
 
 // --- Defrost algorithm ---
@@ -280,7 +348,12 @@ http('predictDefrost', async (req: Request, res: Response) => {
         const state = await loadState();
 
         // 3. Run algorithm
-        const result = ruleBasedPredict(sensors, state.defrost_state);
+        let result: PredictResult;
+        if (PREDICTION_MODE === 'vertex_ai' && state.defrost_state === STATE_MEASURING) {
+             result = await vertexAiPredict(sensors);
+        } else {
+             result = ruleBasedPredict(sensors, state.defrost_state);
+        }
 
         console.log(`[${PREDICTION_MODE}] state=${state.defrost_state} action=${result.action} reason=${result.reason}`);
 
