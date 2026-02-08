@@ -163,6 +163,9 @@ async function vertexAiPredict(sensors: SensorData): Promise<PredictResult> {
         } else if (prediction && prediction.scores) {
              // Case: { scores: [0.1, 0.9], classes: ... }
              defrostScore = prediction.scores[1];
+        } else if (prediction && typeof prediction === 'object' && 'numberValue' in prediction) {
+             // Case: { numberValue: 1, kind: 'numberValue' } (Protobuf Value)
+             defrostScore = prediction.numberValue;
         } else {
              // Unknown structure
              throw new Error(`Unknown prediction format: ${JSON.stringify(prediction)}`);
