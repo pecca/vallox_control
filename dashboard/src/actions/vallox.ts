@@ -8,6 +8,7 @@ import {
   DS18B20VarsResponse,
   type DeviceStatus,
   type AiDefrostState,
+  type AiConfig,
 } from '@/lib/schemas';
 
 import { getFirestore } from '@/lib/firestore';
@@ -20,11 +21,12 @@ export async function getDeviceStatus(): Promise<DeviceStatus> {
 
   const firestore = getFirestore();
 
-  const [rawDigit, rawControl, rawDS18B20, aiStateDoc] = await Promise.all([
+  const [rawDigit, rawControl, rawDS18B20, aiStateDoc, aiConfigDoc] = await Promise.all([
     getStatus('digit_vars'),
     getStatus('control_vars'),
     getStatus('ds18b20_vars'),
     firestore.doc('ai_defrost/state').get(),
+    firestore.doc('ai_defrost/config').get(),
   ]);
 
   const digitVars = DigitVarsResponse.parse(rawDigit);
@@ -41,11 +43,25 @@ export async function getDeviceStatus(): Promise<DeviceStatus> {
     };
   }
 
+  let aiConfig: AiConfig = {
+      guardrailStartLimit: 60, 
+      guardrailStopLimit: 80
+  };
+
+  if (aiConfigDoc.exists) {
+      const data = aiConfigDoc.data();
+      aiConfig = {
+          guardrailStartLimit: data?.guardrailStartLimit ?? 60,
+          guardrailStopLimit: data?.guardrailStopLimit ?? 80,
+      };
+  }
+
   const ret = {
     digitVars: digitVars.digit_vars,
     controlVars: controlVars.control_vars,
     ds18b20Vars: ds18b20Vars.ds18b20_vars,
     aiDefrostState,
+    aiConfig,
   };
   console.log('digitVars.min_fan_speed', ret.digitVars.min_fan_speed);
   return ret;
@@ -62,4 +78,15 @@ export async function setDeviceVariable(
   }
   console.log('setDeviceVariable', type, variable, value);
   return setVariable(type, variable, value);
+}
+
+export async function saveAiConfig(config: AiConfig) {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      throw new Error('Unauthorized');
+    }
+  
+    const firestore = getFirestore();
+    await firestore.doc('ai_defrost/config').set(config, { merge: true });
+    return { success: true };
 }

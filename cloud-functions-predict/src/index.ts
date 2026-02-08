@@ -269,6 +269,14 @@ http('predictDefrost', async (req: Request, res: Response) => {
         const state: AiState = req.body.state || { defrost_state: STATE_MEASURING, heating_start_time: 0, updated: new Date() };
 
         // 3. Run algorithm
+        // Fetch Guardrail Config
+        const configDoc = await firestore.doc('ai_defrost/config').get();
+        const config = configDoc.exists ? configDoc.data() : {};
+        
+        const GUARDRAIL_START_LIMIT = config?.guardrailStartLimit ?? 73; // Default 60%
+        const GUARDRAIL_STOP_LIMIT = config?.guardrailStopLimit ?? 88;   // Default 80%
+
+        // 3. Run algorithm
         let result: PredictResult;
         // Vertex AI mode logic will go here once model is ready
         if (PREDICTION_MODE === 'vertex_ai') {
@@ -279,17 +287,32 @@ http('predictDefrost', async (req: Request, res: Response) => {
         }
 
 
-        // 4. Safety Guardrail (The "Limit")
-        // If efficiency is high enough, we force defrost_needed = false regardless of AI
-        const GUARDRAIL_LIMIT = 60; // %
-        if (result.defrost_needed && sensors.inEfficiencyFiltered !== null && sensors.inEfficiencyFiltered > GUARDRAIL_LIMIT) {
-             console.log(`[GUARDRAIL] AI wanted defrost (score=${result.defrostScore}) but efficiency ${sensors.inEfficiencyFiltered}% > ${GUARDRAIL_LIMIT}%`);
-             result = {
-                 defrost_needed: false,
-                 reason: `guardrail_efficiency_high (${sensors.inEfficiencyFiltered?.toFixed(1)}% > ${GUARDRAIL_LIMIT}%)`,
-                 confidence: 1.0,
-                 defrostScore: result.defrostScore
-             };
+        // 4. Safety Guardrails
+        
+        // A) START Guardrail: Prevent starting defrost if efficiency (filtered) is high enough
+        if (state.defrost_state === STATE_MEASURING) {
+            if (result.defrost_needed && sensors.inEfficiencyFiltered !== null && sensors.inEfficiencyFiltered > GUARDRAIL_START_LIMIT) {
+                 console.log(`[GUARDRAIL-START] AI wanted defrost (score=${result.defrostScore}) but filtered eff ${sensors.inEfficiencyFiltered}% > ${GUARDRAIL_START_LIMIT}%`);
+                 result = {
+                     defrost_needed: false,
+                     reason: `guardrail_start_eff_high (${sensors.inEfficiencyFiltered?.toFixed(1)}% > ${GUARDRAIL_START_LIMIT}%)`,
+                     confidence: 1.0,
+                     defrostScore: result.defrostScore
+                 };
+            }
+        } 
+        
+        // B) STOP Guardrail: Force stop defrost if raw efficiency is high enough
+        else if (state.defrost_state !== STATE_STOPPED) { // In some defrost mode (Heating or Fan Stop)
+             if (sensors.inEfficiency !== null && sensors.inEfficiency > GUARDRAIL_STOP_LIMIT) {
+                 console.log(`[GUARDRAIL-STOP] Force stopping defrost. Raw eff ${sensors.inEfficiency}% > ${GUARDRAIL_STOP_LIMIT}%`);
+                 result = {
+                     defrost_needed: false, // This signals "Stop Defrost"
+                     reason: `guardrail_stop_eff_high (${sensors.inEfficiency?.toFixed(1)}% > ${GUARDRAIL_STOP_LIMIT}%)`,
+                     confidence: 1.0,
+                     defrostScore: result.defrostScore
+                 };
+             }
         }
 
         console.log(`[${PREDICTION_MODE}] state=${state.defrost_state} defrost_needed=${result.defrost_needed} reason=${result.reason} score=${result.defrostScore}`);

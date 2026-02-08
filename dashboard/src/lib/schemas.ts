@@ -162,15 +162,23 @@ export const AiDefrostStateSchema = z.object({
   updated: z.number().optional(), // Timestamp (millis)
 });
 
+// AI Config Schema
+export const AiConfigSchema = z.object({
+    guardrailStartLimit: z.number().min(0).max(100).default(60),
+    guardrailStopLimit: z.number().min(0).max(100).default(80),
+});
+
 // Combined device status (after parsing)
 export type DigitVars = z.infer<typeof DigitVarsInner>;
 export type ControlVars = z.infer<typeof ControlVarsInner>;
 export type DS18B20Vars = z.infer<typeof DS18B20VarsInner>;
 export type AiDefrostState = z.infer<typeof AiDefrostStateSchema>;
+export type AiConfig = z.infer<typeof AiConfigSchema>;
 
 export interface DeviceStatus {
   digitVars: DigitVars;
   controlVars: ControlVars;
   ds18b20Vars: DS18B20Vars;
   aiDefrostState?: AiDefrostState;
+  aiConfig?: AiConfig;
 }

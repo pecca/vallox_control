@@ -15,6 +15,7 @@ import EfficiencyStats from '@/components/EfficiencyStats';
 import FireplaceControl from '@/components/FireplaceControl';
 import DefrostModeControl from '@/components/DefrostModeControl';
 import DefrostStatus from '@/components/DefrostStatus';
+import AiSettings from '@/components/AiSettings';
 import DefrostConfigPanel from '@/components/DefrostConfigPanel';
 import { getDeviceStatus } from '@/actions/vallox';
 import type { DeviceStatus } from '@/lib/schemas';
@@ -115,6 +116,9 @@ export default function DashboardPage() {
             ds18b20Vars={ds} 
             aiDefrostState={data?.aiDefrostState}
           />
+        </Grid>
+        <Grid size={{ xs: 12, md: 4 }}>
+          {data?.aiConfig && <AiSettings config={data.aiConfig} />}
         </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
           <FireplaceControl controlVars={cv} />
