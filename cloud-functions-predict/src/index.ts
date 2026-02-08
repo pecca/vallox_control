@@ -272,7 +272,7 @@ http('predictDefrost', async (req: Request, res: Response) => {
         // 3. Run algorithm
         let result: PredictResult;
         // Vertex AI mode logic will go here once model is ready
-        if (PREDICTION_MODE === 'vertex_ai' && state.defrost_state === STATE_MEASURING) {
+        if (PREDICTION_MODE === 'vertex_ai') {
              result = await vertexAiPredict(sensors);
         } else {
              // Fallback to rules if Vertex AI not configured or not in Measuring state
