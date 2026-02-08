@@ -140,9 +140,34 @@ async function vertexAiPredict(sensors: SensorData): Promise<PredictResult> {
             throw new Error('No predictions returned from Vertex AI');
         }
  
-        const scores = response.predictions[0].scores;
-        // Assuming binary classification: [0: No Defrost, 1: Defrost Needed]
-        const defrostScore = scores[1]; 
+        console.log('Vertex AI Raw Response:', JSON.stringify(response));
+
+        // SKLearn output format can vary. It usually returns the predicted class directly, 
+        // OR probabilities if predict_proba was called. 
+        // For GradientBoostingClassifier in Vertex AI serving container:
+        // It likely returns just the prediction class, or we need to check how to get probabilities.
+        
+        // Let's first see what we get.
+        const prediction = response.predictions[0];
+        console.log('Prediction[0]:', prediction);
+
+        let defrostScore = 0;
+        
+        // Handle different possible formats
+        if (Array.isArray(prediction)) {
+             // Case: [0.1, 0.9] (probabilities)
+             defrostScore = prediction[1]; 
+        } else if (typeof prediction === 'number') {
+             // Case: 0 or 1 (class label)
+             defrostScore = prediction;
+        } else if (prediction && prediction.scores) {
+             // Case: { scores: [0.1, 0.9], classes: ... }
+             defrostScore = prediction.scores[1];
+        } else {
+             // Unknown structure
+             throw new Error(`Unknown prediction format: ${JSON.stringify(prediction)}`);
+        }
+ 
         
         console.log(`Vertex AI Score: ${defrostScore}`);
  
@@ -239,10 +264,7 @@ http('predictDefrost', async (req: Request, res: Response) => {
         // State is passed by RPi, or default to Measuring if not provided
         const state: AiState = req.body.state || { defrost_state: STATE_MEASURING, heating_start_time: 0, updated: new Date() };
 
-        if (sensors.defrostMode !== DEFROST_MODE_AI) {
-            res.json({ action: 'none', reason: `defrost_mode=${sensors.defrostMode} (not AI)` });
-            return;
-        }
+
 
         // 3. Run algorithm
         let result: PredictResult;

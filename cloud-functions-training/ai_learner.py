@@ -159,7 +159,7 @@ def prepare_training_data(df):
     # Regression: predict heating duration for successful cycles only
     if 'end_reason' in df_clean.columns and 'heating_duration' in df_clean.columns:
         successful = df_clean['end_reason'].isin(SUCCESSFUL_END_REASONS)
-        reg_df = df_clean[successful]
+        reg_df = df_clean[successful].dropna(subset=['heating_duration'])
         if len(reg_df) >= 5:
             reg_X = scaler.transform(reg_df[available_features])
             reg_y = reg_df['heating_duration'].values
@@ -260,8 +260,9 @@ def save_model_artifacts(classifier, regressor, scaler, available_features):
         GCS URI of the model artifacts directory.
     """
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    gcs_dir = f"models/v{timestamp}"
-
+    gcs_base_dir = f"models/v{timestamp}"
+    
+    # 1. Save standard artifacts (all components)
     with tempfile.TemporaryDirectory() as tmpdir:
         # Save artifacts locally
         joblib.dump(classifier, os.path.join(tmpdir, 'classifier.joblib'))
@@ -279,15 +280,33 @@ def save_model_artifacts(classifier, regressor, scaler, available_features):
         with open(os.path.join(tmpdir, 'metadata.json'), 'w') as f:
             json.dump(metadata, f, indent=2)
 
-        # Upload to GCS
+        # Upload ALL artifacts to main GCS directory
         client = storage.Client(project=PROJECT_ID)
         bucket = client.bucket(GCS_BUCKET)
 
         for filename in os.listdir(tmpdir):
-            blob = bucket.blob(f"{gcs_dir}/{filename}")
+            blob = bucket.blob(f"{gcs_base_dir}/{filename}")
             blob.upload_from_filename(os.path.join(tmpdir, filename))
+            
+    # 2. Prepare deployment package (Only allowed files for Vertex AI)
+    # The pre-built container expects exactly one 'model.joblib' or 'model.pkl'
+    # We bundle the scaler and classifier into a Pipeline.
+    from sklearn.pipeline import Pipeline
+    deployment_pipeline = Pipeline([
+        ('scaler', scaler),
+        ('classifier', classifier)
+    ])
+    
+    gcs_deploy_dir = f"{gcs_base_dir}/deployment"
+    
+    with tempfile.TemporaryDirectory() as deploy_tmp:
+        joblib.dump(deployment_pipeline, os.path.join(deploy_tmp, 'model.joblib'))
+        
+        # Upload model.joblib to the deployment subdirectory
+        blob = bucket.blob(f"{gcs_deploy_dir}/model.joblib")
+        blob.upload_from_filename(os.path.join(deploy_tmp, 'model.joblib'))
 
-    gcs_uri = f"gs://{GCS_BUCKET}/{gcs_dir}"
+    gcs_uri = f"gs://{GCS_BUCKET}/{gcs_deploy_dir}"
     print(f"Model artifacts uploaded to {gcs_uri}")
     return gcs_uri
 
