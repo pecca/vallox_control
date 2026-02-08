@@ -28,7 +28,7 @@ gcloud functions deploy $FUNCTION_NAME \
     --entry-point=$ENTRY_POINT \
     --trigger-http \
     --allow-unauthenticated \
-    --memory=256Mi \
+    --memory=512Mi \
     --timeout=60s \
     --set-env-vars PROJECT_ID=$PROJECT_ID,PREDICTION_MODE=rules,VALLOX_API_TOKEN=huuhaa \
     --project=$PROJECT_ID

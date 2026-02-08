@@ -7,9 +7,6 @@ const predictionClient = new PredictionServiceClient({
     apiEndpoint: 'europe-north1-aiplatform.googleapis.com',
 });
 
-// Vallox API configuration
-const VALLOX_API_URL = process.env.VALLOX_API_URL || 'http://91.157.190.137:9000';
-const VALLOX_API_TOKEN = process.env.VALLOX_API_TOKEN || '';
 
 // GCP Configuration
 const GCP_PROJECT_ID = process.env.GCP_PROJECT_ID || 'pekan-vallox-control';

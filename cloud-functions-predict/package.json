@@ -5,15 +5,14 @@
   "scripts": {
     "build": "npm run compile",
     "compile": "tsc",
-    "gcp-build": "",
+    "gcp-build": "npm run compile",
+    "start": "functions-framework --target=predictDefrost",
     "deploy": "npm run compile && gcloud functions deploy predictDefrost --runtime=nodejs20 --trigger-http --allow-unauthenticated --entry-point=predictDefrost --source=. --region=europe-north1 --memory=256MB --set-env-vars=VALLOX_API_URL=http://91.157.190.137:9000,VALLOX_API_TOKEN=$VALLOX_API_TOKEN"
   },
   "dependencies": {
     "@google-cloud/aiplatform": "^6.4.0",
     "@google-cloud/firestore": "^7.0.0",
-    "@google-cloud/functions-framework": "^3.0.0"
-  },
-  "devDependencies": {
+    "@google-cloud/functions-framework": "^3.0.0",
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0"
   }
