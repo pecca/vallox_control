@@ -23,9 +23,15 @@ const DEFROST_TARGET_IN_EFF = 85;
 /**
  * Generic HTTP Request Helper (Node 10 Compatible)
  */
-function request(method, path, body) {
+function request(method, path, body, overrideUrl) {
     return new Promise((resolve, reject) => {
-        const fullUrl = `${VALLOX_API_URL}${path}${path.includes('?') ? '&' : '?'}token=${VALLOX_API_TOKEN}`;
+        let fullUrl;
+        if (overrideUrl) {
+            fullUrl = overrideUrl + path;
+        } else {
+            fullUrl = `${VALLOX_API_URL}${path}${path.includes('?') ? '&' : '?'}token=${VALLOX_API_TOKEN}`;
+        }
+        
         const parsedUrl = url.parse(fullUrl);
         
         const options = {
@@ -107,6 +113,8 @@ function getRuleDecision(sensors, state) {
     return { action: 'none', reason: 'Waiting' };
 }
 
+const CLOUD_AI_URL = 'https://predictdefrost-2hdewsdtgq-lz.a.run.app';
+
 /**
  * Main Loop
  */
@@ -125,32 +133,50 @@ async function tick() {
         const dv = digitRes.digit_vars || {};
         const ds = ds18Res.ds18b20_vars || {};
 
-        const sensors = {
-            defrost_mode: getVal(cv, 'defrost_mode'),
-            in_efficiency: getVal(cv, 'in_efficiency'),
-            in_efficiency_filtered: getVal(cv, 'in_efficiency_filtered'),
-            fireplace_mode: getVal(cv, 'fireplace_mode'),
-            min_exhaust_temp: getVal(cv, 'min_exhaust_temp'),
-            ds_exhaust_temp: getVal(ds, 'ds_exhaust_temp'),
-            incoming_temp: getVal(dv, 'incoming_temp')
+        const sensorPayload = {
+            defrostMode: getVal(cv, 'defrost_mode'),
+            inEfficiency: getVal(cv, 'in_efficiency'),
+            inEfficiencyFiltered: getVal(cv, 'in_efficiency_filtered'),
+            fireplaceMode: getVal(cv, 'fireplace_mode'),
+            minExhaustTemp: getVal(cv, 'min_exhaust_temp'),
+            outsideTemp: getVal(ds, 'ds_outside_temp'),
+            exhaustTemp: getVal(ds, 'ds_exhaust_temp'),
+            exhaustHumidity: getVal(dv, 'rh1_sensor'),
+            supplyTemp: getVal(dv, 'incoming_temp'),
+            fanSpeed: getVal(dv, 'cur_fan_speed'),
+            pressureDiff: getVal(cv, 'pressure_diff'),
+            dewPointDelta: 0 // Will be calculated by Cloud or rule
         };
 
-        if (sensors.defrost_mode !== DEFROST_MODE_AI) {
-            console.log("Not in AI mode. Skipping.");
+        if (sensorPayload.defrostMode !== DEFROST_MODE_AI) {
+            console.log("Defrost mode is not AI (3). Skipping.");
             return;
         }
 
-        // 2. Load State
+        // 2. Load Local State
         let state = { defrost_state: STATE_MEASURING };
         if (fs.existsSync(STATE_FILE)) {
             try { state = JSON.parse(fs.readFileSync(STATE_FILE)); } catch (e) {}
         }
 
-        // 3. Predict
-        const decision = getRuleDecision(sensors, state);
-        console.log(`State: ${state.defrost_state} | Decision: ${decision.action} (${decision.reason})`);
+        // 3. Consult Cloud AI (Advisor)
+        let decision;
+        try {
+            console.log("Consulting Cloud AI Advisor...");
+            decision = await request('POST', '', { 
+                sensors: sensorPayload,
+                state: state
+            }, CLOUD_AI_URL);
+        } catch (err) {
+            console.error("Cloud AI unreachable:", err.message);
+            console.log("CRITICAL: Falling back to Firmware AUTO mode for safety!");
+            await api.control('defrost_mode', 0); // 0 = Auto
+            return;
+        }
 
-        // 4. Act
+        console.log(`Cloud Decision: ${decision.action} (${decision.reason || 'no reason'})`);
+
+        // 4. Act (Master Controller)
         if (decision.action === 'start_fan_stop') {
             await api.control('ai_defrost_heating', 0);
             await api.control('ai_defrost_fan_stop', 1);

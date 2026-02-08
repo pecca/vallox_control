@@ -68,44 +68,6 @@ interface PredictResult {
 
 // --- Vallox API communication ---
 
-async function fetchFromApi(type: string): Promise<Record<string, any>> {
-    const url = `${VALLOX_API_URL}/api/vallox/status?type=${type}&token=${VALLOX_API_TOKEN}`;
-    const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    if (!resp.ok) {
-        throw new Error(`API error fetching ${type}: ${resp.status} ${resp.statusText}`);
-    }
-    return resp.json() as Promise<Record<string, any>>;
-}
-
-async function sendCommand(variable: string, value: number): Promise<void> {
-    const url = `${VALLOX_API_URL}/api/vallox/control?token=${VALLOX_API_TOKEN}`;
-    const resp = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'control_vars', variable, value }),
-        signal: AbortSignal.timeout(10000),
-    });
-    if (!resp.ok) {
-        throw new Error(`API error sending ${variable}=${value}: ${resp.status} ${resp.statusText}`);
-    }
-    console.log(`Command sent: ${variable}=${value}`);
-}
-
-// --- State persistence in Firestore ---
-
-async function loadState(): Promise<AiState> {
-    const doc = await firestore.doc(STATE_DOC).get();
-    if (doc.exists) {
-        return doc.data() as AiState;
-    }
-    return { defrost_state: STATE_MEASURING, heating_start_time: 0, updated: new Date() };
-}
-
-async function saveState(state: AiState): Promise<void> {
-    state.updated = new Date();
-    await firestore.doc(STATE_DOC).set(state);
-}
-
 // --- Sensor data extraction ---
 
 function extractValue(vars: Record<string, any>, key: string): number | null {
@@ -325,74 +287,33 @@ async function logPrediction(
 
 http('predictDefrost', async (req: Request, res: Response) => {
     try {
-        // 1. Fetch current data
-        const [controlVars, digitVars, ds18b20Vars] = await Promise.all([
-            fetchFromApi('control_vars'),
-            fetchFromApi('digit_vars'),
-            fetchFromApi('ds18b20_vars'),
-        ]);
+        if (req.method !== 'POST' || !req.body || !req.body.sensors) {
+             res.status(400).json({ action: 'none', reason: 'invalid_request', error: 'POST with sensor data required' });
+             return;
+        }
 
-        const sensors = extractSensorData(controlVars, digitVars, ds18b20Vars);
+        const sensors: SensorData = req.body.sensors;
+        // State is passed by RPi, or default to Measuring if not provided
+        const state: AiState = req.body.state || { defrost_state: STATE_MEASURING, heating_start_time: 0, updated: new Date() };
 
         if (sensors.defrostMode !== DEFROST_MODE_AI) {
-            const state = await loadState();
-            if (state.defrost_state !== STATE_MEASURING) {
-                await saveState({ defrost_state: STATE_MEASURING, heating_start_time: 0, updated: new Date() });
-                console.log('Not in AI mode, state reset to measuring');
-            }
             res.json({ action: 'none', reason: `defrost_mode=${sensors.defrostMode} (not AI)` });
             return;
         }
 
-        // 2. Load state
-        const state = await loadState();
-
         // 3. Run algorithm
         let result: PredictResult;
+        // Vertex AI mode logic will go here once model is ready
         if (PREDICTION_MODE === 'vertex_ai' && state.defrost_state === STATE_MEASURING) {
              result = await vertexAiPredict(sensors);
         } else {
+             // Fallback to rules if Vertex AI not configured or not in Measuring state
              result = ruleBasedPredict(sensors, state.defrost_state);
         }
 
         console.log(`[${PREDICTION_MODE}] state=${state.defrost_state} action=${result.action} reason=${result.reason}`);
 
-        // 4. Execute action
-        if (result.action === 'start_fan_stop') {
-            await sendCommand('ai_defrost_heating', 0);
-            await sendCommand('ai_defrost_fan_stop', 1);
-            state.defrost_state = STATE_FAN_STOP;
-            state.heating_start_time = 0;
-            console.log('Defrost Fan Stop started');
-        } 
-        else if (result.action === 'stop_fan_stop') {
-            await sendCommand('ai_defrost_fan_stop', 0);
-            state.defrost_state = STATE_MEASURING;
-            state.heating_start_time = 0;
-            console.log('Fan stop ended');
-        }
-        else if (result.action === 'start_heating') {
-            await sendCommand('ai_defrost_fan_stop', 0); // Ensure fan stop is OFF
-            await sendCommand('ai_defrost_heating', 1);
-            state.defrost_state = STATE_HEATING;
-            state.heating_start_time = Date.now() / 1000;
-            console.log('Defrost Heating started (Fireplace Mode)');
-        }
-        else if (result.action === 'stop_heating') {
-            await sendCommand('ai_defrost_heating', 0);
-            state.defrost_state = STATE_MEASURING; // Or Stopped (Cooldown)?
-            // For now, go to Measuring. The C firmware handles cooldown if needed.
-            if (sensors.fireplaceMode === 1) {
-                // In fireplace mode, we might want to respect cooldown?
-                // The algorithm doesn't track cooldown, the C firmware does.
-                // Cloud just sends commands.
-            }
-            state.heating_start_time = 0;
-            console.log('Heating stopped');
-        }
-
-        // 5. Save state + log
-        await saveState(state);
+        // Log prediction for future training
         if (result.action !== 'none') {
             await logPrediction(sensors, state.defrost_state, result);
         }
