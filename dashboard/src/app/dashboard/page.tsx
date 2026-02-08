@@ -109,7 +109,12 @@ export default function DashboardPage() {
           <DefrostModeControl controlVars={cv} />
         </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
-          <DefrostStatus controlVars={cv} digitVars={dv} ds18b20Vars={ds} />
+          <DefrostStatus 
+            controlVars={cv} 
+            digitVars={dv} 
+            ds18b20Vars={ds} 
+            aiDefrostState={data?.aiDefrostState}
+          />
         </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
           <FireplaceControl controlVars={cv} />

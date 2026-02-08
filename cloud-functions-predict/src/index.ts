@@ -61,6 +61,7 @@ interface PredictResult {
     defrost_needed: boolean;
     reason: string;
     confidence: number;
+    defrostScore?: number;
 }
  
 // --- Vallox API communication ---
@@ -175,10 +176,10 @@ async function vertexAiPredict(sensors: SensorData): Promise<PredictResult> {
         console.log(`Vertex AI Score: ${defrostScore}`);
  
         if (defrostScore > 0.5) {
-             return { defrost_needed: true, reason: 'ai_score_high', confidence: defrostScore };
+             return { defrost_needed: true, reason: 'ai_score_high', confidence: defrostScore, defrostScore };
         }
  
-        return { defrost_needed: false, reason: 'ai_score_low', confidence: defrostScore };
+        return { defrost_needed: false, reason: 'ai_score_low', confidence: defrostScore, defrostScore };
  
     } catch (err: any) {
         console.error('Vertex AI Prediction failed:', err);
@@ -267,8 +268,6 @@ http('predictDefrost', async (req: Request, res: Response) => {
         // State is passed by RPi, or default to Measuring if not provided
         const state: AiState = req.body.state || { defrost_state: STATE_MEASURING, heating_start_time: 0, updated: new Date() };
 
-
-
         // 3. Run algorithm
         let result: PredictResult;
         // Vertex AI mode logic will go here once model is ready
@@ -279,10 +278,39 @@ http('predictDefrost', async (req: Request, res: Response) => {
              result = ruleBasedPredict(sensors, state.defrost_state);
         }
 
-        console.log(`[${PREDICTION_MODE}] state=${state.defrost_state} defrost_needed=${result.defrost_needed} reason=${result.reason}`);
+
+        // 4. Safety Guardrail (The "Limit")
+        // If efficiency is high enough, we force defrost_needed = false regardless of AI
+        const GUARDRAIL_LIMIT = 60; // %
+        if (result.defrost_needed && sensors.inEfficiencyFiltered !== null && sensors.inEfficiencyFiltered > GUARDRAIL_LIMIT) {
+             console.log(`[GUARDRAIL] AI wanted defrost (score=${result.defrostScore}) but efficiency ${sensors.inEfficiencyFiltered}% > ${GUARDRAIL_LIMIT}%`);
+             result = {
+                 defrost_needed: false,
+                 reason: `guardrail_efficiency_high (${sensors.inEfficiencyFiltered?.toFixed(1)}% > ${GUARDRAIL_LIMIT}%)`,
+                 confidence: 1.0,
+                 defrostScore: result.defrostScore
+             };
+        }
+
+        console.log(`[${PREDICTION_MODE}] state=${state.defrost_state} defrost_needed=${result.defrost_needed} reason=${result.reason} score=${result.defrostScore}`);
+
+        // Update latest state in Firestore for Dashboard
+        if (result.defrostScore !== undefined) {
+             await firestore.doc(STATE_DOC).set({ 
+                 defrostScore: result.defrostScore,
+                 updated: new Date()
+             }, { merge: true });
+        }
 
         // Log prediction for future training
-        if (result.defrost_needed) {
+        // We log:
+        // 1. All "defrost_needed=true" (positives)
+        // 2. All "guardrail" interventions (interesting negatives)
+        // 3. Random 5% sample of "defrost_needed=false" (normal negatives) to fix training bias
+        const isInteresting = result.defrost_needed || result.reason.startsWith('guardrail');
+        const isRandomSample = Math.random() < 0.05;
+
+        if (isInteresting || isRandomSample) {
             await logPrediction(sensors, state.defrost_state, result);
         }
 

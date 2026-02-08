@@ -7,7 +7,10 @@ import {
   ControlVarsResponse,
   DS18B20VarsResponse,
   type DeviceStatus,
+  type AiDefrostState,
 } from '@/lib/schemas';
+
+import { getFirestore } from '@/lib/firestore';
 
 export async function getDeviceStatus(): Promise<DeviceStatus> {
   const session = await getServerSession(authOptions);
@@ -15,20 +18,34 @@ export async function getDeviceStatus(): Promise<DeviceStatus> {
     throw new Error('Unauthorized');
   }
 
-  const [rawDigit, rawControl, rawDS18B20] = await Promise.all([
+  const firestore = getFirestore();
+
+  const [rawDigit, rawControl, rawDS18B20, aiStateDoc] = await Promise.all([
     getStatus('digit_vars'),
     getStatus('control_vars'),
     getStatus('ds18b20_vars'),
+    firestore.doc('ai_defrost/state').get(),
   ]);
 
   const digitVars = DigitVarsResponse.parse(rawDigit);
   const controlVars = ControlVarsResponse.parse(rawControl);
   const ds18b20Vars = DS18B20VarsResponse.parse(rawDS18B20);
+  
+  let aiDefrostState: AiDefrostState | undefined;
+  
+  if (aiStateDoc.exists) {
+    const data = aiStateDoc.data() as any;
+    aiDefrostState = {
+        defrostScore: data.defrostScore,
+        updated: data.updated?.toMillis ? data.updated.toMillis() : Date.now(),
+    };
+  }
 
   const ret = {
     digitVars: digitVars.digit_vars,
     controlVars: controlVars.control_vars,
     ds18b20Vars: ds18b20Vars.ds18b20_vars,
+    aiDefrostState,
   };
   console.log('digitVars.min_fan_speed', ret.digitVars.min_fan_speed);
   return ret;

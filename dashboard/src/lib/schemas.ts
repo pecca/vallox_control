@@ -156,13 +156,21 @@ export const DS18B20VarsResponse = z.object({
   ds18b20_vars: DS18B20VarsInner,
 });
 
+// AiDefrostState schema
+export const AiDefrostStateSchema = z.object({
+  defrostScore: z.number().optional(),
+  updated: z.number().optional(), // Timestamp (millis)
+});
+
 // Combined device status (after parsing)
 export type DigitVars = z.infer<typeof DigitVarsInner>;
 export type ControlVars = z.infer<typeof ControlVarsInner>;
 export type DS18B20Vars = z.infer<typeof DS18B20VarsInner>;
+export type AiDefrostState = z.infer<typeof AiDefrostStateSchema>;
 
 export interface DeviceStatus {
   digitVars: DigitVars;
   controlVars: ControlVars;
   ds18b20Vars: DS18B20Vars;
+  aiDefrostState?: AiDefrostState;
 }

@@ -9,7 +9,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableRow from '@mui/material/TableRow';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
-import type { ControlVars, DigitVars, DS18B20Vars } from '@/lib/schemas';
+import type { ControlVars, DigitVars, DS18B20Vars, AiDefrostState } from '@/lib/schemas';
 
 const STATE_LABELS: Record<number, string> = {
   0: 'Measuring',
@@ -40,9 +40,10 @@ interface DefrostStatusProps {
   controlVars: ControlVars | undefined;
   digitVars: DigitVars | undefined;
   ds18b20Vars: DS18B20Vars | undefined;
+  aiDefrostState: AiDefrostState | undefined;
 }
 
-export default function DefrostStatus({ controlVars, digitVars, ds18b20Vars }: DefrostStatusProps) {
+export default function DefrostStatus({ controlVars, digitVars, ds18b20Vars, aiDefrostState }: DefrostStatusProps) {
   if (!controlVars) return null;
 
   const state = controlVars.defrost_state.value;
@@ -186,6 +187,14 @@ export default function DefrostStatus({ controlVars, digitVars, ds18b20Vars }: D
                    />
                  </TableCell>
                </TableRow>
+               {aiDefrostState?.defrostScore !== undefined && (
+                 <TableRow>
+                   <TableCell sx={{ py: 0.5 }}>Defrost Score</TableCell>
+                   <TableCell align="right" sx={{ py: 0.5 }}>
+                     {aiDefrostState.defrostScore.toFixed(3)}
+                   </TableCell>
+                 </TableRow>
+               )}
             </TableBody>
           </Table>
         </TableContainer>
