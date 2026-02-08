@@ -115,30 +115,77 @@ export default function DefrostStatus({ controlVars, digitVars, ds18b20Vars }: D
                   </TableRow>
                 </>
               )}
-              {!isActive && controlVars.defrost_end_reason.value > 0 && (
+            {!isActive && controlVars.defrost_end_reason.value > 0 && (
                 <>
                   <TableRow>
-                    <TableCell sx={{ py: 0.5 }}>Last end reason</TableCell>
-                    <TableCell align="right" sx={{ py: 0.5 }}>
-                      {END_REASON_LABELS[controlVars.defrost_end_reason.value] ?? controlVars.defrost_end_reason.value}
+                    <TableCell colSpan={2} sx={{ py: 1, fontWeight: 'bold' }}>
+                      Last Defrost Cycle
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell sx={{ py: 0.5 }}>Heating duration</TableCell>
-                    <TableCell align="right" sx={{ py: 0.5 }}>
-                      {controlVars.defrost_heating_duration.value} s
-                    </TableCell>
-                  </TableRow>
-                  {controlVars.defrost_fan_stop_duration.value > 0 && (
-                    <TableRow>
-                      <TableCell sx={{ py: 0.5 }}>Fan stop duration</TableCell>
-                      <TableCell align="right" sx={{ py: 0.5 }}>
-                        {controlVars.defrost_fan_stop_duration.value} s
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </>
-              )}
+                     <TableCell sx={{ py: 0.5 }}>Reason</TableCell>
+                     <TableCell align="right" sx={{ py: 0.5 }}>
+                       {END_REASON_LABELS[controlVars.defrost_end_reason.value] ?? controlVars.defrost_end_reason.value}
+                     </TableCell>
+                   </TableRow>
+                   <TableRow>
+                     <TableCell sx={{ py: 0.5 }}>Total duration</TableCell>
+                     <TableCell align="right" sx={{ py: 0.5 }}>
+                       {controlVars.defrost_total_duration.value} s
+                     </TableCell>
+                   </TableRow>
+                   <TableRow>
+                     <TableCell sx={{ py: 0.5 }}>Heating duration</TableCell>
+                     <TableCell align="right" sx={{ py: 0.5 }}>
+                       {controlVars.defrost_heating_duration.value} s
+                     </TableCell>
+                   </TableRow>
+                   {controlVars.defrost_fan_stop_duration.value > 0 && (
+                     <TableRow>
+                       <TableCell sx={{ py: 0.5 }}>Fan stop duration</TableCell>
+                       <TableCell align="right" sx={{ py: 0.5 }}>
+                         {controlVars.defrost_fan_stop_duration.value} s
+                       </TableCell>
+                     </TableRow>
+                   )}
+                   <TableRow>
+                     <TableCell sx={{ py: 0.5 }}>End Efficiency</TableCell>
+                     <TableCell align="right" sx={{ py: 0.5 }}>
+                       {controlVars.defrost_end_in_eff.value.toFixed(1)} %
+                     </TableCell>
+                   </TableRow>
+                   <TableRow>
+                     <TableCell sx={{ py: 0.5 }}>End Supply Temp</TableCell>
+                     <TableCell align="right" sx={{ py: 0.5 }}>
+                       {controlVars.defrost_end_incoming_temp.value.toFixed(1)} {'\u00B0C'}
+                     </TableCell>
+                   </TableRow>
+                   {controlVars.defrost_end_exhaust_temp?.value !== undefined && (
+                     <TableRow>
+                       <TableCell sx={{ py: 0.5 }}>End Exhaust Temp</TableCell>
+                       <TableCell align="right" sx={{ py: 0.5 }}>
+                         {controlVars.defrost_end_exhaust_temp.value.toFixed(1)} {'\u00B0C'}
+                       </TableCell>
+                     </TableRow>
+                   )}
+                 </>
+               )}
+               <TableRow>
+                  <TableCell colSpan={2} sx={{ py: 1, fontWeight: 'bold' }}>
+                    AI Control
+                  </TableCell>
+               </TableRow>
+               <TableRow>
+                 <TableCell sx={{ py: 0.5 }}>AI Heating Request</TableCell>
+                 <TableCell align="right" sx={{ py: 0.5 }}>
+                   <Chip 
+                     label={controlVars.ai_defrost_heating.value === 1 ? 'ON' : 'OFF'} 
+                     color={controlVars.ai_defrost_heating.value === 1 ? 'warning' : 'default'}
+                     size="small" 
+                     sx={{ height: 20, fontSize: '0.75rem' }}
+                   />
+                 </TableCell>
+               </TableRow>
             </TableBody>
           </Table>
         </TableContainer>

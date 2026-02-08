@@ -15,7 +15,7 @@ interface FireplaceControlProps {
 }
 
 export default function FireplaceControl({ controlVars }: FireplaceControlProps) {
-  const [duration, setDuration] = useState<number>(15); // minutes
+  const [duration, setDuration] = useState<number>(90); // minutes
   const [isPending, startTransition] = useTransition();
   const active = controlVars?.fireplace_active?.value === 1;
   const remaining = controlVars?.fireplace_remaining?.value ?? 0;
@@ -72,9 +72,9 @@ export default function FireplaceControl({ controlVars }: FireplaceControlProps)
               <Slider
                 value={duration}
                 onChange={(_, val) => setDuration(val as number)}
-                min={5}
-                max={60}
-                step={5}
+                min={15}
+                max={180}
+                step={15}
                 marks
                 disabled={isPending}
                 sx={{ color: '#f44336' }}
