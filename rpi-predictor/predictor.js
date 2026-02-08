@@ -7,18 +7,11 @@ const url = require('url');
 // --- Configuration ---
 const VALLOX_API_URL = process.env.VALLOX_API_URL || 'http://91.157.190.137:9000';
 const VALLOX_API_TOKEN = process.env.VALLOX_API_TOKEN || 'huuhaa';
+const CLOUD_AI_URL = process.env.CLOUD_AI_URL || 'https://predictdefrost-2hdewsdtgq-lz.a.run.app';
 const INTERVAL = 60000; // 60 seconds
-const STATE_FILE = path.join(__dirname, 'defrost_state.json');
 
-// Defrost states (must match C firmware)
-const STATE_MEASURING = 0;
-const STATE_HEATING = 1;
-const STATE_FAN_STOP = 3;
+// Defrost modes
 const DEFROST_MODE_AI = 3;
-
-// Thresholds
-const DEFROST_START_LEVEL = 73;
-const DEFROST_TARGET_IN_EFF = 85;
 
 /**
  * Generic HTTP Request Helper (Node 10 Compatible)
@@ -80,49 +73,13 @@ function getVal(obj, key) {
 }
 
 /**
- * Local Rule-Based Logic
- */
-function getRuleDecision(sensors, state) {
-    const { in_efficiency, in_efficiency_filtered, fireplace_mode, ds_exhaust_temp, min_exhaust_temp } = sensors;
-
-    if (in_efficiency === undefined || in_efficiency_filtered === undefined) {
-        return { action: 'none', reason: 'Missing efficiency data' };
-    }
-
-    if (state.defrost_state === STATE_MEASURING) {
-        if (in_efficiency_filtered < DEFROST_START_LEVEL && in_efficiency < in_efficiency_filtered) {
-            return {
-                action: fireplace_mode === 1 ? 'start_heating' : 'start_fan_stop',
-                reason: `Efficiency low (${in_efficiency_filtered.toFixed(1)}%)`
-            };
-        }
-        return { action: 'none', reason: 'Efficiency OK' };
-    }
-
-    if (state.defrost_state === STATE_FAN_STOP) {
-        if (fireplace_mode === 1) return { action: 'start_heating', reason: 'Fireplace activated' };
-        if (in_efficiency_filtered > DEFROST_TARGET_IN_EFF) return { action: 'stop_fan_stop', reason: 'Efficiency recovered' };
-    }
-
-    if (state.defrost_state === STATE_HEATING) {
-        if (fireplace_mode === 0) return { action: 'start_fan_stop', reason: 'Fireplace off' };
-        const limit = min_exhaust_temp || 3.0;
-        if (ds_exhaust_temp > limit) return { action: 'stop_heating', reason: 'Exhaust target reached' };
-    }
-
-    return { action: 'none', reason: 'Waiting' };
-}
-
-const CLOUD_AI_URL = 'https://predictdefrost-2hdewsdtgq-lz.a.run.app';
-
-/**
  * Main Loop
  */
 async function tick() {
     try {
         console.log(`[${new Date().toISOString()}] Tick...`);
 
-        // 1. Fetch sensor data
+        // 1. Fetch sensor data including current Firmware State
         const [controlRes, digitRes, ds18Res] = await Promise.all([
             api.getStatus('control_vars'),
             api.getStatus('digit_vars'),
@@ -132,6 +89,8 @@ async function tick() {
         const cv = controlRes.control_vars || {};
         const dv = digitRes.digit_vars || {};
         const ds = ds18Res.ds18b20_vars || {};
+
+        const currentDefrostState = getVal(cv, 'defrost_state') || 0; // 0=Measuring, 1=Heating, etc.
 
         const sensorPayload = {
             defrostMode: getVal(cv, 'defrost_mode'),
@@ -145,60 +104,51 @@ async function tick() {
             supplyTemp: getVal(dv, 'incoming_temp'),
             fanSpeed: getVal(dv, 'cur_fan_speed'),
             pressureDiff: getVal(cv, 'pressure_diff'),
-            dewPointDelta: 0 // Will be calculated by Cloud or rule
+            dewPointDelta: 0, // Will be calculated by Cloud
         };
 
-        if (sensorPayload.defrostMode !== DEFROST_MODE_AI) {
-            console.log("Defrost mode is not AI (3). Skipping.");
-            return;
-        }
-
-        // 2. Load Local State
-        let state = { defrost_state: STATE_MEASURING };
-        if (fs.existsSync(STATE_FILE)) {
-            try { state = JSON.parse(fs.readFileSync(STATE_FILE)); } catch (e) {}
-        }
-
-        // 3. Consult Cloud AI (Advisor)
+        // 2. Monitoring: Always consult Cloud AI
         let decision;
         try {
-            console.log("Consulting Cloud AI Advisor...");
+            // We pass the Firmware's state to the Cloud so it knows context
+            const statePayload = { 
+                defrost_state: currentDefrostState,
+                updated: new Date()
+            };
+
             decision = await request('POST', '', { 
                 sensors: sensorPayload,
-                state: state
+                state: statePayload
             }, CLOUD_AI_URL);
+            
+            console.log(`Cloud AI says: needed=${decision.defrost_needed} (${decision.reason})`);
+
         } catch (err) {
             console.error("Cloud AI unreachable:", err.message);
-            console.log("CRITICAL: Falling back to Firmware AUTO mode for safety!");
-            await api.control('defrost_mode', 0); // 0 = Auto
+            
+            // Safety Fallback: Only if we are in AI Control Mode
+            if (sensorPayload.defrostMode === DEFROST_MODE_AI) {
+                console.log("CRITICAL: Falling back to Firmware AUTO mode for safety!");
+                await api.control('defrost_mode', 0); // 0 = Auto
+            }
             return;
         }
 
-        console.log(`Cloud Decision: ${decision.action} (${decision.reason || 'no reason'})`);
+        // 3. Actuate: Always mirror the AI decision to the firmware variable
+        // Even if we are in Auto mode, this variable is logged for monitoring.
+        const targetValue = decision.defrost_needed ? 1 : 0;
+        
+        // Optimization: Check current value to avoid spamming POSTs?
+        // But for robust monitoring, sending it every minute is fine.
+        await api.control('ai_defrost_heating', targetValue);
 
-        // 4. Act (Master Controller)
-        if (decision.action === 'start_fan_stop') {
-            await api.control('ai_defrost_heating', 0);
-            await api.control('ai_defrost_fan_stop', 1);
-            state.defrost_state = STATE_FAN_STOP;
-        } else if (decision.action === 'stop_fan_stop' || decision.action === 'stop_heating') {
-            await api.control('ai_defrost_fan_stop', 0);
-            await api.control('ai_defrost_heating', 0);
-            state.defrost_state = STATE_MEASURING;
-        } else if (decision.action === 'start_heating') {
-            await api.control('ai_defrost_fan_stop', 0);
-            await api.control('ai_defrost_heating', 1);
-            state.defrost_state = STATE_HEATING;
-        }
-
-        // 5. Save State
-        fs.writeFileSync(STATE_FILE, JSON.stringify(state));
+        // We do NOT touch ai_defrost_fan_stop anymore. Firmware handles it.
 
     } catch (err) {
         console.error("Tick failed:", err.message);
     }
 }
 
-console.log("Vallox RPi Predictor Started (via REST API)");
+console.log("Vallox RPi Predictor Started (Monitoring + Single Command Mode)");
 setInterval(tick, INTERVAL);
 tick();

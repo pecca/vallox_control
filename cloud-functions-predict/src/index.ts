@@ -61,21 +61,22 @@ interface AiState {
 }
 
 interface PredictResult {
-    action: 'none' | 'start_fan_stop' | 'stop_fan_stop' | 'start_heating' | 'stop_heating';
+    defrost_needed: boolean;
     reason: string;
     confidence: number;
 }
-
+ 
 // --- Vallox API communication ---
-
+// (Removed as part of refactor)
+ 
 // --- Sensor data extraction ---
-
+ 
 function extractValue(vars: Record<string, any>, key: string): number | null {
     const val = vars?.[key]?.value;
     if (val === undefined || val === null) return null;
     return Number(val);
 }
-
+ 
 function extractSensorData(
     controlVars: Record<string, any>,
     digitVars: Record<string, any>,
@@ -90,7 +91,7 @@ function extractSensorData(
     if (exhaustTemp !== null && dewPoint !== null) {
         dewPointDelta = Number((exhaustTemp - dewPoint).toFixed(2));
     }
-
+ 
     return {
         inEfficiency: extractValue(controlVars, 'in_efficiency'),
         inEfficiencyFiltered: extractValue(controlVars, 'in_efficiency_filtered'),
@@ -106,14 +107,14 @@ function extractSensorData(
         minExhaustTemp: extractValue(controlVars, 'min_exhaust_temp'),
     };
 }
-
+ 
 // --- Vertex AI Prediction ---
-
+ 
 async function vertexAiPredict(sensors: SensorData): Promise<PredictResult> {
     if (!VERTEX_ENDPOINT_ID) {
-        return { action: 'none', reason: 'vertex_endpoint_not_configured', confidence: 0 };
+        return { defrost_needed: false, reason: 'vertex_endpoint_not_configured', confidence: 0 };
     }
-
+ 
     // Features MUST be in exactly the same order as in ai_config.py's TRAINING_FEATURES
     const featureValues = [
         sensors.outsideTemp || 0,
@@ -128,139 +129,84 @@ async function vertexAiPredict(sensors: SensorData): Promise<PredictResult> {
     ];
     
     const instances = [helpers.toValue(featureValues)!];
-
+ 
     const endpoint = `projects/${GCP_PROJECT_ID}/locations/${GCP_LOCATION}/endpoints/${VERTEX_ENDPOINT_ID}`;
-
+ 
     try {
         const responseArray = await predictionClient.predict({
             endpoint,
             instances,
         }) as any;
         const response = responseArray[0];
-
+ 
         if (!response.predictions || response.predictions.length === 0) {
             throw new Error('No predictions returned from Vertex AI');
         }
-
-        // Assuming the model returns a class probability or label
-        // Scikit-learn classifier typically returns probabilities [p0, p1]
-        const prediction = helpers.fromValue(response.predictions[0] as any) as any;
+ 
+        const scores = response.predictions[0].scores;
+        // Assuming binary classification: [0: No Defrost, 1: Defrost Needed]
+        const defrostScore = scores[1]; 
         
-        // Structure depends on how the model was deployed. 
-        // For standard sklearn on Vertex, it might be just the label [1.0] or probabilities.
-        const label = Array.isArray(prediction) ? prediction[0] : prediction;
-        const confidence = Array.isArray(prediction) && prediction.length > 1 ? prediction[label] : 1.0;
-
-        if (label === 1 || label === '1' || label === 1.0) {
-            return {
-                action: sensors.fireplaceMode === 1 ? 'start_heating' : 'start_fan_stop',
-                reason: `vertex_ai_prediction_positive_conf_${confidence.toFixed(2)}`,
-                confidence: Number(confidence),
-            };
+        console.log(`Vertex AI Score: ${defrostScore}`);
+ 
+        if (defrostScore > 0.5) {
+             return { defrost_needed: true, reason: 'ai_score_high', confidence: defrostScore };
         }
-
-        return { action: 'none', reason: 'vertex_ai_predicts_no_defrost_needed', confidence: 1 - Number(confidence) };
+ 
+        return { defrost_needed: false, reason: 'ai_score_low', confidence: defrostScore };
+ 
     } catch (err: any) {
         console.error('Vertex AI Prediction failed:', err);
-        return { action: 'none', reason: `vertex_ai_error: ${err.message}`, confidence: 0 };
+        return { defrost_needed: false, reason: `vertex_ai_error: ${err.message}`, confidence: 0 };
     }
 }
-
+ 
 // --- Defrost algorithm ---
-
+ 
 function ruleBasedPredict(sensors: SensorData, defrostState: number): PredictResult {
-    const { inEfficiency, inEfficiencyFiltered, fireplaceMode, exhaustTemp, minExhaustTemp } = sensors;
-
+    const { inEfficiency, inEfficiencyFiltered } = sensors;
+ 
     if (inEfficiency === null || inEfficiencyFiltered === null) {
-        return { action: 'none', reason: 'missing_efficiency_data', confidence: 0 };
+        return { defrost_needed: false, reason: 'missing_efficiency_data', confidence: 0 };
     }
-
+ 
     // 1. MEASURING STATE
     if (defrostState === STATE_MEASURING) {
         const belowThreshold = inEfficiencyFiltered < DEFROST_START_LEVEL;
         const trendingDown = inEfficiency < inEfficiencyFiltered;
-
+ 
         if (!belowThreshold) {
-            return { action: 'none', reason: 'efficiency_ok', confidence: 0 };
+            return { defrost_needed: false, reason: 'efficiency_ok', confidence: 0 };
         }
         if (!trendingDown) {
-            return { action: 'none', reason: 'efficiency_low_but_recovering', confidence: 0.3 };
+            return { defrost_needed: false, reason: 'efficiency_low_but_recovering', confidence: 0.3 };
         }
-
+ 
         const effDrop = DEFROST_START_LEVEL - inEfficiencyFiltered;
         const confidence = Math.min(0.5 + effDrop / 20, 1.0);
-
-        // FIREPLACE OVERRIDE: Use Heating instead of Fan Stop
-        if (fireplaceMode === 1) {
-            return {
-                action: 'start_heating',
-                reason: `fireplace_active eff=${inEfficiencyFiltered.toFixed(1)}%`,
-                confidence,
-            };
-        }
-
-        // Standard One-Phase: Start Fan Stop
+ 
         return {
-            action: 'start_fan_stop',
+            defrost_needed: true,
             reason: `filtered_eff=${inEfficiencyFiltered.toFixed(1)}% raw_eff=${inEfficiency.toFixed(1)}%`,
             confidence,
         };
     }
-
-    // 2. FAN STOP STATE (Standard)
-    if (defrostState === STATE_FAN_STOP) {
-        // Fireplace Safety: If activated during fan stop, switch to heating
-        if (fireplaceMode === 1) {
-             return {
-                 action: 'start_heating',
-                 reason: 'fireplace_activated_during_fan_stop',
-                 confidence: 1.0
-             };
-        }
-
-        if (inEfficiencyFiltered > DEFROST_TARGET_IN_EFF) {
-            return {
-                action: 'stop_fan_stop',
-                reason: `filtered_eff_recovered=${inEfficiencyFiltered.toFixed(1)}%`,
-                confidence: 1.0,
-            };
-        }
+ 
+    // 2. DEFROSTING STATE (Any active state: Heating, Fan Stop, etc.)
+    // We stay in defrost mode until efficiency recovers.
+    if (inEfficiencyFiltered > DEFROST_TARGET_IN_EFF) {
         return {
-            action: 'none',
-            reason: `fan_stop_waiting filtered_eff=${inEfficiencyFiltered.toFixed(1)}%`,
-            confidence: 0,
+            defrost_needed: false,
+            reason: `filtered_eff_recovered=${inEfficiencyFiltered.toFixed(1)}%`,
+            confidence: 1.0,
         };
     }
-
-    // 3. HEATING STATE (Fireplace Mode)
-    if (defrostState === STATE_HEATING) {
-        if (fireplaceMode === 0) {
-            // Fireplace turned off? Fallback to Fan Stop (One-Phase)
-             return {
-                 action: 'start_fan_stop',
-                 reason: 'fireplace_deactivated_switching_to_fan_stop',
-                 confidence: 1.0
-             };
-        }
-
-        // Stop condition: Exhaust Temp > Min Limit
-        const limit = minExhaustTemp || 3.0; // Default 3C if missing
-        if (exhaustTemp !== null && exhaustTemp > limit) {
-             return {
-                 action: 'stop_heating',
-                 reason: `exhaust_temp_target_reached ${exhaustTemp} > ${limit}`,
-                 confidence: 1.0
-             };
-        }
-
-        return {
-             action: 'none',
-             reason: `heating_active exhaust=${exhaustTemp}`,
-             confidence: 0
-        };
-    }
-
-    return { action: 'none', reason: 'unknown_state', confidence: 0 };
+ 
+    return {
+        defrost_needed: true,
+        reason: `defrost_ongoing filtered_eff=${inEfficiencyFiltered.toFixed(1)}%`,
+        confidence: 0,
+    };
 }
 
 // --- Logging ---
@@ -311,16 +257,16 @@ http('predictDefrost', async (req: Request, res: Response) => {
              result = ruleBasedPredict(sensors, state.defrost_state);
         }
 
-        console.log(`[${PREDICTION_MODE}] state=${state.defrost_state} action=${result.action} reason=${result.reason}`);
+        console.log(`[${PREDICTION_MODE}] state=${state.defrost_state} defrost_needed=${result.defrost_needed} reason=${result.reason}`);
 
         // Log prediction for future training
-        if (result.action !== 'none') {
+        if (result.defrost_needed) {
             await logPrediction(sensors, state.defrost_state, result);
         }
 
         res.json(result);
     } catch (err: any) {
         console.error('predictDefrost error:', err?.message || err);
-        res.status(500).json({ action: 'none', reason: 'error', error: err?.message });
+        res.status(500).json({ defrost_needed: false, reason: 'error', error: err?.message, confidence: 0 });
     }
 });

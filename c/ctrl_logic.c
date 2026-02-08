@@ -1077,127 +1077,103 @@ static void defrost_control(void) {
   }
   // --- AI Mode Implementation (Preserved) ---
   else if (g_tCtrlVars.u8DefrostMode == DEFROST_MODE_AI) {
-    /* AI defrost mode: external AI controls heating and fan stop via
-       ai_defrost_heating and ai_defrost_fan_stop commands.
-       C firmware executes commands and captures cycle data. */
+    /* AI defrost mode:
+       - Single command: ai_defrost_heating (1=Start/Keep Defrost, 0=Stop)
+       - Firmware manages cycle: Heating -> (60s) -> Fan Stop -> Cooldown
+       - Fireplace Mode blocks Fan Stop transition */
+
     time_t tCurrentTime = time(NULL);
     real32 r32InEff = g_tCtrlVars.r32InEfficiency;
-    real32 r32InEffFiltered = g_tCtrlVars.tInEff.r32Value;
     real32 r32CurrentIncomingTemp = r32_digit_incoming_temp();
-    // Assuming AI uses DS18B20 for consistency in monitoring
-    /* Wait, original code used r32ExhaustTemp = r32_DS18B20_exhaust_temp(); */
-    /* I should verify which "r32ExhaustTemp" relies on. */
-    /* Local variable r32ExhaustTemp was decl at top of function. */
 
-    byte u8PrevHeating = (g_tDefrostCtrl.eState == e_Defrost_Heating) ? 1 : 0;
-    byte u8PrevFanStop =
-        (g_tDefrostCtrl.eState == e_Defrost_InputFanStop) ? 1 : 0;
-
-    /* Detect AI turning heating ON */
-    if (g_tDefrostCtrl.u8AiHeating && !u8PrevHeating && !u8PrevFanStop) {
-      g_tDefrostCtrl.eState = e_Defrost_Heating;
-      g_tDefrostCtrl.tCheckTime = tCurrentTime;
-      /* Capture start conditions */
-      g_tDefrostCtrl.tCycleStart = tCurrentTime;
-      g_tDefrostCtrl.tHeatingEnd = 0;
-      g_tDefrostCtrl.tFanStopStart = 0;
-      g_tDefrostCtrl.tCycleEnd = 0;
-      g_tDefrostCtrl.tEnd.eReason = e_EndReason_None;
-
-      capture_cycle_start_data();
-      // Overrides
-
-      g_tDefrostCtrl.tStart.r32IncomingTemp = r32CurrentIncomingTemp;
-      printf("[AI] heating started\n");
-    }
-    /* Detect AI turning heating OFF (while heating) */
-    else if (!g_tDefrostCtrl.u8AiHeating && u8PrevHeating &&
-             !g_tDefrostCtrl.u8AiFanStop) {
-      g_tDefrostCtrl.tHeatingEnd = tCurrentTime;
-      g_tDefrostCtrl.tCheckTime = tCurrentTime;
-      g_tDefrostCtrl.eState = e_Defrost_Stopped;
-      /* Capture end conditions */
-      capture_cycle_end_data(e_EndReason_EffRecovered);
-      // Overrides
-      g_tDefrostCtrl.tEnd.r32InEff = r32InEff;
-      g_tDefrostCtrl.tEnd.r32IncomingTemp = r32CurrentIncomingTemp;
-
-      printf("[AI] heating stopped\n");
-    }
-    /* Detect AI switching from heating to fan stop */
-    else if (g_tDefrostCtrl.u8AiFanStop && u8PrevHeating) {
-      g_tDefrostCtrl.tHeatingEnd = tCurrentTime;
-      if (g_tFireplace.bActive) {
-        /* Fireplace active: reject AI fan stop command for safety */
-        g_tDefrostCtrl.u8AiFanStop = 0;
+    // 1. MEASURING -> HEATING
+    if (g_tDefrostCtrl.eState == e_Measuring) {
+      if (g_tDefrostCtrl.u8AiHeating) {
+        printf("[AI] Cycle Started (Heating)\n");
+        g_tDefrostCtrl.eState = e_Defrost_Heating;
+        g_tDefrostCtrl.tCycleStart = tCurrentTime;
         g_tDefrostCtrl.tCheckTime = tCurrentTime;
-        g_tDefrostCtrl.eState = e_Defrost_Stopped;
-        capture_cycle_end_data(e_EndReason_Timeout);
-        // Overrides
-        g_tDefrostCtrl.tEnd.r32InEff = r32InEff;
-        g_tDefrostCtrl.tEnd.r32IncomingTemp = r32CurrentIncomingTemp;
+        g_tDefrostCtrl.tHeatingOnSince = tCurrentTime;
 
-        printf("[AI] fan stop blocked (fireplace active)\n");
-      } else {
-        g_tDefrostCtrl.tFanStopStart = tCurrentTime;
-        input_fan_stop();
-        g_tDefrostCtrl.eState = e_Defrost_InputFanStop;
-        printf("[AI] input fan stopped\n");
+        // Reset logs
+        g_tDefrostCtrl.tHeatingEnd = 0;
+        g_tDefrostCtrl.tFanStopStart = 0;
+        g_tDefrostCtrl.tCycleEnd = 0;
+        g_tDefrostCtrl.tEnd.eReason = e_EndReason_None;
+
+        // Capture initial values
+        capture_cycle_start_data();
+        g_tDefrostCtrl.tStart.r32IncomingTemp = r32CurrentIncomingTemp;
       }
     }
-    /* Detect AI turning fan stop OFF */
-    else if (!g_tDefrostCtrl.u8AiFanStop && u8PrevFanStop) {
-      input_fan_start();
-      g_tDefrostCtrl.tCheckTime = tCurrentTime;
-      g_tDefrostCtrl.eState = e_Defrost_Stopped;
-      /* Capture end conditions */
-      capture_cycle_end_data(e_EndReason_FanStopResolved);
-      // Overrides
-      g_tDefrostCtrl.tEnd.r32InEff = r32InEff;
-      g_tDefrostCtrl.tEnd.r32IncomingTemp = r32CurrentIncomingTemp;
 
-      printf("[AI] fan stop ended\n");
-    }
-
-    /* Fireplace safety: force-exit InputFanStop if fireplace activated */
-    if (g_tDefrostCtrl.eState == e_Defrost_InputFanStop &&
-        g_tFireplace.bActive) {
-      input_fan_start();
-      g_tDefrostCtrl.u8AiFanStop = 0;
-      g_tDefrostCtrl.tCheckTime = tCurrentTime;
-      g_tDefrostCtrl.eState = e_Defrost_Stopped;
-      capture_cycle_end_data(e_EndReason_Timeout);
-      // Overrides
-      g_tDefrostCtrl.tEnd.r32InEff = r32InEff;
-      g_tDefrostCtrl.tEnd.r32IncomingTemp = r32CurrentIncomingTemp;
-
-      printf("[AI] fan stop aborted (fireplace activated)\n");
-    }
-
-    /* Stopped → Measuring transition (cooldown) */
-    if (g_tDefrostCtrl.eState == e_Defrost_Stopped) {
-      if (tCurrentTime - g_tDefrostCtrl.tCheckTime > DEFROST_STOP_TIME) {
+    // 2. HEATING -> FAN STOP (or STOP)
+    else if (g_tDefrostCtrl.eState == e_Defrost_Heating) {
+      if (!g_tDefrostCtrl.u8AiHeating) {
+        // AI said STOP
+        printf("[AI] Cycle Stopped by AI\n");
+        g_tDefrostCtrl.eState = e_Defrost_Stopped;
+        g_tDefrostCtrl.tHeatingEnd = tCurrentTime;
         g_tDefrostCtrl.tCycleEnd = tCurrentTime;
+        g_tDefrostCtrl.tEnd.eReason = e_EndReason_EffRecovered;
+        capture_cycle_end_data(e_EndReason_EffRecovered);
+        g_tDefrostCtrl.tEnd.r32InEff = r32InEff;
+        g_tDefrostCtrl.tEnd.r32IncomingTemp = r32CurrentIncomingTemp;
+      } else {
+        // AI says Keep Going. Check if we should transition to Fan Stop.
+        // Wait 60s of pre-heating before stopping fan.
+        if (tCurrentTime - g_tDefrostCtrl.tCheckTime > 60) {
+          if (g_tFireplace.bActive) {
+            // Fireplace ON: Keep Heating, Don't stop fan.
+          } else {
+            // Fireplace OFF: Transition to Fan Stop.
+            printf("[AI] Transition to Fan Stop\n");
+            g_tDefrostCtrl.eState = e_Defrost_InputFanStop;
+            g_tDefrostCtrl.tFanStopStart = tCurrentTime;
+            input_fan_stop();
+          }
+        }
+      }
+    }
+
+    // 3. FAN STOP -> HEATING (or STOP)
+    else if (g_tDefrostCtrl.eState == e_Defrost_InputFanStop) {
+      if (!g_tDefrostCtrl.u8AiHeating) {
+        // AI said STOP
+        printf("[AI] Cycle Stopped by AI\n");
+        g_tDefrostCtrl.eState = e_Defrost_Stopped;
+        g_tDefrostCtrl.tHeatingEnd = tCurrentTime;
+        g_tDefrostCtrl.tCycleEnd = tCurrentTime;
+        g_tDefrostCtrl.tEnd.eReason = e_EndReason_EffRecovered;
+        input_fan_start();
+        capture_cycle_end_data(e_EndReason_EffRecovered);
+        g_tDefrostCtrl.tEnd.r32InEff = r32InEff;
+        g_tDefrostCtrl.tEnd.r32IncomingTemp = r32CurrentIncomingTemp;
+      } else if (g_tFireplace.bActive) {
+        // Safety: Fireplace turned ON during Fan Stop -> Abort to Heating
+        printf("[AI] Fireplace Activated - Abort Fan Stop\n");
+        g_tDefrostCtrl.eState = e_Defrost_Heating;
+        input_fan_start();
+        g_tDefrostCtrl.tCheckTime = tCurrentTime;
+      }
+    }
+
+    // 4. STOPPED -> MEASURING
+    else if (g_tDefrostCtrl.eState == e_Defrost_Stopped) {
+      // Small buffer time before returning to Measuring
+      if (tCurrentTime - g_tDefrostCtrl.tCycleEnd > 5) {
         g_tDefrostCtrl.u32CycleCount++;
         save_cycle_count();
         g_tDefrostCtrl.eState = e_Measuring;
-        printf("[AI] defrost cycle #%d complete\n",
+        g_tDefrostCtrl.tHeatingOnSince = 0;
+        printf("[AI] defrost cycle #%d complete. Resume Measuring.\n",
                g_tDefrostCtrl.u32CycleCount);
       }
     }
 
-    /* Execute AI commands */
-    if (g_tDefrostCtrl.eState == e_Defrost_Heating) {
-      /* AI Heating command handling */
-      /* Note: We will override this below if in FanStop */
-      defrost_resistor_start();
-      if (g_tDefrostCtrl.tHeatingOnSince == 0) {
-        g_tDefrostCtrl.tHeatingOnSince = time(NULL);
-      }
-    } else {
-      /* AI Heating OFF */
-      /* Note: We will override this below if in FanStop */
-      /* defrost_resistor_stop(); removed here, handled globally below */
+    // Safety catch-all
+    else {
+      g_tDefrostCtrl.eState = e_Measuring;
     }
   }
 
