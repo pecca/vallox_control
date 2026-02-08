@@ -23,13 +23,14 @@ SERVING_CONTAINER = 'europe-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.1-3:
 # Training features (must match Firestore field names from cloud-functions)
 TRAINING_FEATURES = [
     'start_outside_temp',      # T_outdoor
-    'start_exhaust_temp',      # T_exhaust
-    'start_exhaust_humidity',  # RH_exhaust (mapped to rh1_sensor)
-    'start_incoming_temp',     # T_supply (originally start_supply_temp)
+    'start_ds_exhaust_temp',   # T_exhaust (DS18B20)
+    'start_humidity',          # RH_exhaust
+    'start_incoming_temp',     # T_supply
     'start_fan_speed',         # Fan Speed
     'start_dew_point_delta',   # Delta T_dewpoint (Calculated: Exhaust - DewPoint)
-    'start_in_eff',            # Efficiency (Raw)
-    'start_in_eff_filtered',   # Efficiency (Filtered)
+    'start_ds_outside_temp',   # T_outdoor (DS18B20)
+    'start_ds_incoming_temp',  # T_supply (DS18B20)
+    'start_in_eff',            # Efficiency (Calculated if missing)
 ]
 
 # Mapping from live UDP variable names to training feature names.

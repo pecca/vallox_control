@@ -41,7 +41,7 @@ def train_defrost_model(request):
             logger.warning(f"GCS export failed: {e}")
 
         # 5. Train
-        classifier, regressor = train_models(clf_X, clf_y, reg_X, reg_y)
+        classifier, regressor = train_models(clf_X, clf_y, reg_X, reg_y, available_features)
 
         # 6. Save Artifacts (Optional handling)
         artifact_uri = None
@@ -50,14 +50,15 @@ def train_defrost_model(request):
         except Exception as e:
             logger.warning(f"GCS artifact upload failed: {e}")
 
-        # 7. Deploy (Optional - commented out for safety until Vertex AI is ready)
-        # if artifact_uri:
-        #     try:
-        #         upload_and_deploy(artifact_uri)
-        #     except Exception as e:
-        #         logger.error(f"Vertex AI deployment failed: {e}")
+        # 7. Deploy to Vertex AI
+        if artifact_uri:
+            try:
+                upload_and_deploy(artifact_uri)
+                logger.info("Successfully deployed new model to Vertex AI")
+            except Exception as e:
+                logger.error(f"Vertex AI deployment failed: {e}")
 
-        return f"Training complete. Artifacts: {artifact_uri}", 200
+        return f"Training complete. Artifacts: {artifact_uri}. Model deployed to Vertex AI.", 200
 
     except Exception as e:
         logger.error(f"Training job failed: {e}")

@@ -97,6 +97,39 @@ def prepare_training_data(df):
 
     # Drop rows missing critical features
     available_features = [f for f in TRAINING_FEATURES if f in df.columns]
+
+    # Recalculate start_in_eff if missing but components are present
+    if 'start_in_eff' in TRAINING_FEATURES:
+        missing_eff = df['start_in_eff'].isna() if 'start_in_eff' in df.columns else pd.Series([True] * len(df))
+        if missing_eff.any():
+            print(f"Attempting to calculate missing start_in_eff for {missing_eff.sum()} samples...")
+            # Required: start_incoming_temp, start_ds_outside_temp (prefer), inside_temp
+            # Fallback to start_outside_temp if start_ds_outside_temp is missing
+            t_out_col = 'start_ds_outside_temp' if 'start_ds_outside_temp' in df.columns else 'start_outside_temp'
+            
+            can_calc = (
+                df['start_incoming_temp'].notna() & 
+                df[t_out_col].notna() & 
+                df['inside_temp'].notna()
+            )
+            idx = missing_eff & can_calc
+            if idx.any():
+                # Formula: (T_supply - T_outdoor) / (T_extract - T_outdoor) * 100
+                t_out = df.loc[idx, t_out_col]
+                t_sup = df.loc[idx, 'start_incoming_temp']
+                t_ext = df.loc[idx, 'inside_temp']
+                
+                # Avoid division by zero
+                denom = t_ext - t_out
+                denom = denom.replace(0, np.nan)
+                
+                calculated_eff = ((t_sup - t_out) / denom) * 100
+                df.loc[idx, 'start_in_eff'] = calculated_eff.clip(0, 100)
+                print(f"Successfully calculated start_in_eff for {idx.sum()} samples.")
+                
+                if 'start_in_eff' not in available_features:
+                    available_features.append('start_in_eff')
+
     if not available_features:
         raise ValueError(f"None of the training features found. Available columns: {list(df.columns)}")
 

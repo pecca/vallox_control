@@ -1,0 +1,10 @@
+{
+  "name": "vallox-rpi-predictor",
+  "version": "1.0.0",
+  "description": "Local defrost predictor for Raspberry Pi",
+  "main": "predictor.js",
+  "dependencies": {},
+  "scripts": {
+    "start": "node predictor.js"
+  }
+}
